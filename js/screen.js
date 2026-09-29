@@ -34,7 +34,7 @@ async function enterFullscreen() {
 function blockBrowserGestures() {
   const stop = e => e.preventDefault();
   // pull-to-refresh and page scrolling (CSS overscroll-behavior covers most browsers; this covers older iOS)
-  document.addEventListener('touchmove', e => { if (!e.target.closest('.scrolls')) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', e => { if (!e.target.closest('.scrolls, input')) e.preventDefault(); }, { passive: false });
   for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, stop);   // iOS pinch zoom
   document.addEventListener('dblclick', stop);        // double-tap zoom
   document.addEventListener('contextmenu', stop);     // long-press menu / "save image"
@@ -43,7 +43,7 @@ function blockBrowserGestures() {
   let lastEnd = 0;
   document.addEventListener('touchend', e => {
     const now = e.timeStamp;
-    if (now - lastEnd < 350 && !e.target.closest('button')) e.preventDefault();
+    if (now - lastEnd < 350 && !e.target.closest('button, input, label')) e.preventDefault();
     lastEnd = now;
   }, { passive: false });
 }
@@ -51,7 +51,7 @@ function blockBrowserGestures() {
 // ---- screens ----------------------------------------------------------------------------------------------------
 let state = 'start';   // 'start' | 'playing'
 let onChange = () => {};
-const blocked = () => state !== 'playing' || !$('rotate').hidden || !$('leave').hidden;
+const blocked = () => state !== 'playing' || !$('rotate').hidden || !$('leave').hidden || !$('settings').hidden;
 const notify = () => {
   root.dataset.state = state;
   $('fs-again').hidden = !(state === 'playing' && device.canFullscreen && !device.homeScreen && !isFullscreen());
@@ -107,7 +107,7 @@ export function initScreen(changed) {
 
   $('play-fs').addEventListener('click', () => startPlaying(true));
   $('play').addEventListener('click', () => startPlaying(false));
-  addEventListener('keydown', e => { if (e.code === 'Enter' && state === 'start' && $('rotate').hidden) startPlaying(false); });
+  addEventListener('keydown', e => { if (e.code === 'Enter' && state === 'start' && $('rotate').hidden && $('settings').hidden) startPlaying(false); });
   $('fs-again').addEventListener('click', enterFullscreen);
   $('stay').addEventListener('click', () => { $('leave').hidden = true; notify(); });
   $('go').addEventListener('click', () => {
@@ -124,3 +124,4 @@ export function initScreen(changed) {
 }
 
 export const isPlaying = () => state === 'playing';
+export const refreshScreen = () => notify();   // e.g. after the settings panel opens or closes

@@ -2,17 +2,17 @@
 // swings round smoothly when the tank turns, and slides in closer instead of going through a wall.
 import { rayToWall, pushOutOfWalls, WALL_H } from './world.js';
 
-const BACK = 7.5;        // metres behind the tank
-const HEIGHT = 3.0;      // camera eye height; walls are 4.5 m
+// Height and distance come from the player's settings (defaults 3.0 m up, 7.5 m back); the height is
+// always capped under the wall tops, so nobody can see over walls whatever the setting says.
 const LOOK_AHEAD = 8;    // aim this far in front of the tank
 const LOOK_H = 1.5;
 const SWING = 5;         // how fast the camera catches up with a turn
 const MIN_BACK = 1.5;
 
 export function makeChaseCamera(camera) {
-  let yaw = null, back = BACK;
+  let yaw = null, BACK = 7.5, HEIGHT = 3.0, back = BACK;
 
-  return function follow(tank, dt) {
+  function follow(tank, dt) {
     const p = tank.position, target = tank.rotation.y;
     if (yaw === null) yaw = target;
     let diff = target - yaw;
@@ -31,5 +31,8 @@ export function makeChaseCamera(camera) {
     const squeeze = 1 - (back - MIN_BACK) / (BACK - MIN_BACK);
     camera.position.set(cam.x, Math.min(HEIGHT + squeeze * 1.1, WALL_H - 0.4), cam.z);
     camera.lookAt(p.x + fx * LOOK_AHEAD, LOOK_H, p.z + fz * LOOK_AHEAD);
-  };
+  }
+  follow.set = (height, distance) => { HEIGHT = Math.min(height, WALL_H - 0.4); BACK = Math.max(MIN_BACK + 0.5, distance); };
+  follow.yaw = () => yaw;   // which way the camera faces (same angle convention as the tank)
+  return follow;
 }

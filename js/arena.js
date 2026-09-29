@@ -1,22 +1,30 @@
 // Builds the 3-D yard: concrete floor with a faint grid, grey-green walls with an orange warning band,
-// blue sky with a sun, and a light haze in the distance. Plain materials for now; real textures arrive in Stage 2.
+// a sky, and a light haze in the distance. Plain materials for now; real textures arrive in Stage 2.
 import * as THREE from '../lib/three.module.js';
 import { WIDTH, DEPTH, wallBoxes } from './world.js';
 
-// Light chosen by Chetan on 2026-09-29: "Grey day" brightness (the first, darker version was too dark),
-// then a blue sky and a sun instead of grey smog.
-const LIGHT = { haze: 0xc4d3df, sky: 1.7, sun: 2.8, floor: 0x9aa39e, wall: 0x7a857e, edge: 0x67716b };
+// Looks. "sunny" is the blue-sky version Chetan picked in 1a; the first phone test found it far too bright, so
+// "overcast" (medium: soft grey sky, no visible sun, gentle shadows) is the default since 2026-09-29.
+// Stage 2 adds a weather setting (sunny, overcast, dusk, fog, rain) that picks from this list.
+export const LOOKS = {
+  sunny: { haze: 0xc4d3df, top: 0x3f7fc4, sunDisc: 1, skyCol: 0xbcd4ea, ground: 0x5a5448, sky: 1.7, sunCol: 0xfff0d8, sun: 2.8,
+    shadowSoft: 1, fog: [30, 130] },
+  overcast: { haze: 0xa9b1b4, top: 0xbfc6ca, sunDisc: 0, skyCol: 0xdde2e5, ground: 0x7a766c, sky: 1.95, sunCol: 0xe6e9eb, sun: 0.45,
+    shadowSoft: 6, fog: [28, 125] },
+};
+const LIGHT = { floor: 0x9aa39e, wall: 0x7a857e, edge: 0x67716b };
 const SUN_DIR = new THREE.Vector3(-0.55, 0.2, 0.72).normalize();   // where the sun disc sits in the sky
 const LIGHT_DIR = new THREE.Vector3(-0.5, 0.95, 0.65).normalize();  // a bit higher, so alleys aren't all in shade
 
 // Sky dome: blue overhead fading to pale haze at the horizon, with a sun disc and glow.
 // Drawn around the camera at the far distance, so it never gets closer or clips.
-function makeSky() {
+function makeSky(look) {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
-      top: { value: new THREE.Color(0x3f7fc4) },
-      horizon: { value: new THREE.Color(LIGHT.haze) },
+      top: { value: new THREE.Color(look.top) },
+      horizon: { value: new THREE.Color(look.haze) },
       sunDir: { value: SUN_DIR },
+      sunDisc: { value: look.sunDisc },
     },
     vertexShader: `
       varying vec3 vDir;
@@ -27,13 +35,14 @@ function makeSky() {
       }`,
     fragmentShader: `
       uniform vec3 top, horizon, sunDir;
+      uniform float sunDisc;
       varying vec3 vDir;
       void main() {
         vec3 d = normalize(vDir);
         vec3 col = mix(horizon, top, pow(clamp(d.y, 0.0, 1.0), 0.55));
         float a = dot(d, sunDir);
-        col += vec3(1.0, 0.93, 0.78) * (pow(max(a, 0.0), 60.0) * 0.45 + pow(max(a, 0.0), 8.0) * 0.12);  // glow
-        col = mix(col, vec3(1.0, 0.98, 0.92), smoothstep(0.9985, 0.9992, a));                          // disc
+        col += sunDisc * vec3(1.0, 0.93, 0.78) * (pow(max(a, 0.0), 60.0) * 0.45 + pow(max(a, 0.0), 8.0) * 0.12);  // glow
+        col = mix(col, vec3(1.0, 0.98, 0.92), sunDisc * smoothstep(0.9985, 0.9992, a));                          // disc
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }`,
@@ -68,19 +77,21 @@ function floorTexture() {
   return t;
 }
 
-export function buildArena(scene) {
-  scene.background = new THREE.Color(LIGHT.haze);
-  scene.fog = new THREE.Fog(LIGHT.haze, 30, 130);   // light distance haze, walls fade into the horizon
-  scene.add(makeSky());
+export function buildArena(scene, lookName = 'overcast') {
+  const look = LOOKS[lookName];
+  scene.background = new THREE.Color(look.haze);
+  scene.fog = new THREE.Fog(look.haze, ...look.fog);   // light distance haze, walls fade into the horizon
+  scene.add(makeSky(look));
 
-  const skyLight = new THREE.HemisphereLight(0xbcd4ea, 0x5a5448, LIGHT.sky);
-  const sun = new THREE.DirectionalLight(0xfff0d8, LIGHT.sun);
+  const skyLight = new THREE.HemisphereLight(look.skyCol, look.ground, look.sky);
+  const sun = new THREE.DirectionalLight(look.sunCol, look.sun);   // under overcast: weak, blurred shadows
   sun.position.copy(LIGHT_DIR).multiplyScalar(90);
   sun.castShadow = true;                              // walls throw shadows across the alleys
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -75, right: 75, top: 75, bottom: -75, near: 10, far: 200 });
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.05;
+  sun.shadow.radius = look.shadowSoft;
   scene.add(skyLight, sun, sun.target);
 
   const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture(), color: LIGHT.floor, roughness: 0.95 });

@@ -21,7 +21,7 @@
     --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
     --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
   }
-  html, body { margin: 0; padding: 0; background: #c4d3df; color: var(--text); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  html, body { margin: 0; padding: 0; background: #a9b1b4; color: var(--text); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
   /* exact screen height, no page scroll, no pull-to-refresh, no zoom, no text selection or tap flash */
   html, body { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden;
     overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none;
@@ -41,38 +41,79 @@
     background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; }
   #role span { color: var(--hunter); }
   [data-role="hider"] #role span { color: var(--hider); }
-  #fs-again { position: fixed; z-index: 7; right: max(12px, var(--sr)); top: max(10px, var(--st)); width: 40px; height: 40px;
-    display: grid; place-items: center; padding: 0; background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 8px; }
+  .corner { position: fixed; z-index: 7; top: max(10px, var(--st)); width: 40px; height: 40px; display: grid; place-items: center;
+    padding: 0; background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+  #gear { right: max(12px, var(--sr)); }
+  #fs-again { right: calc(max(12px, var(--sr)) + 48px); }
   #minimap { position: fixed; z-index: 6; right: max(10px, var(--sr)); top: 60px; width: 192px; height: 128px;
     border: 1px solid #3b423e; opacity: 0.85; pointer-events: none; }
-  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #role { display: none; }
+  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #role, html:not([data-state="playing"]) #gear { display: none; }
 
-  /* ---- phone controls: floating joystick (left half) and action button (right) ---- */
-  #controls { display: none; }
-  .touch[data-state="playing"] #controls { display: block; }
-  #stick-zone { position: fixed; z-index: 5; left: 0; top: 0; bottom: 0; width: 50%; touch-action: none; }
-  #stick { position: fixed; z-index: 5; left: -80px; top: -80px; width: 160px; height: 160px; pointer-events: none;
-    border-radius: 50%; border: 1.5px solid rgba(223, 229, 225, 0.5); background: rgba(16, 20, 18, 0.22);
-    opacity: 0.45; transform: translate(calc(var(--sl) + 118px), calc(100dvh - var(--sb) - 112px));
-    transition: transform 0.18s ease-out, opacity 0.18s; }
-  #stick.active { opacity: 0.95; transition: none; }
-  #knob { position: absolute; left: 52px; top: 52px; width: 56px; height: 56px; border-radius: 50%;
-    background: rgba(223, 229, 225, 0.82); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
-  #stick:not(.active) #knob { transition: transform 0.12s ease-out; }
-  #action { position: fixed; z-index: 5; right: calc(var(--sr) + 26px); bottom: calc(var(--sb) + 26px);
-    width: 128px; height: 128px; padding: 0; border: 0; background: none; touch-action: none; display: grid; place-items: center;
-    --c: var(--hunter); }
+  /* ---- phone controls (sizes, sides and style come from the settings panel) ----
+     point / tank style: floating joystick on one half, action button on the other.
+     sliders style: speed slider on one half, steering slider on the other with the action button above it. */
+  #controls { display: none; --s: var(--stick-scale, 1); --bs: var(--btn-scale, 1); }
+  .touch[data-state="playing"] #controls, [data-settings] #controls { display: block; }
+  .zone { position: fixed; z-index: 5; top: 0; bottom: 0; width: 50%; touch-action: none; }
+  #stick-zone, [data-side="right"] #steer-zone { left: 0; }
+  #steer-zone, [data-side="right"] #stick-zone { left: 50%; }
+  #steer-zone, #steer { display: none; }
+  [data-style="sliders"] #steer-zone, [data-style="sliders"] #steer { display: block; }
+  .pad { position: fixed; z-index: 5; left: 0; top: 0; width: var(--w); height: var(--h);
+    margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); pointer-events: none;
+    border-radius: 999px; border: 1.5px solid rgba(223, 229, 225, 0.5); background: rgba(16, 20, 18, 0.22); opacity: 0.45;
+    /* resting spot: the pad's centre, tucked into the bottom corner of its half */
+    --x: calc(var(--sl) + var(--w) / 2 + 38px); --y: calc(100dvh - var(--sb) - var(--h) / 2 - 32px);
+    transform: translate(var(--x), var(--y)); transition: transform 0.18s ease-out, opacity 0.18s; }
+  .pad.active { opacity: 0.95; transition: none; }
+  #stick { --w: calc(160px * var(--s)); --h: var(--w); --k: calc(56px * var(--s)); }
+  [data-style="sliders"] #stick { --w: calc(76px * var(--s)); --h: calc(196px * var(--s)); --k: calc(60px * var(--s)); }
+  #steer { --w: min(228px * var(--s), 50vw - 40px); --h: calc(76px * var(--s)); --k: calc(60px * var(--s)); }
+  [data-side="right"] #stick, #steer { --x: calc(100vw - var(--sr) - var(--w) / 2 - 38px); }
+  [data-side="right"] #steer { --x: calc(var(--sl) + var(--w) / 2 + 38px); }
+  .knob { position: absolute; left: 50%; top: 50%; width: var(--k); height: var(--k); margin: calc(var(--k) / -2) 0 0 calc(var(--k) / -2);
+    border-radius: 50%; background: rgba(223, 229, 225, 0.82); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+  .pad:not(.active) .knob { transition: transform 0.12s ease-out; }
+  /* the button never rises into the top-corner buttons (gear, full screen), whatever the size and height settings */
+  #action { --top-limit: calc(100dvh - var(--sb) - 58px - 128px * var(--bs));
+    position: fixed; z-index: 5; right: calc(var(--sr) + var(--btn-edge, 26px)); bottom: min(calc(var(--sb) + var(--btn-height, 26px)), var(--top-limit));
+    width: calc(128px * var(--bs)); height: calc(128px * var(--bs)); padding: 0; border: 0; background: none; touch-action: none;
+    display: grid; place-items: center; --c: var(--hunter); }
+  [data-side="right"] #action { right: auto; left: calc(var(--sl) + var(--btn-edge, 26px)); }
+  [data-style="sliders"] #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px) + 112px * var(--s)), var(--top-limit)); }   /* above the steering slider */
   [data-role="hider"] #action { --c: var(--hider); }
-  #action span { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center;
-    font: 700 13px/1 system-ui, sans-serif; letter-spacing: 0.16em; color: #fff;
+  #action span { width: calc(92px * var(--bs)); height: calc(92px * var(--bs)); border-radius: 50%; display: grid; place-items: center;
+    font: 700 calc(13px * var(--bs))/1 system-ui, sans-serif; letter-spacing: 0.16em; color: #fff;
     background: var(--c); background: color-mix(in srgb, var(--c) 72%, transparent); border: 2px solid rgba(255, 255, 255, 0.55);
     box-shadow: 0 3px 14px rgba(0, 0, 0, 0.28); transition: transform 0.06s, background 0.06s; }
   #action.pressed span { transform: scale(0.9); background: var(--c); border-color: #fff; }
+
+  /* ---- settings panel: centred and see-through round the edges, so the controls behind it change live ---- */
+  #settings { z-index: 15; background: rgba(12, 15, 14, 0.3); padding: max(10px, var(--st)) 16px max(10px, var(--sb)); }
+  #settings-panel { width: min(360px, 100%); max-height: 100%; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(223, 229, 225, 0.25) transparent; background: rgba(20, 24, 22, 0.95); border: 1px solid var(--line); border-radius: 10px; }
+  .set-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px; background: rgba(20, 24, 22, 0.98); border-bottom: 1px solid var(--line); }
+  .set-head h2 { margin: 0; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600; }
+  .set-head .btn { min-width: 0; padding: 9px 18px; font-size: 14px; }
+  .set-body { padding: 4px 18px 18px; }
+  .set-body h3 { margin: 18px 0 10px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--hunter); font-weight: 600; }
+  .set-row { margin-bottom: 12px; }
+  .set-row .lbl { display: flex; justify-content: space-between; font-size: 13px; color: var(--text); }
+  .set-row .lbl span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .set-row input[type="range"] { width: 100%; height: 30px; margin: 2px 0 0; accent-color: var(--hunter); touch-action: none; }
+  .seg { display: flex; margin-top: 7px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { flex: 1; background: none; border: 0; color: var(--muted); padding: 10px 4px; font: 600 12px/1.1 system-ui, sans-serif; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
+  .note { margin: 7px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+  #set-reset { width: 100%; margin-top: 8px; min-width: 0; }
 
   /* ---- overlays: start screen, rotate message, leave prompt ---- */
   .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: var(--ink-2);
     padding: max(16px, var(--st)) max(24px, var(--sr)) max(16px, var(--sb)) max(24px, var(--sl)); }
   #start { z-index: 10; -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+  #gear-start { right: max(12px, var(--sr)); }
   .start-grid { display: flex; gap: 40px; align-items: center; max-width: 760px; }
   .over { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
   h1 { margin: 0; white-space: nowrap; font-size: clamp(34px, 7vh + 12px, 52px); line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 800; }
@@ -109,18 +150,22 @@
 
 <div id="hud"><b>TANK BATTLE</b> &middot; Stage 1b<span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
 <button id="role" type="button">Test role: <span>Hunter</span></button>
-<button id="fs-again" type="button" aria-label="Back to full screen" hidden>
+<button id="fs-again" class="corner" type="button" aria-label="Back to full screen" hidden>
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#dfe5e1" stroke-width="1.8"><path d="M1 6V1h5M12 1h5v5M17 12v5h-5M6 17H1v-5"/></svg>
 </button>
+<button id="gear" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
 <canvas id="minimap" hidden></canvas>
 
 <div id="controls">
-  <div id="stick-zone"></div>
-  <div id="stick"><div id="knob"></div></div>
+  <div id="stick-zone" class="zone"></div>
+  <div id="steer-zone" class="zone"></div>
+  <div id="stick" class="pad"><div id="knob" class="knob"></div></div>
+  <div id="steer" class="pad"><div id="steer-knob" class="knob"></div></div>
   <button id="action" type="button"><span>FIRE</span></button>
 </div>
 
 <div id="start" class="overlay">
+  <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
       <p class="over">Stage 1b &middot; controls test</p>
@@ -151,6 +196,32 @@
   </div>
 </div>
 
+<div id="settings" class="overlay" hidden>
+  <div id="settings-panel" class="scrolls" role="dialog" aria-labelledby="set-title">
+    <div class="set-head"><h2 id="set-title">Settings</h2><button id="set-done" class="btn" type="button">Done</button></div>
+    <div class="set-body">
+      <h3>Driving</h3>
+      <div class="set-row"><div class="lbl"><span>Control style</span></div>
+        <div class="seg"><button type="button" data-set="style" data-value="point">Point to drive</button><button type="button" data-set="style" data-value="sliders">Two sliders</button><button type="button" data-set="style" data-value="tank">Tank</button></div>
+        <p id="style-note" class="note"></p></div>
+      <div class="set-row"><div class="lbl"><span>Turning speed</span><span id="val-turnSpeed"></span></div><input id="set-turnSpeed" type="range" aria-label="Turning speed"></div>
+      <h3 id="stick-title">Joystick</h3>
+      <div class="set-row"><div class="lbl"><span>Size</span><span id="val-stickSize"></span></div><input id="set-stickSize" type="range" aria-label="Size"></div>
+      <div class="set-row"><div class="lbl"><span id="stick-side-label">Side</span></div>
+        <div class="seg"><button type="button" data-set="stickSide" data-value="left">Left</button><button type="button" data-set="stickSide" data-value="right">Right</button></div></div>
+      <h3>Fire / sprint button</h3>
+      <div class="set-row"><div class="lbl"><span>Size</span><span id="val-btnSize"></span></div><input id="set-btnSize" type="range" aria-label="Size"></div>
+      <div class="set-row"><div class="lbl"><span>Height from bottom</span><span id="val-btnHeight"></span></div><input id="set-btnHeight" type="range" aria-label="Height from bottom"></div>
+      <div class="set-row"><div class="lbl"><span>Distance from edge</span><span id="val-btnEdge"></span></div><input id="set-btnEdge" type="range" aria-label="Distance from edge"></div>
+      <h3>Camera</h3>
+      <div class="set-row"><div class="lbl"><span>Height</span><span id="val-camHeight"></span></div><input id="set-camHeight" type="range" aria-label="Height"></div>
+      <div class="set-row"><div class="lbl"><span>Distance behind</span><span id="val-camDistance"></span></div><input id="set-camDistance" type="range" aria-label="Distance behind"></div>
+      <p class="note">The camera always stays below the wall tops, so nobody can see over walls.</p>
+      <button id="set-reset" class="btn secondary" type="button">Reset to default</button>
+    </div>
+  </div>
+</div>
+
 <div id="leave" class="overlay" hidden>
   <div class="card" role="dialog" aria-labelledby="leave-t">
     <h2 id="leave-t">Leave the game?</h2>
@@ -172,7 +243,22 @@
   </div>
 </div>
 
-<script src="lib/peerjs.min.js"></script>
-<script type="module" src="js/main.js"></script>
+<script type="importmap">
+{ "imports": {
+  "./js/arena.js": "./js/arena.js?v=1b-4",
+  "./js/camera.js": "./js/camera.js?v=1b-4",
+  "./js/input.js": "./js/input.js?v=1b-4",
+  "./js/main.js": "./js/main.js?v=1b-4",
+  "./js/map.js": "./js/map.js?v=1b-4",
+  "./js/screen.js": "./js/screen.js?v=1b-4",
+  "./js/settings.js": "./js/settings.js?v=1b-4",
+  "./js/tank.js": "./js/tank.js?v=1b-4",
+  "./js/world.js": "./js/world.js?v=1b-4",
+  "./lib/three.module.js": "./lib/three.module.js?v=1b-4",
+  "./lib/three.core.js": "./lib/three.core.js?v=1b-4"
+} }
+</script>
+<script src="lib/peerjs.min.js?v=1b-4"></script>
+<script type="module" src="./js/main.js?v=1b-4"></script>
 </body>
 </html>
