@@ -36,18 +36,27 @@
     background: rgba(20, 26, 24, 0.55); padding: 5px 9px; border-radius: 4px; pointer-events: none; }
   #hud b { color: var(--hunter); font-weight: 600; }
   .touch #hud .keys { display: none; }
-  #role { position: fixed; z-index: 7; top: max(10px, var(--st)); left: 50%; transform: translateX(-50%);
-    font: 600 11px/1 system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text);
-    background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; }
-  #role span { color: var(--hunter); }
-  [data-role="hider"] #role span { color: var(--hider); }
+  /* round display, top centre: role, clock, round, score; the head-start line sits under it */
+  #rh { position: fixed; z-index: 6; top: max(10px, var(--st)); left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+  #rh .chip { display: flex; align-items: center; white-space: nowrap; background: rgba(20, 26, 24, 0.62); border: 1px solid var(--line);
+    border-radius: 999px; font: 600 11px/1 system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
+  #rh .chip > span { padding: 8px 12px; }
+  #rh .chip > span + span { border-left: 1px solid var(--line); }
+  #rh-role { color: var(--hunter); }
+  [data-role="hider"] #rh-role { color: var(--hider); }
+  #rh-clock { font-size: 15px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; min-width: 2.6em; text-align: center; }
+  #rh-clock.low { color: #ffb38a; }
+  #rh-note { margin: 0; font-size: 12px; background: rgba(20, 26, 24, 0.55); padding: 5px 10px; border-radius: 4px; white-space: nowrap; }
+  #rh-note:empty { display: none; }
   .corner { position: fixed; z-index: 7; top: max(10px, var(--st)); width: 40px; height: 40px; display: grid; place-items: center;
     padding: 0; background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
   #gear { right: max(12px, var(--sr)); }
   #fs-again { right: calc(max(12px, var(--sr)) + 48px); }
   #minimap { position: fixed; z-index: 6; right: max(10px, var(--sr)); top: 60px; width: 192px; height: 128px;
     border: 1px solid #3b423e; opacity: 0.85; pointer-events: none; }
-  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #role, html:not([data-state="playing"]) #gear { display: none; }
+  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #rh, html:not([data-state="playing"]) #gear { display: none; }
+  [data-match] #hud .brand, [data-match] #hud .keys { display: none; }
 
   /* ---- phone controls (sizes, sides and style come from the settings panel) ----
      point / tank style: floating joystick on one half, action button on the other.
@@ -87,6 +96,11 @@
     background: var(--c); background: color-mix(in srgb, var(--c) 72%, transparent); border: 2px solid rgba(255, 255, 255, 0.55);
     box-shadow: 0 3px 14px rgba(0, 0, 0, 0.28); transition: transform 0.06s, background 0.06s; }
   #action.pressed span { transform: scale(0.9); background: var(--c); border-color: #fff; }
+  #action .ring { position: absolute; inset: calc(10px * var(--bs)); border-radius: 50%; pointer-events: none; --p: 1;
+    background: conic-gradient(var(--c) calc(var(--p) * 360deg), rgba(223, 229, 225, 0.2) 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); }
+  #action.off span { background: rgba(60, 66, 63, 0.55); border-color: rgba(255, 255, 255, 0.3); color: rgba(255, 255, 255, 0.6); }
 
   /* ---- settings panel: centred and see-through round the edges, so the controls behind it change live ---- */
   #settings { z-index: 15; background: rgba(12, 15, 14, 0.3); padding: max(10px, var(--st)) 16px max(10px, var(--sb)); }
@@ -154,11 +168,24 @@
     max-width: calc(100vw - 48px); padding: 9px 16px; border-radius: 6px; background: rgba(20, 26, 24, 0.82); border: 1px solid var(--line);
     font-size: 13px; letter-spacing: 0.02em; color: var(--text); white-space: nowrap; pointer-events: none; transition: opacity 0.25s, transform 0.25s; }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  [data-match] #toast { top: max(80px, calc(var(--st) + 70px)); }
+  [data-card] #toast { top: auto; bottom: max(14px, var(--sb)); transform: translate(-50%, 8px); }   /* under the round card, not over it */
+  [data-card] #toast.show { transform: translate(-50%, 0); }
   #link { z-index: 18; background: rgba(12, 15, 14, 0.62); }
   #link .card p { margin-bottom: 8px; }
   #link .card .count { margin-bottom: 20px; font-variant-numeric: tabular-nums; }
   #link .card .count:empty { display: none; }
   #link .card p:not(.count) + .row { margin-top: 20px; }
+
+  /* round result / coin toss / match over: see-through, so the arena (and a wrecked tank) shows round it */
+  #round { z-index: 12; background: rgba(12, 15, 14, 0.3); pointer-events: none; }
+  #round .card { pointer-events: auto; min-width: 280px; max-width: 380px; padding: 20px 28px; background: rgba(20, 24, 22, 0.94); }
+  #round .over { margin: 0 0 8px; }
+  #round .card p { margin: 0 0 6px; }
+  #round #rc-score { color: var(--text); }
+  #round #rc-count { margin-top: 12px; font-variant-numeric: tabular-nums; }
+  #round #rc-count:empty { display: none; }
+  #round .row { margin-top: 16px; }
 
   #rotate { z-index: 30; background: var(--ink); text-align: center; }
   #rotate svg { display: block; margin: 0 auto 22px; animation: turn 2.4s ease-in-out infinite; }
@@ -178,9 +205,12 @@
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><b>TANK BATTLE</b> &middot; Stage 1c<span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 1d</span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
-<button id="role" type="button">Test role: <span>Hunter</span></button>
+<div id="rh" hidden>
+  <div class="chip"><span id="rh-role">Hunter</span><span id="rh-clock">2:00</span><span id="rh-round">Round 1</span><span id="rh-score">You 0 &ndash; 0 Them</span></div>
+  <p id="rh-note"></p>
+</div>
 <button id="fs-again" class="corner" type="button" aria-label="Back to full screen" hidden>
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#dfe5e1" stroke-width="1.8"><path d="M1 6V1h5M12 1h5v5M17 12v5h-5M6 17H1v-5"/></svg>
 </button>
@@ -192,20 +222,29 @@
   <div id="steer-zone" class="zone"></div>
   <div id="stick" class="pad"><div id="knob" class="knob"></div></div>
   <div id="steer" class="pad"><div id="steer-knob" class="knob"></div></div>
-  <button id="action" type="button"><span>FIRE</span></button>
+  <button id="action" type="button"><i class="ring"></i><span>FIRE</span></button>
 </div>
 
 <div id="start" class="overlay">
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 1c &middot; two players</p>
+      <p class="over">Stage 1d &middot; rules</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
       <div id="p-home" class="buttons">
         <button id="create" class="btn" type="button">Create game</button>
         <button id="join" class="btn secondary" type="button">Join game</button>
         <button id="solo" class="textlink" type="button">Drive alone</button>
+      </div>
+      <div id="p-solo" class="lobby" hidden>
+        <p class="lbl">Drive alone as</p>
+        <p class="say">Practice only. No clock, no score.</p>
+        <div class="buttons">
+          <button id="solo-hunter" class="btn" type="button">Hunter (fire)</button>
+          <button id="solo-hider" class="btn secondary" type="button">Hider (sprint)</button>
+          <button id="solo-back" class="textlink" type="button">Back</button>
+        </div>
       </div>
       <div id="p-create" class="lobby" hidden>
         <p class="lbl">Room code</p>
@@ -287,6 +326,20 @@
   </div>
 </div>
 
+<div id="round" class="overlay" hidden>
+  <div class="card" role="status" aria-labelledby="rc-t">
+    <p id="rc-over" class="over"></p>
+    <h2 id="rc-t"></h2>
+    <p id="rc-p"></p>
+    <p id="rc-score"></p>
+    <p id="rc-count"></p>
+    <div id="rc-buttons" class="row">
+      <button id="rc-again" class="btn" type="button">Play again</button>
+      <button id="rc-leave" class="btn secondary" type="button">Leave</button>
+    </div>
+  </div>
+</div>
+
 <div id="link" class="overlay" hidden>
   <div class="card" role="alertdialog" aria-labelledby="link-t">
     <h2 id="link-t"></h2>
@@ -311,22 +364,24 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=1c-1",
-  "./js/camera.js": "./js/camera.js?v=1c-1",
-  "./js/input.js": "./js/input.js?v=1c-1",
-  "./js/lobby.js": "./js/lobby.js?v=1c-1",
-  "./js/main.js": "./js/main.js?v=1c-1",
-  "./js/map.js": "./js/map.js?v=1c-1",
-  "./js/net.js": "./js/net.js?v=1c-1",
-  "./js/screen.js": "./js/screen.js?v=1c-1",
-  "./js/settings.js": "./js/settings.js?v=1c-1",
-  "./js/tank.js": "./js/tank.js?v=1c-1",
-  "./js/world.js": "./js/world.js?v=1c-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=1c-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=1c-1"
+  "./js/arena.js": "./js/arena.js?v=1d-1",
+  "./js/camera.js": "./js/camera.js?v=1d-1",
+  "./js/input.js": "./js/input.js?v=1d-1",
+  "./js/lobby.js": "./js/lobby.js?v=1d-1",
+  "./js/main.js": "./js/main.js?v=1d-1",
+  "./js/map.js": "./js/map.js?v=1d-1",
+  "./js/net.js": "./js/net.js?v=1d-1",
+  "./js/rules.js": "./js/rules.js?v=1d-1",
+  "./js/screen.js": "./js/screen.js?v=1d-1",
+  "./js/settings.js": "./js/settings.js?v=1d-1",
+  "./js/shots.js": "./js/shots.js?v=1d-1",
+  "./js/tank.js": "./js/tank.js?v=1d-1",
+  "./js/world.js": "./js/world.js?v=1d-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=1d-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=1d-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=1c-1"></script>
-<script type="module" src="./js/main.js?v=1c-1"></script>
+<script src="lib/peerjs.min.js?v=1d-1"></script>
+<script type="module" src="./js/main.js?v=1d-1"></script>
 </body>
 </html>

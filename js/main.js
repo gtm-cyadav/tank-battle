@@ -1,11 +1,13 @@
 // Tank Battle: game start-up and main loop.
 import * as THREE from '../lib/three.module.js';
 import { buildArena, LOOKS } from './arena.js';
-import { makeTank, driveTank, blockByTank, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
+import { makeTank, driveTank, blockByTank, paintTank, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled } from './input.js';
 import { initScreen, refreshScreen, device } from './screen.js';
-import { initLobby, leaveMatch, sendState } from './lobby.js';
+import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
+import { createRules, RULES } from './rules.js';
+import { createShots } from './shots.js';
 import { settings, onSettings, initSettings } from './settings.js';
 import { SPAWNS, ROWS, COLS, isWallCell, WIDTH, DEPTH, pushOutOfWalls } from './world.js';
 
@@ -74,50 +76,45 @@ initScreen(setInputEnabled, leaveMatch);
 initSettings(refreshScreen);
 if (device.ipad) $('rotate-1').textContent = 'Turn your iPad sideways.';
 
-// TEMPORARY (Stage 1b only): switch between the hunter's FIRE button and the hider's SPRINT button.
-// Real roles, firing and the sprint meter arrive in Stage 1d, which removes this switch.
-let role = 'hunter';
-function setRole(r) {
-  role = r;
-  document.documentElement.dataset.role = r;
-  $('role').querySelector('span').textContent = r === 'hunter' ? 'Hunter' : 'Hider';
-  $('action').querySelector('span').textContent = r === 'hunter' ? 'FIRE' : 'SPRINT';
-  player.traverse(m => { if (m.material?.color && m.material.color.getHex() === COLORS[r === 'hunter' ? 'hider' : 'hunter']) m.material.color.setHex(COLORS[r]); });
-  other.traverse(m => { if (m.material?.color && m.material.color.getHex() === COLORS[r]) m.material.color.setHex(COLORS[r === 'hunter' ? 'hider' : 'hunter']); });
-}
-$('role').addEventListener('click', () => setRole(role === 'hunter' ? 'hider' : 'hunter'));
-setRole('hunter');
 let taps = 0;   // action presses so far (testing only)
 
 // ---- two players (Stage 1c) ----------------------------------------------------------------------------------
-// mode: 'solo' (drive alone, parked tank) | 'host' (created the room: orange, top-left) | 'guest' (joined: blue).
-// Real hunter/hider roles arrive in 1d; until then the room's creator gets the hunter's orange and FIRE button.
+// mode: 'solo' (drive alone, parked tank) | 'host' (created the room, starts top-left) | 'guest' (joined, bottom-right).
+// Hunter or hider comes from the match rules (js/rules.js); when driving alone the player picks.
 let mode = 'solo';
+let soloRole = 'hunter';
 const remote = { x: 0, z: 0, yaw: 0, speed: 0, at: 0, have: false, paused: false };
 let sendClock = 0;
 const SEND_EVERY = 0.05;   // 20 position updates a second
 
-function startMatch({ mode: m, code, pos }) {
+function startMatch({ mode: m, code, pos, match, role }) {
   mode = m;
+  soloRole = role || 'hunter';
   const me = mode === 'guest' ? 1 : 0;
   place(player, pos || SPAWNS[me]);
   place(other, SPAWNS[1 - me]);
   follow.reset();
-  setRole(mode === 'guest' ? 'hider' : 'hunter');
-  $('role').hidden = mode !== 'solo';   // the test switch would make the two phones disagree
-  $('hud-room').textContent = code ? ` · Room ${code}` : '';
+  freshRound();
+  $('hud-room').textContent = code ? `Room ${code}` : '';
   $('leave-p').textContent = mode === 'solo' ? "You'll go back to the start screen." : 'The other player will be told you left.';
   Object.assign(remote, { have: false, paused: false });
   other.visible = mode === 'solo';   // the other tank appears with its first position update
   sendClock = 0;
+  if (mode === 'solo') { rules.stop(); delete root.dataset.match; }
+  else { root.dataset.match = ''; restoring = !!pos; rules.start(mode, match || null); }
+  showRoles(rules.match && rules.match.phase !== 'play' && rules.match.phase !== 'toss' && rules.match.result?.how === 'hit');
 }
 function endMatch() {
   mode = 'solo';
-  $('role').hidden = false;
+  rules.stop();
+  freshRound();
+  delete root.dataset.match;
   $('hud-room').textContent = '';
 }
 function onRemote(m) {
-  if (m.t !== 's' || mode === 'solo') return;
+  if (mode === 'solo' || rules.onMessage(m)) return;
+  if (m.t === 'f') { incoming(m); return; }
+  if (m.t !== 's') return;
   Object.assign(remote, { x: m.x, z: m.z, yaw: m.y, speed: m.v, at: performance.now() });
   if (!remote.have) {   // first news of the other tank: put it straight there
     remote.have = true;
@@ -151,12 +148,165 @@ function sendMine(dt) {
   const p = player.position, r = v => Math.round(v * 100) / 100;
   sendState({ t: 's', x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed) });
 }
+
+// ---- the rules: roles, firing, sprint, rounds (Stage 1d) -----------------------------------------------------
+const root = document.documentElement;
+const rules = createRules({ send: sendState, changed: phaseChanged });
+const shots = createShots(scene);
+let restoring = false;     // carrying on after a refresh: leave the tanks where they were until the match moves on
+let reload = 0;            // hunter: seconds until the next shot
+let meter = 1;             // hider: sprint meter, 0 (empty) to 1 (full)
+let spent = false;         // hider: the meter ran dry while the button was held; let go to sprint again
+let sprinting = false;
+let shotId = 0;
+let soloWreck = 0;         // drive alone: seconds the practice tank stays wrecked after a hit
+const opposite = role => role === 'hunter' ? 'hider' : 'hunter';
+
+const myRole = () => mode === 'solo' ? soloRole : (rules.role() || (mode === 'guest' ? 'hider' : 'hunter'));
+const inPlay = () => mode === 'solo' || (rules.match?.phase === 'play' && !rules.paused);
+function freshRound() {
+  shots.clear();
+  reload = 0; meter = 1; spent = false; sprinting = false; soloWreck = 0;
+}
+// colours and the button label follow the role; wreckHider: the hider was hit this round
+function showRoles(wreckHider = false) {
+  const me = myRole(), them = opposite(me);
+  root.dataset.role = me;
+  $('action').querySelector('span').textContent = me === 'hunter' ? 'FIRE' : 'SPRINT';
+  paintTank(player, COLORS[me], wreckHider && me === 'hider');
+  paintTank(other, COLORS[them], wreckHider && them === 'hider');
+}
+// The referee moved the match on (coin toss, new round, round over, rematch). Runs on both phones.
+function phaseChanged(m, before) {
+  if (!m) return;
+  const fresh = m.phase === 'toss' || m.phase === 'play';
+  if (before) restoring = false;
+  if (fresh && !restoring) {   // back to the starting corners
+    const me = mode === 'guest' ? 1 : 0;
+    place(player, SPAWNS[me]);
+    place(other, SPAWNS[1 - me]);
+    follow.reset();
+  }
+  if (fresh) freshRound();
+  showRoles(!fresh && m.result?.how === 'hit');
+  if (before && m.phase === 'play' && before.phase !== 'play') toast(`Round ${m.round}. You are the ${myRole()}.`);
+}
+
+function tryFire() {
+  const m = rules.match;
+  if (reload > 0 || !inPlay()) return;
+  if (mode !== 'solo' && (m.t < RULES.headStart || m.t >= RULES.round)) return;
+  const shot = { id: ++shotId, x: player.position.x, z: player.position.z, yaw: player.rotation.y };
+  shots.fire(shot);
+  reload = RULES.reload;
+  if (mode !== 'solo') sendState({ t: 'f', mid: m.mid, r: m.round, e: m.t, id: shot.id, x: shot.x, z: shot.z, y: shot.yaw });
+}
+// A shot from the hunter's phone. It was fired a moment ago over there, so it starts that far along
+// (at most half a second: after a longer hiccup the shot is shown late rather than jumping far ahead).
+function incoming(f) {
+  const m = rules.match;
+  if (!m || m.phase !== 'play' || f.mid !== m.mid || f.r !== m.round || myRole() !== 'hider') return;
+  shots.fire({ id: f.id, x: f.x, z: f.z, yaw: f.y }, Math.min(0.5, Math.max(0, m.t - f.e)));
+}
+// The tank a bullet can hit on this phone: only ever the hider's, never the hunter's.
+// On the hider's phone that's its own tank, and only that phone's hits count (it knows exactly where it is).
+function hiderTank() {
+  const m = rules.match;
+  if (mode === 'solo') return soloRole === 'hunter' && soloWreck <= 0 ? other : null;
+  if (!m || m.phase !== 'play' || m.t >= RULES.round) return null;   // after 0:00 nothing can be hit
+  return myRole() === 'hider' ? player : (other.visible ? other : null);
+}
+// Sprint: 50% faster while held and driving forward; a full meter lasts 3 s and refills in 6 s.
+function sprint(inp, dt) {
+  if (myRole() !== 'hider') return 1;
+  if (!inp.action) spent = false;
+  sprinting = inp.action && !spent && meter > 0 && inPlay() && drive.throttle > 0.05;
+  if (sprinting) {
+    meter = Math.max(0, meter - dt / RULES.sprintTime);
+    if (meter === 0) spent = true;
+  } else meter = Math.min(1, meter + dt / RULES.refill);
+  return sprinting ? RULES.sprintBoost : 1;
+}
+
+// ---- round display, action button ring, and the coin toss / result / match over card -------------------------
+const text = (id, v) => { const el = $(id); if (el.textContent !== v) el.textContent = v; };
+const show = (id, on) => { const el = $(id); if (el.hidden !== on) return false; el.hidden = !on; return true; };
+const clock = secs => { const s = Math.max(0, Math.ceil(secs - 1e-6)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+let ringP = -1, btnOff = null;
+function drawRound() {
+  const m = rules.match, me = rules.side, them = me === 'host' ? 'guest' : 'host';
+  // the button's ring: reload for FIRE, the sprint meter for SPRINT; greyed out when it can't be used
+  const hunter = myRole() === 'hunter';
+  const p = hunter ? 1 - reload / RULES.reload : meter;
+  const off = hunter ? !(inPlay() && reload <= 0 && (mode === 'solo' || (m.t >= RULES.headStart && m.t < RULES.round))) : spent || meter <= 0 || !inPlay();
+  if (Math.abs(p - ringP) > 0.004) { ringP = p; $('action').querySelector('.ring').style.setProperty('--p', p.toFixed(3)); }
+  if (off !== btnOff) { btnOff = off; $('action').classList.toggle('off', off); }
+
+  let blockChanged = false;
+  show('rh', !!m);
+  if (!m) { if (show('round', false)) { delete root.dataset.card; refreshScreen(); } return; }
+  const role = myRole(), left = m.phase === 'play' ? RULES.round - m.t : m.result && m.phase !== 'toss' ? m.result.left : RULES.round;
+  text('rh-role', role === 'hunter' ? 'Hunter' : 'Hider');
+  text('rh-clock', clock(left));
+  $('rh-clock').classList.toggle('low', m.phase === 'play' && left <= 10);
+  text('rh-round', `Round ${m.round}`);
+  text('rh-score', `You ${m.score[me]} – ${m.score[them]} Them`);
+  // after a hit, a short beat to see the wreck before the card covers it
+  const beat = (m.phase === 'break' || m.phase === 'over') && m.result?.how === 'hit' && m.t < 1.2;
+  const wait = Math.ceil(RULES.headStart - m.t - 1e-6);
+  text('rh-note', m.phase === 'play' && wait > 0 ? (role === 'hunter' ? `You can fire in ${wait} s.` : `The hunter can fire in ${wait} s.`)
+    : beat ? (role === 'hunter' ? 'Direct hit.' : 'You were hit.') : '');
+
+  const card = m.phase !== 'play' && !beat;
+  blockChanged = show('round', card);
+  if (blockChanged) { if (card) root.dataset.card = ''; else delete root.dataset.card; }
+  if (card) {
+    const r = m.result, won = r && r.win === me, iHunted = rules.hunterSide() === me;
+    const how = !r ? '' : r.how === 'hit'
+      ? (iHunted ? `Direct hit with ${clock(r.left)} left.` : `You were hit with ${clock(r.left)} left.`)
+      : (iHunted ? 'Time ran out. No hit.' : `You stayed hidden for the full ${clock(RULES.round)}.`);
+    const score = `Score: you ${m.score[me]}, them ${m.score[them]}.`;
+    if (m.phase === 'toss') {
+      text('rc-over', 'Coin toss');
+      text('rc-t', iHunted ? 'You hunt first.' : 'You hide first.');
+      text('rc-p', iHunted ? `The other player hides. They get a ${RULES.headStart}-second head start.` : `The other player hunts. You get a ${RULES.headStart}-second head start.`);
+      text('rc-score', 'Best of 3. Roles swap every round.');
+      text('rc-count', `Round 1 starts in ${Math.max(1, Math.ceil(RULES.toss - m.t))} s.`);
+    } else if (m.phase === 'break') {
+      text('rc-over', `Round ${m.round}`);
+      text('rc-t', won ? 'You win the round.' : 'They win the round.');
+      text('rc-p', how);
+      text('rc-score', score);
+      text('rc-count', `Round ${m.round + 1} starts in ${Math.max(1, Math.ceil(RULES.next - m.t))} s. You ${iHunted ? 'hide' : 'hunt'}.`);
+    } else {
+      text('rc-over', 'Match over');
+      text('rc-t', won ? 'You win the match.' : 'They win the match.');
+      text('rc-p', `Round ${m.round}: ${how.charAt(0).toLowerCase()}${how.slice(1)}`);
+      text('rc-score', score);
+      text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
+    }
+    show('rc-buttons', m.phase === 'over');
+    $('rc-again').disabled = !!m.again[me];
+  }
+  if (blockChanged) refreshScreen();   // the card stops the controls while it shows
+}
+$('rc-again').addEventListener('click', () => rules.playAgain());
+$('rc-leave').addEventListener('click', leaveMatch);
+
 initLobby({
   start: startMatch,
   end: endMatch,
+  finish() { rules.stop(); shots.clear(); drawRound(); },   // the match ended early; the lobby shows why
   remote: onRemote,
-  paused(on) { remote.paused = on; if (on) remote.speed = 0; },
+  paused(on) { remote.paused = on; if (on) remote.speed = 0; rules.pause(on); },
   pos: () => ({ x: player.position.x, z: player.position.z, yaw: player.rotation.y }),
+  snapshot: () => rules.snapshot(),
+  over: () => rules.match?.phase === 'over',
+  // the score when a match ends early: "Score at the time: you 1, them 0."
+  summary() {
+    const m = rules.match, me = rules.side, them = me === 'host' ? 'guest' : 'host';
+    return m ? `Score at the time: you ${m.score[me]}, them ${m.score[them]}.` : '';
+  },
 });
 
 // Turn the player's input into throttle and turn for the tank.
@@ -186,26 +336,43 @@ function steer(inp, dt) {
   return drive;
 }
 
-function frame(dt, draw = true) {
+// dt: the game step (capped, so a hiccup can't carry a tank through a wall). clockDt: real time passed, for the
+// round clock, so a slow phone's clock doesn't fall behind.
+function frame(dt, draw = true, clockDt = dt) {
   const inp = readInput();
   taps += inp.actionTaps;
+  reload = Math.max(0, reload - dt);
+  if (inp.actionTaps > 0 && myRole() === 'hunter') tryFire();
   clearTaps();
   const before = { x: player.position.x, z: player.position.z };
-  driveTank(player, steer(inp, dt), dt);
+  const d = steer(inp, dt);
+  if (mode !== 'solo' && rules.match?.phase !== 'play') { d.throttle = 0; d.turn = 0; }   // tanks wait between rounds
+  d.boost = sprint(inp, dt);
+  driveTank(player, d, dt);
   moveOther(dt);
   if (other.visible) blockByTank(player, other, before, dt);
+  // bullets before the clock: a hit in the same instant the clock reaches 0:00 still counts
+  const hit = shots.update(dt, hiderTank());
+  if (hit && mode === 'solo') { soloWreck = 1.5; paintTank(other, COLORS.hider, true); toast('Hit.'); }
+  else if (hit && myRole() === 'hider') rules.reportHit(rules.match.t);   // the hider's phone tells the referee
+  if (soloWreck > 0 && (soloWreck -= dt) <= 0) paintTank(other, COLORS.hider);
+  rules.tick(clockDt);
   follow(player, dt);
   sendMine(dt);
   if (!draw) return;
+  drawRound();
   renderer.render(scene, camera);
   drawMinimap();
 }
 let last = performance.now();
 renderer.setAnimationLoop(now => {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const real = Math.min(1, (now - last) / 1000);
   last = now;
-  frame(dt);
+  frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { THREE, scene, camera, renderer, player, other, place, SPAWNS, follow, settings, remote, get mode() { return mode; }, get taps() { return taps; },
-  step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) frame(dt, i === n - 1); } };   // for testing only
+window.__tb = { THREE, scene, camera, renderer, player, other, place, SPAWNS, follow, settings, remote, rules, shots, RULES,   // for testing only
+  get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
+  get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },
+  // stepped frames stand in for real ones, so the next real frame doesn't count that time again
+  step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) frame(dt, i === n - 1); last = performance.now(); } };

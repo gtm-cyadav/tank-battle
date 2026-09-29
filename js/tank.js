@@ -40,14 +40,21 @@ export function makeTank(color) {
   blob.position.y = 0.02;
   g.add(blob);
 
-  g.userData = { speed: 0 };
+  g.userData = { speed: 0, paint };
   return g;
 }
 
-// Forward is +z when yaw is 0. throttle and turn are -1..1 (turn +1 = right).
+// Paint the tank in a role's colour. wrecked: the hider was hit (charred grey, sagging to one side).
+export function paintTank(tank, color, wrecked = false) {
+  tank.userData.paint.color.setHex(wrecked ? 0x2b2e2c : color);
+  tank.userData.paint.roughness = wrecked ? 0.95 : 0.55;
+  tank.rotation.z = wrecked ? 0.06 : 0;   // a slight lean along its length
+}
+
+// Forward is +z when yaw is 0. throttle and turn are -1..1 (turn +1 = right). boost: sprint multiplier (hider).
 export function driveTank(tank, input, dt) {
   const s = tank.userData;
-  const target = input.throttle >= 0 ? input.throttle * DRIVE.forward : input.throttle * DRIVE.reverse;
+  const target = input.throttle >= 0 ? input.throttle * DRIVE.forward * (input.boost || 1) : input.throttle * DRIVE.reverse;
   const step = DRIVE.accel * dt;
   s.speed += Math.max(-step, Math.min(step, target - s.speed));
   tank.rotation.y -= input.turn * DRIVE.turn * dt;   // right always swings the nose right, even reversing

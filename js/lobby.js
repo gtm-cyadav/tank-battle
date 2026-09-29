@@ -10,8 +10,8 @@ const TAB_KEY = 'tank-battle.room';      // this tab: survives a refresh
 const PHONE_KEY = 'tank-battle.room.';   // + role, this phone: survives the game being closed
 const LIVE = 4000;                       // a record touched more recently than this belongs to a tab still open
 
-let game = null;       // hooks from main.js: start(o), remote(msg), paused(on), end(), pos()
-let room = null;       // { code, role: 'host' | 'guest', token, guestToken, phase: 'waiting' | 'playing', pos, t }
+let game = null;       // hooks from main.js: start(o), remote(msg), paused(on), end(), finish(), pos(), snapshot(), summary(), over()
+let room = null;       // { code, role: 'host' | 'guest', token, guestToken, phase: 'waiting' | 'playing', pos, match, t }
 let stage = 'home';    // 'home' | 'creating' | 'joining' | 'rejoining' | 'playing' | 'ended'
 let countdown = null;  // { until, el, done }
 let downReason = null, downWasOffline = false;   // why the link is down; whether this phone went offline meanwhile
@@ -23,6 +23,7 @@ function saveRoom() {
   if (!room?.code || stage === 'rejoining' || stage === 'ended') return;
   if (room.role === 'guest' && room.phase !== 'playing') return;   // not in until the host says so
   room.pos = room.phase === 'playing' ? game.pos() : null;
+  if (room.phase === 'playing') room.match = game.snapshot() || room.match || null;   // roles, scores and clock, for a refresh
   room.t = Date.now();
   store(sessionStorage, TAB_KEY, room);
   store(localStorage, PHONE_KEY + room.role, room);
@@ -41,6 +42,7 @@ function findRoom() {
     .filter(r => fresh(r) && Date.now() - r.t > LIVE).sort((a, b) => b.t - a.t)[0] || null;
 }
 setInterval(saveRoom, 1000);
+addEventListener('pagehide', saveRoom);   // the clock to the moment of a refresh
 
 // ---- the link ------------------------------------------------------------------------------------------------
 const link = createLink({
@@ -56,7 +58,7 @@ const link = createLink({
       room.phase = 'playing';
       stage = 'playing';
       stopCountdown();
-      game.start({ mode: room.role, code: room.code, pos: back ? room.pos : null });
+      game.start({ mode: room.role, code: room.code, pos: back ? room.pos : null, match: back ? room.match : null });
       startPlaying(false);
       saveRoom();
       toast(back ? `Back in room ${room.code}.` : `Both tanks are in. Room ${room.code}.`);
@@ -75,15 +77,15 @@ const link = createLink({
     showCard('wait');
     startCountdown($('link-count'), WAIT, () => {
       link.close();
-      if (navigator.onLine === false) endMatch('Still no signal', 'The match is over. Nobody won.');
-      else endMatch('They did not come back', 'The match is over. Nobody won.');
+      if (navigator.onLine === false) endMatch('Still no signal', nobodyWon());
+      else endMatch('They did not come back', nobodyWon());
     });
   },
   waiting() {
     if (stage === 'joining') $('join-msg').textContent = `Found room ${room.code}. The other player has the game in the background. It starts when they come back to it.`;
   },
   left() {
-    if (stage === 'playing') endMatch('The other player left', 'The match is over. Nobody won.');
+    if (stage === 'playing') endMatch('The other player left', game.over() ? 'No rematch.' : nobodyWon());
   },
   failed(kind) {
     const code = room?.code;
@@ -116,7 +118,7 @@ const JOIN_ERRORS = {
 };
 
 // ---- start-screen panels -------------------------------------------------------------------------------------
-const PANELS = ['home', 'create', 'join', 'busy'];
+const PANELS = ['home', 'solo', 'create', 'join', 'busy'];
 function panel(name) {
   for (const p of PANELS) $('p-' + p).hidden = p !== name;
   $('start').dataset.panel = name;   // the install / keyboard hints only show next to the first panel
@@ -174,10 +176,10 @@ function join() {
   showJoin();
   link.join({ code, token: room.token });
 }
-function solo() {
+function solo(role) {   // role: 'hunter' | 'hider', picked by the player
   if (wantFullscreen()) enterFullscreen();
   stage = 'playing';
-  game.start({ mode: 'solo' });
+  game.start({ mode: 'solo', role });
   startPlaying(false);
 }
 function rejoin(r) {
@@ -234,15 +236,18 @@ for (const t of ['online', 'offline']) addEventListener(t, () => {
   showCard('wait');
 });
 
+// a match ended early (left, or never came back): nobody wins, but say what the score was (Chetan's choice, 1d)
+const nobodyWon = () => ['The match is over. Nobody won.', game.summary()].filter(Boolean).join(' ');
 function endMatch(title, text) {
   forgetRoom();
   stage = 'ended';
   game.paused(true);
+  game.finish();
   showCard('end', title, text);
 }
 
 let toastTimer = 0;
-function toast(text) {
+export function toast(text) {
   const el = $('toast');
   el.textContent = text;
   el.classList.add('show');
@@ -291,7 +296,10 @@ export function initLobby(hooks) {
   game = hooks;
   $('create').addEventListener('click', create);
   $('join').addEventListener('click', () => { $('code-in').value = ''; showJoin(); $('code-in').focus(); });
-  $('solo').addEventListener('click', solo);
+  $('solo').addEventListener('click', () => panel('solo'));
+  $('solo-hunter').addEventListener('click', () => solo('hunter'));
+  $('solo-hider').addEventListener('click', () => solo('hider'));
+  $('solo-back').addEventListener('click', () => panel('home'));
   $('create-cancel').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
   $('join-back').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
   $('join-go').addEventListener('click', join);
@@ -307,7 +315,7 @@ export function initLobby(hooks) {
   $('link-back').addEventListener('click', backToStart);
   // desktop testing: Enter on the first panel drives alone
   addEventListener('keydown', e => {
-    if (e.code === 'Enter' && stage === 'home' && !$('p-home').hidden && !$('start').hidden && $('rotate').hidden && $('settings').hidden) solo();
+    if (e.code === 'Enter' && stage === 'home' && !$('p-home').hidden && !$('start').hidden && $('rotate').hidden && $('settings').hidden) solo('hunter');
   });
 
   const r = findRoom();
