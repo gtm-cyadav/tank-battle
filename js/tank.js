@@ -40,7 +40,7 @@ export function makeTank(color) {
   blob.position.y = 0.02;
   g.add(blob);
 
-  g.userData = { speed: 0, paint, barrel, recoil: 0 };
+  g.userData = { speed: 0, paint, dark, blob, barrel, recoil: 0 };
   return g;
 }
 

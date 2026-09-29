@@ -82,8 +82,9 @@ export function createShots(scene) {
   }
 
   // Move every bullet on. target: the hider's tank (or null if it can't be hit right now).
+  // quiet: the target can't be seen here (practice hunter shooting into the smog): no flash where it's hit.
   // Returns the bullet that hit it, if one did.
-  function update(dt, target) {
+  function update(dt, target, quiet = false) {
     let hit = null;
     for (let i = live.length - 1; i >= 0; i--) {
       const b = live[i];
@@ -93,7 +94,7 @@ export function createShots(scene) {
       const f = target && !hit ? touchesTank(target, ax, az, bx, bz) : -1;
       if (f >= 0) {
         const at = from + (to - from) * f;
-        puff(b.x + b.dx * at, HEIGHT, b.z + b.dz * at, 1.1, 0xfff1d0, 0.25);
+        if (!quiet) puff(b.x + b.dx * at, HEIGHT, b.z + b.dz * at, 1.1, 0xfff1d0, 0.25);
         hit = b; remove(i); continue;
       }
       b.s = to;

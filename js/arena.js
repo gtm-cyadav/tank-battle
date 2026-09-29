@@ -1,5 +1,5 @@
 // Builds the 3-D yard: concrete floor with a faint grid, grey-green walls with an orange warning band,
-// a sky, and a light haze in the distance. Plain materials for now; real textures arrive in Stage 2.
+// a sky, and a light haze in the distance (replaced by the smog from Stage 1e, see vision.js). Plain materials for now; real textures arrive in Stage 2.
 import * as THREE from '../lib/three.module.js';
 import { WIDTH, DEPTH, wallBoxes } from './world.js';
 import { CELL } from './map.js';
@@ -82,7 +82,8 @@ export function buildArena(scene, lookName = 'overcast') {
   const look = LOOKS[lookName];
   scene.background = new THREE.Color(look.haze);
   scene.fog = new THREE.Fog(look.haze, ...look.fog);   // light distance haze, walls fade into the horizon
-  scene.add(makeSky(look));
+  const sky = makeSky(look);
+  scene.add(sky);
 
   const skyLight = new THREE.HemisphereLight(look.skyCol, look.ground, look.sky);
   const sun = new THREE.DirectionalLight(look.sunCol, look.sun);   // under overcast: weak, blurred shadows
@@ -116,6 +117,7 @@ export function buildArena(scene, lookName = 'overcast') {
     m.castShadow = m.receiveShadow = true;
     scene.add(m);
   }
+  return { sky: sky.material };   // the smog (vision.js) sets the sky's horizon colour
 }
 
 // Many boxes [x, y, z, width, height, depth] as a single geometry.

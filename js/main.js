@@ -10,6 +10,8 @@ import { createRules, RULES } from './rules.js';
 import { createShots } from './shots.js';
 import { settings, onSettings, initSettings } from './settings.js';
 import { SPAWNS, ROWS, COLS, isWallCell, WIDTH, DEPTH, pushOutOfWalls } from './world.js';
+import { SMOGS, setSmog, smogAt, inSight, fade, VIEW } from './vision.js';
+import { createCornerMap } from './cornermap.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 const $ = id => document.getElementById(id);
@@ -22,7 +24,10 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);   // sees to the far corner of the arena (187 m)
 // Overcast is the default look. ?look=sunny shows the old sunny version (testing only, until the Stage 2 weather setting).
 const LOOK = new URLSearchParams(location.search).get('look');
-buildArena(scene, LOOK in LOOKS ? LOOK : 'overcast');
+const arena = buildArena(scene, LOOK in LOOKS ? LOOK : 'overcast');
+// The smog of the limited view (Stage 1e). ?smog=<name> shows another look (testing only).
+const SMOG = new URLSearchParams(location.search).get('smog');
+setSmog(scene, SMOG in SMOGS ? SMOG : 'grey', LOOK === 'sunny' ? null : arena.sky);
 
 function place(tank, spawn) {
   tank.position.set(spawn.x, 0, spawn.z);
@@ -47,11 +52,12 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
-// Debug-only top-down map (add ?debug to the address). Never shown in a real match.
+// Debug-only top-down map with both tanks (add ?debug to the address). Drive alone only: it never shows, and is
+// never drawn, in a real match (it would show the hider).
 let drawMinimap = () => {};
 if (DEBUG) {
   const mm = $('minimap'), g = mm.getContext('2d'), k = 2;
-  mm.width = COLS * 4 * k; mm.height = ROWS * 4 * k; mm.hidden = false;
+  mm.width = COLS * 4 * k; mm.height = ROWS * 4 * k;
   const dot = (t, col) => {
     const x = (t.position.x / WIDTH + 0.5) * mm.width, y = (t.position.z / DEPTH + 0.5) * mm.height;
     g.fillStyle = col; g.beginPath(); g.arc(x, y, 5 * k, 0, 7); g.fill();
@@ -64,9 +70,12 @@ if (DEBUG) {
   wg.fillStyle = '#1a201e'; wg.fillRect(0, 0, mm.width, mm.height);
   wg.fillStyle = '#6b766f';
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (isWallCell(r, c)) wg.fillRect(c * 4 * k, r * 4 * k, 4 * k, 4 * k);
+  const css = role => role === 'hunter' ? '#ff7a1a' : '#2f7bff';
   drawMinimap = () => {
+    mm.hidden = mode !== 'solo';
+    if (mm.hidden) return;
     g.drawImage(walls, 0, 0);
-    dot(player, '#ff7a1a'); dot(other, '#2f7bff');
+    dot(player, css(myRole())); dot(other, css(opposite(myRole())));
   };
 }
 
@@ -83,7 +92,8 @@ let taps = 0;   // action presses so far (testing only)
 // Hunter or hider comes from the match rules (js/rules.js); when driving alone the player picks.
 let mode = 'solo';
 let soloRole = 'hunter';
-const remote = { x: 0, z: 0, yaw: 0, speed: 0, at: 0, have: false, paused: false };
+// vis: on the hunter's phone, the hider's phone last said it may be in sight (it sends { h: 1 } and no position otherwise)
+const remote = { x: 0, z: 0, yaw: 0, speed: 0, cx: NaN, cz: NaN, at: 0, have: false, vis: false, paused: false };
 let sendClock = 0;
 const SEND_EVERY = 0.05;   // 20 position updates a second
 
@@ -97,8 +107,7 @@ function startMatch({ mode: m, code, pos, match, role }) {
   freshRound();
   $('hud-room').textContent = code ? `Room ${code}` : '';
   $('leave-p').textContent = mode === 'solo' ? "You'll go back to the start screen." : 'The other player will be told you left.';
-  Object.assign(remote, { have: false, paused: false });
-  other.visible = mode === 'solo';   // the other tank appears with its first position update
+  Object.assign(remote, { have: false, vis: false, paused: false });   // the other tank appears with its first position update
   sendClock = 0;
   if (mode === 'solo') { rules.stop(); delete root.dataset.match; }
   else { root.dataset.match = ''; restoring = !!pos; rules.start(mode, match || null); }
@@ -115,17 +124,17 @@ function onRemote(m) {
   if (mode === 'solo' || rules.onMessage(m)) return;
   if (m.t === 'f') { incoming(m); return; }
   if (m.t !== 's') return;
-  Object.assign(remote, { x: m.x, z: m.z, yaw: m.y, speed: m.v, at: performance.now() });
-  if (!remote.have) {   // first news of the other tank: put it straight there
-    remote.have = true;
-    other.position.set(m.x, 0, m.z);
-    other.rotation.y = m.y;
-    other.visible = true;
-  }
+  if (m.h) { remote.vis = false; return; }   // the hider's phone: the hunter can't see it (no position sent)
+  if (m.k !== posKey()) return;   // sent before one phone moved on to the next round (roles may have swapped)
+  const jump = !remote.have || !remote.vis;   // first news, or back in sight: put it straight there
+  Object.assign(remote, { x: m.x, z: m.z, yaw: m.y, speed: m.v, cx: m.cx, cz: m.cz, at: performance.now(), have: true, vis: true });
+  if (jump) { other.position.set(m.x, 0, m.z); other.rotation.y = m.y; }
 }
+const posKey = () => rules.match ? `${rules.match.mid}/${rules.match.round}` : '';
+const pose = t => ({ x: t.position.x, z: t.position.z, yaw: t.rotation.y });
 // Show the other tank smoothly: guess a little ahead from its last known speed, then glide towards that.
 function moveOther(dt) {
-  if (mode === 'solo' || !remote.have) return;
+  if (mode === 'solo' || !remote.have || !remote.vis) return;
   const ahead = remote.paused ? 0 : Math.min(0.2, (performance.now() - remote.at) / 1000);
   let tx = remote.x + Math.sin(remote.yaw) * remote.speed * ahead, tz = remote.z + Math.cos(remote.yaw) * remote.speed * ahead;
   // never guess it into our tank: near us, only trust where it really was (so a parked tank is never nudged)
@@ -145,13 +154,64 @@ function sendMine(dt) {
   sendClock += dt;
   if (sendClock < SEND_EVERY) return;
   sendClock = 0;
+  // the hider: while the hunter can't see it, say so, and never where it is (brief: anti-cheat)
+  if (myRole() === 'hider' && !hunterSees()) { sendState({ t: 's', h: 1 }); return; }
   const p = player.position, r = v => Math.round(v * 100) / 100;
-  sendState({ t: 's', x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed) });
+  const m = { t: 's', k: posKey(), x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed) };
+  if (myRole() === 'hunter') { m.cx = r(camera.position.x); m.cz = r(camera.position.z); }   // the hider's phone judges sight from here too
+  sendState(m);
+}
+// Hider's phone: may the hunter see any part of this tank? Judged from the hunter's last message (its tank and its
+// camera), and held on for a moment after the line is lost, so the tank never flickers at a corner.
+let lastSeen = -1e9;
+function hunterSees() {
+  if (!remote.have) return false;
+  const now = performance.now();
+  if (inSight({ x: remote.x, z: remote.z, yaw: remote.yaw, cx: remote.cx, cz: remote.cz }, pose(player))) lastSeen = now;
+  return now - lastSeen < VIEW.hold * 1000;
+}
+
+// Whether, and how solidly, the other tank shows on this screen.
+// Hunter: the hider only while its phone says it may be in sight (drive alone: worked out here), fading out towards
+// the edge of the view. Hider: the hunter always (walls still hide it, like anything else).
+let otherFade = 1;
+function sight() {
+  const hunter = myRole() === 'hunter';
+  let show;
+  if (!hunter) show = mode === 'solo' || remote.have;
+  else if (mode === 'solo') show = inSight({ ...pose(player), cx: camera.position.x, cz: camera.position.z }, pose(other));
+  else show = remote.have && remote.vis && performance.now() - remote.at < 1500;
+  const f = !hunter ? 1 : show ? fade(Math.hypot(other.position.x - player.position.x, other.position.z - player.position.z)) : 0;
+  other.visible = show && f > 0;
+  if (f !== otherFade) { otherFade = f; setFade(f); }
+}
+// Fading: the tank turns see-through as one solid shape. A depth-only copy of each part is drawn first (after the
+// walls), so only the tank's front surface shows, never its inside parts through each other.
+const DEPTH_ONLY = new THREE.MeshBasicMaterial({ colorWrite: false });
+const ghosts = other.children.filter(o => o.isMesh && o !== other.userData.blob).map(o => {
+  const g = new THREE.Mesh(o.geometry, DEPTH_ONLY);
+  g.renderOrder = 1; g.visible = false;
+  o.add(g);
+  return g;
+});
+function setFade(f) {
+  const u = other.userData, see = f < 1;
+  for (const m of [u.paint, u.dark]) { m.opacity = f; if (m.transparent !== see) { m.transparent = see; m.needsUpdate = true; } }
+  for (const g of ghosts) g.visible = see;
+  u.blob.material.opacity = 0.35 * f;
+}
+// On the hunter's screen the hider's tank fades out at the edge of the view and throws no sun shadow (a shadow
+// reaching round a corner would give it away). On the hider's screen the hunter's tank never fades in the smog.
+function dressOther(asHider) {
+  const u = other.userData;
+  for (const m of [u.paint, u.dark, u.blob.material]) if (m.fog !== asHider) { m.fog = asHider; m.needsUpdate = true; }
+  other.traverse(o => { if (o.isMesh && o !== u.blob && !ghosts.includes(o)) o.castShadow = !asHider; });
+  otherFade = 1; setFade(1);
 }
 
 // ---- the rules: roles, firing, sprint, rounds (Stage 1d) -----------------------------------------------------
 const root = document.documentElement;
-const rules = createRules({ send: sendState, changed: phaseChanged });
+const rules = createRules({ send: sendState, changed: phaseChanged, where: () => ({ x: player.position.x, z: player.position.z }) });
 const shots = createShots(scene);
 let restoring = false;     // carrying on after a refresh: leave the tanks where they were until the match moves on
 let reload = 0;            // hunter: seconds until the next shot
@@ -175,6 +235,7 @@ function showRoles(wreckHider = false) {
   $('action').querySelector('span').textContent = me === 'hunter' ? 'FIRE' : 'SPRINT';
   paintTank(player, COLORS[me], wreckHider && me === 'hider');
   paintTank(other, COLORS[them], wreckHider && them === 'hider');
+  dressOther(me === 'hunter');
 }
 // The referee moved the match on (coin toss, new round, round over, rematch). Runs on both phones.
 function phaseChanged(m, before) {
@@ -187,7 +248,7 @@ function phaseChanged(m, before) {
     place(other, SPAWNS[1 - me]);
     follow.reset();
   }
-  if (fresh) freshRound();
+  if (fresh) { freshRound(); remote.vis = false; }   // nothing of the other tank until its phone says it's in sight
   showRoles(!fresh && m.result?.how === 'hit');
   if (before && m.phase === 'play' && before.phase !== 'play') toast(`Round ${m.round}. You are the ${myRole()}.`);
 }
@@ -214,9 +275,10 @@ function incoming(f) {
 // On the hider's phone that's its own tank, and only that phone's hits count (it knows exactly where it is).
 function hiderTank() {
   const m = rules.match;
-  if (mode === 'solo') return soloRole === 'hunter' && soloWreck <= 0 ? other : null;
+  if (mode === 'solo') return soloRole === 'hunter' && soloWreck <= 0 ? other : null;   // practice: the smog doesn't stop bullets
   if (!m || m.phase !== 'play' || m.t >= RULES.round) return null;   // after 0:00 nothing can be hit
-  return myRole() === 'hider' ? player : (other.visible ? other : null);
+  // hunter's phone: bullets only stop on a hider it can see (just for show; the hider's phone judges the real hit)
+  return myRole() === 'hider' ? player : (other.visible && otherFade > 0.5 ? other : null);
 }
 // Sprint: 75% faster while held and driving forward; a full meter lasts 3 s and refills in 6 s.
 function sprint(inp, dt) {
@@ -256,8 +318,11 @@ function drawRound() {
   // after a hit, a short beat to see the wreck before the card covers it
   const beat = (m.phase === 'break' || m.phase === 'over') && m.result?.how === 'hit' && m.t < 1.2;
   const wait = Math.ceil(RULES.headStart - m.t - 1e-6);
+  const pv = rules.pingView();   // hunter ping: the hider's countdown, then the circle on both maps
+  const ping = !pv ? '' : pv.warn ? `Ping in ${pv.warn}.` : role === 'hider' ? 'Pinged. The hunter sees this circle.'
+    : pv.circle ? 'Ping. The hider is somewhere in the circle.' : '';
   text('rh-note', m.phase === 'play' && wait > 0 ? (role === 'hunter' ? `You can fire in ${wait} s.` : `The hunter can fire in ${wait} s.`)
-    : beat ? (role === 'hunter' ? 'Direct hit.' : 'You were hit.') : '');
+    : beat ? (role === 'hunter' ? 'Direct hit.' : 'You were hit.') : ping);
 
   const card = m.phase !== 'play' && !beat;
   blockChanged = show('round', card);
@@ -293,6 +358,19 @@ function drawRound() {
   if (blockChanged) refreshScreen();   // the card stops the controls while it shows
 }
 $('rc-again').addEventListener('click', () => rules.playAgain());
+
+// Corner map: walls and your own tank only (never the other player), plus the ping circle while a ping shows.
+// Switched off in Settings, it still appears for a ping.
+const cmap = createCornerMap($('cmap'));
+addEventListener('resize', () => cmap.refit());
+let mapOn = null, mapPinged = false;
+function drawMap() {
+  const pv = mode === 'solo' ? null : rules.pingView(), c = pv?.circle || null;
+  const on = settings.map === 'on' || !!pv;
+  if (on !== mapOn) { mapOn = on; $('cmap').hidden = !on; root.toggleAttribute('data-map', on); cmap.refit(); }
+  if (!!c !== mapPinged) { mapPinged = !!c; $('cmap').classList.toggle('pinged', mapPinged); }
+  if (on) cmap.draw({ ...pose(player), role: myRole() }, c, c ? 0.5 + 0.5 * Math.sin(performance.now() / 180) : 0);
+}
 $('rc-leave').addEventListener('click', leaveMatch);
 
 initLobby({
@@ -352,9 +430,10 @@ function frame(dt, draw = true, clockDt = dt) {
   d.boost = sprint(inp, dt);
   driveTank(player, d, dt);
   moveOther(dt);
+  sight();
   if (other.visible) blockByTank(player, other, before, dt);
   // bullets before the clock: a hit in the same instant the clock reaches 0:00 still counts
-  const hit = shots.update(dt, hiderTank());
+  const hit = shots.update(dt, hiderTank(), mode === 'solo' && !(other.visible && otherFade > 0.5));
   if (hit && mode === 'solo') { soloWreck = 1.5; paintTank(other, COLORS.hider, true); toast('Hit.'); }
   else if (hit && myRole() === 'hider') rules.reportHit(rules.match.t);   // the hider's phone tells the referee
   if (soloWreck > 0 && (soloWreck -= dt) <= 0) paintTank(other, COLORS.hider);
@@ -364,7 +443,9 @@ function frame(dt, draw = true, clockDt = dt) {
   sendMine(dt);
   if (!draw) return;
   drawRound();
+  smogAt(player.position.x, player.position.z);
   renderer.render(scene, camera);
+  drawMap();
   drawMinimap();
 }
 let last = performance.now();

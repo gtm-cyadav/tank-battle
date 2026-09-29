@@ -55,7 +55,14 @@
   #fs-again { right: calc(max(12px, var(--sr)) + 48px); }
   #minimap { position: fixed; z-index: 6; right: max(10px, var(--sr)); top: 60px; width: 192px; height: 128px;
     border: 1px solid #3b423e; opacity: 0.85; pointer-events: none; }
-  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #rh, html:not([data-state="playing"]) #gear { display: none; }
+  /* corner map (1e): top-left, about 150 x 100 px on an 812-wide phone; the room label sits under it */
+  :root { --map-w: clamp(132px, 18.5vw, 190px); --map-h: calc(var(--map-w) * 2 / 3); }
+  #cmap { position: fixed; z-index: 6; left: max(12px, var(--sl)); top: max(10px, var(--st)); width: var(--map-w); height: var(--map-h);
+    border: 1px solid var(--line); border-radius: 4px; pointer-events: none; }
+  #cmap.pinged { border-color: #b9d2ff; }
+  [data-map] #hud { top: calc(max(10px, var(--st)) + var(--map-h) + 6px); }
+  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #rh, html:not([data-state="playing"]) #gear,
+  html:not([data-state="playing"]) #cmap { display: none; }
   [data-match] #hud .brand, [data-match] #hud .keys { display: none; }
 
   /* ---- phone controls (sizes, sides and style come from the settings panel) ----
@@ -90,6 +97,8 @@
     display: grid; place-items: center; --c: var(--hunter); }
   [data-side="right"] #action { right: auto; left: calc(var(--sl) + var(--btn-edge, 26px)); }
   [data-style="sliders"] #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px) + 112px * var(--s)), var(--top-limit)); }   /* above the steering slider */
+  /* button on the left, under the corner map: never rises into the map or the room label under it */
+  [data-map][data-side="right"] #action { --top-limit: calc(100dvh - var(--sb) - max(10px, var(--st)) - var(--map-h) - 40px - 128px * var(--bs)); }
   [data-role="hider"] #action { --c: var(--hider); }
   #action span { width: calc(92px * var(--bs)); height: calc(92px * var(--bs)); border-radius: 50%; display: grid; place-items: center;
     font: 700 calc(13px * var(--bs))/1 system-ui, sans-serif; letter-spacing: 0.16em; color: #fff;
@@ -205,7 +214,7 @@
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 1d</span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 1e</span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="rh" hidden>
   <div class="chip"><span id="rh-role">Hunter</span><span id="rh-clock">3:00</span><span id="rh-round">Round 1</span><span id="rh-score">You 0 &ndash; 0 Them</span></div>
@@ -216,6 +225,7 @@
 </button>
 <button id="gear" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
 <canvas id="minimap" hidden></canvas>
+<canvas id="cmap" hidden aria-hidden="true"></canvas>
 
 <div id="controls">
   <div id="stick-zone" class="zone"></div>
@@ -229,7 +239,7 @@
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 1d &middot; rules</p>
+      <p class="over">Stage 1e &middot; limited view</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
       <div id="p-home" class="buttons">
@@ -310,6 +320,9 @@
       <div class="set-row"><div class="lbl"><span>Height</span><span id="val-camHeight"></span></div><input id="set-camHeight" type="range" aria-label="Height"></div>
       <div class="set-row"><div class="lbl"><span>Distance behind</span><span id="val-camDistance"></span></div><input id="set-camDistance" type="range" aria-label="Distance behind"></div>
       <p class="note">The camera always stays below the wall tops, so nobody can see over walls.</p>
+      <h3>Corner map</h3>
+      <div class="set-row"><div class="seg"><button type="button" data-set="map" data-value="on">On</button><button type="button" data-set="map" data-value="off">Off</button></div>
+        <p class="note">Shows the walls and your own tank. Never the other player. While a ping is on, it shows even when switched off.</p></div>
       <button id="set-reset" class="btn secondary" type="button">Reset to default</button>
     </div>
   </div>
@@ -364,24 +377,26 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=1d-4",
-  "./js/camera.js": "./js/camera.js?v=1d-4",
-  "./js/input.js": "./js/input.js?v=1d-4",
-  "./js/lobby.js": "./js/lobby.js?v=1d-4",
-  "./js/main.js": "./js/main.js?v=1d-4",
-  "./js/map.js": "./js/map.js?v=1d-4",
-  "./js/net.js": "./js/net.js?v=1d-4",
-  "./js/rules.js": "./js/rules.js?v=1d-4",
-  "./js/screen.js": "./js/screen.js?v=1d-4",
-  "./js/settings.js": "./js/settings.js?v=1d-4",
-  "./js/shots.js": "./js/shots.js?v=1d-4",
-  "./js/tank.js": "./js/tank.js?v=1d-4",
-  "./js/world.js": "./js/world.js?v=1d-4",
-  "./lib/three.module.js": "./lib/three.module.js?v=1d-4",
-  "./lib/three.core.js": "./lib/three.core.js?v=1d-4"
+  "./js/arena.js": "./js/arena.js?v=1e-1",
+  "./js/camera.js": "./js/camera.js?v=1e-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=1e-1",
+  "./js/input.js": "./js/input.js?v=1e-1",
+  "./js/lobby.js": "./js/lobby.js?v=1e-1",
+  "./js/main.js": "./js/main.js?v=1e-1",
+  "./js/map.js": "./js/map.js?v=1e-1",
+  "./js/net.js": "./js/net.js?v=1e-1",
+  "./js/rules.js": "./js/rules.js?v=1e-1",
+  "./js/screen.js": "./js/screen.js?v=1e-1",
+  "./js/settings.js": "./js/settings.js?v=1e-1",
+  "./js/shots.js": "./js/shots.js?v=1e-1",
+  "./js/tank.js": "./js/tank.js?v=1e-1",
+  "./js/vision.js": "./js/vision.js?v=1e-1",
+  "./js/world.js": "./js/world.js?v=1e-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=1e-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=1e-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=1d-4"></script>
-<script type="module" src="./js/main.js?v=1d-4"></script>
+<script src="lib/peerjs.min.js?v=1e-1"></script>
+<script type="module" src="./js/main.js?v=1e-1"></script>
 </body>
 </html>
