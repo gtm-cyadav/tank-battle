@@ -370,6 +370,25 @@ function drawMap() {
   if (on !== mapOn) { mapOn = on; $('cmap').hidden = !on; root.toggleAttribute('data-map', on); cmap.refit(); }
   if (!!c !== mapPinged) { mapPinged = !!c; $('cmap').classList.toggle('pinged', mapPinged); }
   if (on) cmap.draw({ ...pose(player), role: myRole() }, c, c ? 0.5 + 0.5 * Math.sin(performance.now() / 180) : 0);
+  drawAlarm(myRole() === 'hider' ? pv : null);
+}
+// Hider's ping alarm: red from every edge. Countdown: a pulse on each count, each one stronger (3, 2, 1). Pinged: one
+// sharp red flash over the whole view, then steady red edges, breathing slowly, until the ping ends.
+let alarmA = -1, alarmF = -1, alarmOn = false;
+function drawAlarm(pv) {
+  let a = 0, f = 0;
+  if (pv?.warn) {
+    const into = pv.warn - pv.until;                       // 0..1 through this count
+    a = [0.9, 0.72, 0.55][Math.min(2, pv.warn - 1)] * (0.35 + 0.65 * Math.exp(-4 * into));
+  } else if (pv && 'since' in pv) {
+    f = Math.max(0, 1 - pv.since / 0.35);                  // the flash, gone in a third of a second
+    a = 0.8 + 0.12 * Math.sin(pv.since * Math.PI * 1.5);
+  }
+  a = Math.round(a * 100) / 100; f = Math.round(f * 100) / 100;
+  if (a !== alarmA) { alarmA = a; $('alarm').style.opacity = a; }
+  if (f !== alarmF) { alarmF = f; $('alarm').style.setProperty('--flash', f); }
+  const on = a > 0;
+  if (on !== alarmOn) { alarmOn = on; $('rh-note').classList.toggle('alarm', on); $('cmap').classList.toggle('alarm', on); }
 }
 $('rc-leave').addEventListener('click', leaveMatch);
 

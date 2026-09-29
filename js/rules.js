@@ -222,8 +222,8 @@ export function createRules(hooks) {
     role() { return match && side ? (hunterSide() === side ? 'hunter' : 'hider') : null; },
     hunterSide: () => match && hunterSide(),
     snapshot: () => copy(match),
-    // What the ping shows on this phone right now: null, { warn: seconds left } (hider's countdown), or
-    // { circle: { x, z, r } or null (not here yet) } while it shows.
+    // What the ping shows on this phone right now: null, { warn: whole seconds left, until: exact seconds left }
+    // (hider's countdown), or { circle: { x, z, r } or null (not here yet), since: seconds it has shown } while it shows.
     pingView() {
       if (!match || match.phase !== 'play' || paused) return null;
       const n = Math.floor((match.t + RULES.pingWarn) / RULES.pingEvery), at = pingTime(n);
@@ -232,8 +232,8 @@ export function createRules(hooks) {
       const c = hider ? (mine && mine.mid === match.mid && mine.r === match.round ? mine : null) : match.ping;
       const have = c && c.n === n;
       // a circle already here stays up if the referee's clock nudges this phone's clock back a moment (no blink)
-      if (match.t < at && !(have && match.t > at - 0.3)) return hider ? { warn: Math.ceil(at - match.t - 1e-6) } : null;
-      return { circle: have ? { x: c.x, z: c.z, r: RULES.pingSize / 2 } : null };
+      if (match.t < at && !(have && match.t > at - 0.3)) return hider ? { warn: Math.ceil(at - match.t - 1e-6), until: at - match.t } : null;
+      return { circle: have ? { x: c.x, z: c.z, r: RULES.pingSize / 2 } : null, since: Math.max(0, match.t - at) };
     },
   };
 }
