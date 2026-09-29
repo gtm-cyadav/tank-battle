@@ -19,7 +19,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 160);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);   // sees to the far corner of the arena (187 m)
 // Overcast is the default look. ?look=sunny shows the old sunny version (testing only, until the Stage 2 weather setting).
 const LOOK = new URLSearchParams(location.search).get('look');
 buildArena(scene, LOOK in LOOKS ? LOOK : 'overcast');
@@ -369,7 +369,8 @@ function frame(dt, draw = true, clockDt = dt) {
 }
 let last = performance.now();
 renderer.setAnimationLoop(now => {
-  const real = Math.min(1, (now - last) / 1000);
+  // never below 0: a frame stamped before the last test step would otherwise run time backwards (tank thrown through walls)
+  const real = Math.max(0, Math.min(1, (now - last) / 1000));
   last = now;
   frame(Math.min(0.05, real), true, real);
 });

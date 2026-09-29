@@ -4,14 +4,15 @@
 // shoot through it, and a hider parked right against the barrel is still hit. Walls never move, so the distance
 // to the wall is found once, when the bullet is fired.
 import * as THREE from '../lib/three.module.js';
-import { rayToWall } from './world.js';
+import { rayToWall, WIDTH, DEPTH } from './world.js';
 import { RULES } from './rules.js';
 
 const MUZZLE = 2.8;              // barrel tip, m in front of the tank's centre
 const HEIGHT = 1.55;             // barrel height
 const RADIUS = 0.16;             // bullet
 const HALF = { x: 1.525, z: 1.95 };   // the tank's outline seen from above (hull and tracks), half width and length
-const LIFE = 5;                  // s; the arena is walled in, so every bullet meets a wall well before this
+const FAR = Math.hypot(WIDTH, DEPTH);            // corner to corner: no shot can fly further than this
+const LIFE = FAR / RULES.bulletSpeed + 1;        // s; the arena is walled in, so every bullet meets a wall before this
 
 // Does the stretch from a to b (x, z) touch the tank's outline, grown by the bullet's size?
 // Returns how far along (0 to 1) it first touches, or -1.
@@ -61,8 +62,8 @@ export function createShots(scene) {
   // shot: { id, x, z, yaw } where and which way the hunter's tank was when it fired.
   // ahead: seconds the shot has already been flying (it was fired on the other phone a moment ago).
   function fire(shot, ahead = 0) {
-    const dx = Math.sin(shot.yaw), dz = Math.cos(shot.yaw), far = 200;
-    const wall = rayToWall(shot.x, shot.z, shot.x + dx * far, shot.z + dz * far);
+    const dx = Math.sin(shot.yaw), dz = Math.cos(shot.yaw);
+    const wall = rayToWall(shot.x, shot.z, shot.x + dx * FAR, shot.z + dz * FAR);
     const mesh = new THREE.Group();
     mesh.add(new THREE.Mesh(streak, hot));
     const glow = new THREE.Sprite(glowMat);

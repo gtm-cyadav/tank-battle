@@ -1,11 +1,11 @@
 // Grid helpers: turn the ASCII map into world positions, walls, collisions and sight lines.
-// World axes: x = left/right across the 120 m, z = up/down the 80 m, y = height. Map centre is (0, 0).
+// World axes: x = left/right across the 156 m, z = up/down the 104 m, y = height. Map centre is (0, 0).
 import { CELL, MAP } from './map.js';
 
 export const ROWS = MAP.length;
 export const COLS = MAP[0].length;
-export const WIDTH = COLS * CELL;   // 120 m
-export const DEPTH = ROWS * CELL;   // 80 m
+export const WIDTH = COLS * CELL;   // 156 m
+export const DEPTH = ROWS * CELL;   // 104 m
 export const WALL_H = 4.5;          // inner walls, taller than the camera
 export const EDGE_H = 7;            // outer wall
 

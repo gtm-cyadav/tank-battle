@@ -2,6 +2,7 @@
 // a sky, and a light haze in the distance. Plain materials for now; real textures arrive in Stage 2.
 import * as THREE from '../lib/three.module.js';
 import { WIDTH, DEPTH, wallBoxes } from './world.js';
+import { CELL } from './map.js';
 
 // Looks. "sunny" is the blue-sky version Chetan picked in 1a; the first phone test found it far too bright, so
 // "overcast" (medium: soft grey sky, no visible sun, gentle shadows) is the default since 2026-09-29.
@@ -68,10 +69,10 @@ function floorTexture() {
   }
   g.strokeStyle = '#b2b9b4';
   g.lineWidth = 3;
-  g.strokeRect(0, 0, s, s);          // grid line on every 5 m tile edge
+  g.strokeRect(0, 0, s, s);          // grid line on every tile edge (a tile = 2 map squares, so lines meet wall edges)
   const t = new THREE.CanvasTexture(cv);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(WIDTH / 5, DEPTH / 5);
+  t.repeat.set(WIDTH / (2 * CELL), DEPTH / (2 * CELL));
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
@@ -88,7 +89,8 @@ export function buildArena(scene, lookName = 'overcast') {
   sun.position.copy(LIGHT_DIR).multiplyScalar(90);
   sun.castShadow = true;                              // walls throw shadows across the alleys
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -75, right: 75, top: 75, bottom: -75, near: 10, far: 200 });
+  // the box the shadows are drawn in, seen from the sun: just big enough for the whole arena (156 x 104 m)
+  Object.assign(sun.shadow.camera, { left: -95, right: 95, top: 75, bottom: -75, near: 10, far: 200 });
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.05;
   sun.shadow.radius = look.shadowSoft;

@@ -3,7 +3,7 @@
 import * as THREE from '../lib/three.module.js';
 import { pushOutOfWalls } from './world.js';
 
-export const TANK_RADIUS = 2.0;   // collision circle; lanes are 5 m wide
+export const TANK_RADIUS = 2.0;   // collision circle; the narrowest lanes are 6.5 m wide
 export const COLORS = { hunter: 0xff7a1a, hider: 0x2f7bff };
 
 export const DRIVE = {

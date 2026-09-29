@@ -1,7 +1,8 @@
-// Arena layout. Each character is a 2.5 m square: '#' = wall, '.' = floor.
-// 48 x 32 squares = 120 x 80 m. Mirrored left-right and top-bottom so both sides are equal.
+// Arena layout. Each character is a 3.25 m square: '#' = wall, '.' = floor.
+// 48 x 32 squares = 156 x 104 m. Mirrored left-right and top-bottom so both sides are equal.
+// Squares were 2.5 m (120 x 80 m) until 2026-09-29; made 30% bigger so the lanes feel less cramped (tanks unchanged).
 // Edit walls here, then run: python tools/check_map.py
-export const CELL = 2.5;
+export const CELL = 3.25;
 export const MAP = [
   '################################################',
   '#........#........#..........#........#........#',
