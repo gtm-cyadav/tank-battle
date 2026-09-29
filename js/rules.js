@@ -1,5 +1,5 @@
-// The match rules (brief section 3, "Rules" and "Rules detail"): hunter and hider, a 2:00 round clock with a
-// 15-second head start, best of 3 with roles swapping every round, and Play again.
+// The match rules (brief section 3, "Rules" and "Rules detail"): hunter and hider, a 3:00 round clock with a
+// 20-second head start, best of 3 with roles swapping every round, and Play again.
 // Who decides what, so both phones always agree:
 //   - The phone that created the room is the referee. It alone tosses the coin, keeps the round number, scores,
 //     clock and results, and sends all of that to the other phone twice a second (and at once on any change).
@@ -9,8 +9,8 @@
 // The clock stops while the link is down (the 60-second wait), on both phones.
 
 export const RULES = {
-  round: 120,        // s on the clock
-  headStart: 15,     // s before the hunter can fire
+  round: 180,        // s on the clock (was 120; raised with the 1.3x bigger map, Chetan, 2026-09-29)
+  headStart: 20,     // s before the hunter can fire (was 15; same reason)
   toss: 4,           // s the coin-toss card shows before round 1
   next: 6,           // s the round result shows before the next round
   grace: 0.8,        // s the referee waits after 0:00 for a hit from the other phone that landed just in time
