@@ -33,16 +33,27 @@ export function touchesTank(tank, ax, az, bx, bz) {
 
 export function createShots(scene) {
   const live = [];
-  const tracer = new THREE.BoxGeometry(RADIUS * 1.1, RADIUS * 1.1, 0.9);
-  const hot = new THREE.MeshBasicMaterial({ color: 0xffe9b0 });
+  // what a bullet looks like: a long bright streak with an orange glow at its head, so it reads against a grey sky
+  // (the first version, a small pale box, was too hard to see on a phone: Chetan, 2026-09-29)
+  const streak = new THREE.BoxGeometry(0.16, 0.16, 2.4).translate(0, 0, -1.2);   // head at the bullet, tail behind it
+  const hot = new THREE.MeshBasicMaterial({ color: 0xfff0b8 });
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, 'rgba(255,236,170,1)'); r.addColorStop(0.35, 'rgba(255,150,40,0.85)'); r.addColorStop(1, 'rgba(255,120,20,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  })();
+  // the glow keeps the same size on screen however far the bullet flies (about a twentieth of the screen height)
+  const glowMat = new THREE.SpriteMaterial({ map: glowTex, depthWrite: false, sizeAttenuation: false });
   const puffGeo = new THREE.SphereGeometry(1, 12, 8);
   const puffs = [];
 
-  function puff(x, y, z, size, color, time) {
-    const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
+  function puff(x, y, z, size, color, time, alpha = 0.9) {
+    const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, depthWrite: false }));
     m.position.set(x, y, z);
     m.scale.setScalar(size * 0.3);
-    m.userData = { age: 0, time, size };
+    m.userData = { age: 0, time, size, alpha };
     scene.add(m);
     puffs.push(m);
   }
@@ -52,13 +63,20 @@ export function createShots(scene) {
   function fire(shot, ahead = 0) {
     const dx = Math.sin(shot.yaw), dz = Math.cos(shot.yaw), far = 200;
     const wall = rayToWall(shot.x, shot.z, shot.x + dx * far, shot.z + dz * far);
-    const mesh = new THREE.Mesh(tracer, hot);
+    const mesh = new THREE.Group();
+    mesh.add(new THREE.Mesh(streak, hot));
+    const glow = new THREE.Sprite(glowMat);
+    glow.scale.setScalar(0.055);
+    mesh.add(glow);
     mesh.rotation.y = shot.yaw;
     mesh.visible = false;
     scene.add(mesh);
     const b = { ...shot, dx, dz, wall, s: 0, extra: Math.max(0, ahead) * RULES.bulletSpeed, age: 0, mesh };
     live.push(b);
-    if (ahead < 0.2 && wall > MUZZLE) puff(shot.x + dx * MUZZLE, HEIGHT, shot.z + dz * MUZZLE, 0.45, 0xffd28a, 0.08);   // muzzle flash
+    if (ahead < 0.2 && wall > MUZZLE) {   // muzzle flash and a puff of smoke
+      puff(shot.x + dx * MUZZLE, HEIGHT, shot.z + dz * MUZZLE, 1.2, 0xffb347, 0.12);
+      puff(shot.x + dx * (MUZZLE + 0.6), HEIGHT + 0.2, shot.z + dz * (MUZZLE + 0.6), 1.2, 0x9a9e9b, 0.5, 0.35);
+    }
     return b;
   }
 
@@ -79,7 +97,9 @@ export function createShots(scene) {
       }
       b.s = to;
       if (b.s >= b.wall - 1e-6 || b.age > LIFE) {   // reached the wall
-        if (b.wall > MUZZLE * 0.5) puff(b.x + b.dx * b.wall, HEIGHT, b.z + b.dz * b.wall, 0.5, 0xd9d2c0, 0.15);
+        const wx = b.x + b.dx * (b.wall - 0.2), wz = b.z + b.dz * (b.wall - 0.2);   // just in front of the wall face
+        puff(wx, HEIGHT, wz, 1.1, 0xffc070, 0.15);
+        puff(wx, HEIGHT, wz, 1.8, 0xb8b2a4, 0.5, 0.6);   // dust
         remove(i); continue;
       }
       const shown = Math.max(b.s, MUZZLE);
@@ -92,7 +112,7 @@ export function createShots(scene) {
       const k = u.age / u.time;
       if (k >= 1) { scene.remove(m); m.material.dispose(); puffs.splice(i, 1); continue; }
       m.scale.setScalar(u.size * (0.3 + 0.7 * k));
-      m.material.opacity = 0.9 * (1 - k);
+      m.material.opacity = u.alpha * (1 - k);
     }
     return hit;
   }

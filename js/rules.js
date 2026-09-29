@@ -19,7 +19,7 @@ export const RULES = {
   reload: 1.5,       // s
   sprintTime: 3,     // s a full sprint meter lasts
   refill: 6,         // s for an empty meter to fill up
-  sprintBoost: 1.5,  // sprint speed = 1.5 x normal
+  sprintBoost: 1.75, // sprint speed = 1.75 x normal (was 1.5; Chetan found it slow, 2026-09-29)
 };
 
 const other = side => side === 'host' ? 'guest' : 'host';

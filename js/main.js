@@ -1,7 +1,7 @@
 // Tank Battle: game start-up and main loop.
 import * as THREE from '../lib/three.module.js';
 import { buildArena, LOOKS } from './arena.js';
-import { makeTank, driveTank, blockByTank, paintTank, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
+import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled } from './input.js';
 import { initScreen, refreshScreen, device } from './screen.js';
@@ -198,6 +198,7 @@ function tryFire() {
   if (mode !== 'solo' && (m.t < RULES.headStart || m.t >= RULES.round)) return;
   const shot = { id: ++shotId, x: player.position.x, z: player.position.z, yaw: player.rotation.y };
   shots.fire(shot);
+  kick(player);
   reload = RULES.reload;
   if (mode !== 'solo') sendState({ t: 'f', mid: m.mid, r: m.round, e: m.t, id: shot.id, x: shot.x, z: shot.z, y: shot.yaw });
 }
@@ -207,6 +208,7 @@ function incoming(f) {
   const m = rules.match;
   if (!m || m.phase !== 'play' || f.mid !== m.mid || f.r !== m.round || myRole() !== 'hider') return;
   shots.fire({ id: f.id, x: f.x, z: f.z, yaw: f.y }, Math.min(0.5, Math.max(0, m.t - f.e)));
+  kick(other);
 }
 // The tank a bullet can hit on this phone: only ever the hider's, never the hunter's.
 // On the hider's phone that's its own tank, and only that phone's hits count (it knows exactly where it is).
@@ -216,7 +218,7 @@ function hiderTank() {
   if (!m || m.phase !== 'play' || m.t >= RULES.round) return null;   // after 0:00 nothing can be hit
   return myRole() === 'hider' ? player : (other.visible ? other : null);
 }
-// Sprint: 50% faster while held and driving forward; a full meter lasts 3 s and refills in 6 s.
+// Sprint: 75% faster while held and driving forward; a full meter lasts 3 s and refills in 6 s.
 function sprint(inp, dt) {
   if (myRole() !== 'hider') return 1;
   if (!inp.action) spent = false;
@@ -357,6 +359,7 @@ function frame(dt, draw = true, clockDt = dt) {
   else if (hit && myRole() === 'hider') rules.reportHit(rules.match.t);   // the hider's phone tells the referee
   if (soloWreck > 0 && (soloWreck -= dt) <= 0) paintTank(other, COLORS.hider);
   rules.tick(clockDt);
+  settleBarrel(player, dt); settleBarrel(other, dt);
   follow(player, dt);
   sendMine(dt);
   if (!draw) return;

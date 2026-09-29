@@ -40,8 +40,17 @@ export function makeTank(color) {
   blob.position.y = 0.02;
   g.add(blob);
 
-  g.userData = { speed: 0, paint };
+  g.userData = { speed: 0, paint, barrel, recoil: 0 };
   return g;
+}
+
+// Firing kicks the barrel back, then it slides home: a clear sign on your own screen that a shot went off.
+export function kick(tank) { tank.userData.recoil = 1; }
+export function settleBarrel(tank, dt) {
+  const u = tank.userData;
+  if (u.recoil <= 0) return;
+  u.recoil = Math.max(0, u.recoil - dt / 0.3);
+  u.barrel.position.z = 1.6 - 0.45 * u.recoil * u.recoil;
 }
 
 // Paint the tank in a role's colour. wrecked: the hider was hit (charred grey, sagging to one side).
