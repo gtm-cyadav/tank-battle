@@ -62,15 +62,38 @@ export function driveTank(tank, input, dt) {
   }
 }
 
-// Keep two tanks from driving through each other.
-export function separateTanks(a, b) {
-  const dx = b.position.x - a.position.x, dz = b.position.z - a.position.z;
-  const d = Math.hypot(dx, dz), min = TANK_RADIUS * 2;
-  if (d >= min || d < 1e-6) return false;
-  const push = (min - d) / 2 / d;
-  a.position.x -= dx * push; a.position.z -= dz * push;
-  b.position.x += dx * push; b.position.z += dz * push;
-  pushOutOfWalls(a.position, TANK_RADIUS);
-  pushOutOfWalls(b.position, TANK_RADIUS);
+// Tanks are solid and can't shove each other (Chetan's choice, Stage 1c). Each phone only ever moves its own
+// tank, and only undoes its own tank's move into the other one: if the other tank drives into yours, it's the
+// other phone that stops it, so a laggy link can never push your tank around.
+// before = where `tank` was at the start of this frame. Slides round the other tank rather than sticking.
+// If both players drive into each other at the same moment, each phone saw the other a split second late and
+// they end up slightly inside each other; then each phone eases its own tank back by half, so they settle touching.
+export function blockByTank(tank, other, before, dt) {
+  const p = tank.position, o = other.position, min = TANK_RADIUS * 2;
+  const d = Math.hypot(p.x - o.x, p.z - o.z), d0 = Math.hypot(before.x - o.x, before.z - o.z);
+  const limit = Math.min(min, d0);   // no closer than touching, or than we already were
+  if (d >= limit - 1e-6) return settle(tank, other, dt);
+  const nx = d > 1e-6 ? (p.x - o.x) / d : -Math.sin(tank.rotation.y), nz = d > 1e-6 ? (p.z - o.z) / d : -Math.cos(tank.rotation.y);
+  p.x = o.x + nx * limit;
+  p.z = o.z + nz * limit;
+  pushOutOfWalls(p, TANK_RADIUS);
+  if (Math.hypot(p.x - o.x, p.z - o.z) < limit - 0.01) {   // wedged between the other tank and a wall: don't move
+    p.x = before.x; p.z = before.z;
+    tank.userData.speed = 0;
+    return true;
+  }
+  // driving into the other tank loses speed, glancing off it keeps most of it
+  const s = tank.userData, into = -(Math.sin(tank.rotation.y) * nx + Math.cos(tank.rotation.y) * nz) * Math.sign(s.speed);
+  if (into > 0) s.speed *= 1 - into;
+  settle(tank, other, dt);
+  return true;
+}
+function settle(tank, other, dt) {
+  const p = tank.position, o = other.position, min = TANK_RADIUS * 2, d = Math.hypot(p.x - o.x, p.z - o.z);
+  if (d >= min - 0.01 || d < 1e-6) return false;
+  const out = Math.min((min - d) / 2, 1.5 * dt);   // half the overlap, at walking pace
+  p.x += (p.x - o.x) / d * out;
+  p.z += (p.z - o.z) / d * out;
+  pushOutOfWalls(p, TANK_RADIUS);
   return true;
 }

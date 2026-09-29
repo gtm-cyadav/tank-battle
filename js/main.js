@@ -1,12 +1,13 @@
 // Tank Battle: game start-up and main loop.
 import * as THREE from '../lib/three.module.js';
 import { buildArena, LOOKS } from './arena.js';
-import { makeTank, driveTank, separateTanks, COLORS, DRIVE } from './tank.js';
+import { makeTank, driveTank, blockByTank, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled } from './input.js';
 import { initScreen, refreshScreen, device } from './screen.js';
+import { initLobby, leaveMatch, sendState } from './lobby.js';
 import { settings, onSettings, initSettings } from './settings.js';
-import { SPAWNS, ROWS, COLS, isWallCell, WIDTH, DEPTH } from './world.js';
+import { SPAWNS, ROWS, COLS, isWallCell, WIDTH, DEPTH, pushOutOfWalls } from './world.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 const $ = id => document.getElementById(id);
@@ -27,7 +28,7 @@ function place(tank, spawn) {
   tank.userData.speed = 0;
 }
 const player = makeTank(COLORS.hunter);
-const other = makeTank(COLORS.hider);   // parked stand-in for the second player until Stage 1c
+const other = makeTank(COLORS.hider);   // the other player's tank (parked, when driving alone)
 place(player, SPAWNS[0]);
 place(other, SPAWNS[1]);
 scene.add(player, other);
@@ -69,7 +70,7 @@ if (DEBUG) {
 
 // Phone screen handling: input only reaches the tank while actually playing (not on the start screen,
 // rotate message or leave prompt).
-initScreen(setInputEnabled);
+initScreen(setInputEnabled, leaveMatch);
 initSettings(refreshScreen);
 if (device.ipad) $('rotate-1').textContent = 'Turn your iPad sideways.';
 
@@ -87,6 +88,76 @@ function setRole(r) {
 $('role').addEventListener('click', () => setRole(role === 'hunter' ? 'hider' : 'hunter'));
 setRole('hunter');
 let taps = 0;   // action presses so far (testing only)
+
+// ---- two players (Stage 1c) ----------------------------------------------------------------------------------
+// mode: 'solo' (drive alone, parked tank) | 'host' (created the room: orange, top-left) | 'guest' (joined: blue).
+// Real hunter/hider roles arrive in 1d; until then the room's creator gets the hunter's orange and FIRE button.
+let mode = 'solo';
+const remote = { x: 0, z: 0, yaw: 0, speed: 0, at: 0, have: false, paused: false };
+let sendClock = 0;
+const SEND_EVERY = 0.05;   // 20 position updates a second
+
+function startMatch({ mode: m, code, pos }) {
+  mode = m;
+  const me = mode === 'guest' ? 1 : 0;
+  place(player, pos || SPAWNS[me]);
+  place(other, SPAWNS[1 - me]);
+  follow.reset();
+  setRole(mode === 'guest' ? 'hider' : 'hunter');
+  $('role').hidden = mode !== 'solo';   // the test switch would make the two phones disagree
+  $('hud-room').textContent = code ? ` · Room ${code}` : '';
+  $('leave-p').textContent = mode === 'solo' ? "You'll go back to the start screen." : 'The other player will be told you left.';
+  Object.assign(remote, { have: false, paused: false });
+  other.visible = mode === 'solo';   // the other tank appears with its first position update
+  sendClock = 0;
+}
+function endMatch() {
+  mode = 'solo';
+  $('role').hidden = false;
+  $('hud-room').textContent = '';
+}
+function onRemote(m) {
+  if (m.t !== 's' || mode === 'solo') return;
+  Object.assign(remote, { x: m.x, z: m.z, yaw: m.y, speed: m.v, at: performance.now() });
+  if (!remote.have) {   // first news of the other tank: put it straight there
+    remote.have = true;
+    other.position.set(m.x, 0, m.z);
+    other.rotation.y = m.y;
+    other.visible = true;
+  }
+}
+// Show the other tank smoothly: guess a little ahead from its last known speed, then glide towards that.
+function moveOther(dt) {
+  if (mode === 'solo' || !remote.have) return;
+  const ahead = remote.paused ? 0 : Math.min(0.2, (performance.now() - remote.at) / 1000);
+  let tx = remote.x + Math.sin(remote.yaw) * remote.speed * ahead, tz = remote.z + Math.cos(remote.yaw) * remote.speed * ahead;
+  // never guess it into our tank: near us, only trust where it really was (so a parked tank is never nudged)
+  const me = player.position, guess = Math.hypot(tx - me.x, tz - me.z);
+  if (guess < TANK_RADIUS * 2 && Math.hypot(remote.x - me.x, remote.z - me.z) >= guess) { tx = remote.x; tz = remote.z; }
+  const p = other.position, ex = tx - p.x, ez = tz - p.z;
+  if (Math.hypot(ex, ez) > 6) {   // too far off (e.g. after a rejoin): jump
+    p.x = tx; p.z = tz; other.rotation.y = remote.yaw;
+  } else {
+    const k = 1 - Math.exp(-15 * dt), dy = Math.atan2(Math.sin(remote.yaw - other.rotation.y), Math.cos(remote.yaw - other.rotation.y));
+    p.x += ex * k; p.z += ez * k; other.rotation.y += dy * k;
+  }
+  pushOutOfWalls(p, TANK_RADIUS);
+}
+function sendMine(dt) {
+  if (mode === 'solo') return;
+  sendClock += dt;
+  if (sendClock < SEND_EVERY) return;
+  sendClock = 0;
+  const p = player.position, r = v => Math.round(v * 100) / 100;
+  sendState({ t: 's', x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed) });
+}
+initLobby({
+  start: startMatch,
+  end: endMatch,
+  remote: onRemote,
+  paused(on) { remote.paused = on; if (on) remote.speed = 0; },
+  pos: () => ({ x: player.position.x, z: player.position.z, yaw: player.rotation.y }),
+});
 
 // Turn the player's input into throttle and turn for the tank.
 // Point-to-drive: "up" means the way the camera faced when this push began (thumb down, or back out of the
@@ -119,9 +190,12 @@ function frame(dt, draw = true) {
   const inp = readInput();
   taps += inp.actionTaps;
   clearTaps();
+  const before = { x: player.position.x, z: player.position.z };
   driveTank(player, steer(inp, dt), dt);
-  separateTanks(player, other);
+  moveOther(dt);
+  if (other.visible) blockByTank(player, other, before, dt);
   follow(player, dt);
+  sendMine(dt);
   if (!draw) return;
   renderer.render(scene, camera);
   drawMinimap();
@@ -133,5 +207,5 @@ renderer.setAnimationLoop(now => {
   frame(dt);
 });
 
-window.__tb = { THREE, scene, camera, renderer, player, other, place, SPAWNS, follow, settings, get taps() { return taps; },
+window.__tb = { THREE, scene, camera, renderer, player, other, place, SPAWNS, follow, settings, remote, get mode() { return mode; }, get taps() { return taps; },
   step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) frame(dt, i === n - 1); } };   // for testing only

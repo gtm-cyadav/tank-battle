@@ -1,5 +1,5 @@
 // Everything about the phone screen itself (brief section 3, "Full screen"):
-// start screen with the right full-screen option per device, turn-your-phone-sideways message,
+// start screen with the right full-screen hint per device (its buttons live in lobby.js), turn-your-phone-sideways message,
 // "Leave the game?" prompt on back-swipe, and blocking browser zoom / pull-to-refresh / long-press menus.
 const $ = id => document.getElementById(id);
 const root = document.documentElement;
@@ -22,7 +22,7 @@ export const device = {
 };
 const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 
-async function enterFullscreen() {
+export async function enterFullscreen() {
   try {
     if (root.requestFullscreen) await root.requestFullscreen({ navigationUI: 'hide' });
     else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
@@ -51,19 +51,17 @@ function blockBrowserGestures() {
 // ---- screens ----------------------------------------------------------------------------------------------------
 let state = 'start';   // 'start' | 'playing'
 let onChange = () => {};
-const blocked = () => state !== 'playing' || !$('rotate').hidden || !$('leave').hidden || !$('settings').hidden;
+const blocked = () => state !== 'playing' || !$('rotate').hidden || !$('leave').hidden || !$('settings').hidden || !$('link').hidden;
 const notify = () => {
   root.dataset.state = state;
   $('fs-again').hidden = !(state === 'playing' && device.canFullscreen && !device.homeScreen && !isFullscreen());
   onChange(!blocked());
 };
 
-function showStart() {
-  // pick the start-screen buttons and hint for this device
+// Phones and tablets that can go full screen do so when Create game, Join or Drive alone is tapped.
+export function showStart() {
+  // pick the start-screen hint for this device
   const fsButton = device.canFullscreen && !device.homeScreen;
-  $('play-fs').hidden = !fsButton;
-  $('play').textContent = fsButton ? 'Play in window' : 'Play';
-  $('play').classList.toggle('secondary', fsButton);
   $('hint-iphone').hidden = !(device.iphone && !device.homeScreen);
   $('hint-ipad').hidden = !(device.ipad && !device.homeScreen && fsButton);
   $('hint-keys').hidden = device.touch;
@@ -72,7 +70,7 @@ function showStart() {
   notify();
 }
 
-function startPlaying(fullscreen) {
+export function startPlaying(fullscreen) {
   if (fullscreen) enterFullscreen();
   $('start').hidden = true;
   state = 'playing';
@@ -98,28 +96,30 @@ addEventListener('popstate', () => {
 // Refresh or closing the tab while playing: the browser shows its own "Leave site?" box (not on iPhone).
 addEventListener('beforeunload', e => { if (state === 'playing') { e.preventDefault(); e.returnValue = ''; } });
 
-export function initScreen(changed) {
+// Back to the start screen from a match, dropping the spare history step the match added.
+export function leaveToStart() {
+  if (state === 'playing') history.back();
+  showStart();
+}
+
+// onLeave: the player chose Leave on the "Leave the game?" prompt.
+export function initScreen(changed, onLeave) {
   onChange = changed;
   root.classList.toggle('touch', device.touch);
   // touchscreen laptop: show the on-screen controls from the first real touch
   addEventListener('pointerdown', e => { if (e.pointerType === 'touch') root.classList.add('touch'); }, { capture: true });
   blockBrowserGestures();
 
-  $('play-fs').addEventListener('click', () => startPlaying(true));
-  $('play').addEventListener('click', () => startPlaying(false));
-  addEventListener('keydown', e => { if (e.code === 'Enter' && state === 'start' && $('rotate').hidden && $('settings').hidden) startPlaying(false); });
   $('fs-again').addEventListener('click', enterFullscreen);
   $('stay').addEventListener('click', () => { $('leave').hidden = true; notify(); });
   $('go').addEventListener('click', () => {
     $('leave').hidden = true;
-    history.back();   // drop the spare step we re-armed; a further back-swipe now leaves the page
-    showStart();
+    onLeave();   // drops the spare step we re-armed (so a further back-swipe leaves the page) and shows the start screen
   });
   for (const t of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(t, notify);
 
   addEventListener('resize', checkOrientation);
   screen.orientation?.addEventListener?.('change', checkOrientation);
-  showStart();
   checkOrientation();
 }
 

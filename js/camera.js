@@ -34,5 +34,6 @@ export function makeChaseCamera(camera) {
   }
   follow.set = (height, distance) => { HEIGHT = Math.min(height, WALL_H - 0.4); BACK = Math.max(MIN_BACK + 0.5, distance); };
   follow.yaw = () => yaw;   // which way the camera faces (same angle convention as the tank)
+  follow.reset = () => { yaw = null; back = BACK; };   // after the tank is placed somewhere new
   return follow;
 }

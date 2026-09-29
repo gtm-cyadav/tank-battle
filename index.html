@@ -128,7 +128,37 @@
   .hint ol { margin: 0; padding-left: 18px; }
   .hint li { margin-bottom: 4px; }
   .hint b { color: var(--text); font-weight: 600; }
-  @media (max-height: 340px) { .rule { margin: 10px 0 14px; } .hint { font-size: 12px; } }
+  .textlink { background: none; border: 0; padding: 8px 2px; margin-top: 2px; font: 500 14px/1 system-ui, sans-serif; color: var(--muted);
+    text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--line); cursor: pointer; }
+  .lobby { min-width: 260px; max-width: 320px; }
+  .lobby .lbl { display: block; margin: 0 0 6px; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  .code { margin: 0 0 10px; font: 800 44px/1 system-ui, sans-serif; letter-spacing: 0.3em; color: var(--text); }
+  .code.pending { color: var(--muted); }
+  .say { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+  .say:empty { display: none; }
+  .say.big { font-size: 16px; color: var(--text); }
+  .say.error { color: #ffb38a; }
+  .code-in { box-sizing: border-box; width: 200px; margin: 0 0 12px; padding: 10px 14px; font: 800 30px/1 system-ui, sans-serif; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--text); background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); border-radius: 6px; outline: none;
+    -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+  .code-in::placeholder { color: rgba(223, 229, 225, 0.22); }
+  .code-in:focus { border-color: var(--hunter); }
+  .code-in:disabled { opacity: 0.6; }
+  .lobby .row { display: flex; gap: 10px; }
+  .btn.small { min-width: 110px; padding: 12px 18px; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  @media (max-height: 340px) { .rule { margin: 10px 0 14px; } .hint { font-size: 12px; } .code { font-size: 38px; } }
+  #start:not([data-panel="home"]) .hint { display: none; }
+
+  #toast { position: fixed; z-index: 8; top: max(56px, calc(var(--st) + 46px)); left: 50%; transform: translate(-50%, -8px); opacity: 0;
+    max-width: calc(100vw - 48px); padding: 9px 16px; border-radius: 6px; background: rgba(20, 26, 24, 0.82); border: 1px solid var(--line);
+    font-size: 13px; letter-spacing: 0.02em; color: var(--text); white-space: nowrap; pointer-events: none; transition: opacity 0.25s, transform 0.25s; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #link { z-index: 18; background: rgba(12, 15, 14, 0.62); }
+  #link .card p { margin-bottom: 8px; }
+  #link .card .count { margin-bottom: 20px; font-variant-numeric: tabular-nums; }
+  #link .card .count:empty { display: none; }
+  #link .card p:not(.count) + .row { margin-top: 20px; }
 
   #rotate { z-index: 30; background: var(--ink); text-align: center; }
   #rotate svg { display: block; margin: 0 auto 22px; animation: turn 2.4s ease-in-out infinite; }
@@ -148,7 +178,8 @@
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><b>TANK BATTLE</b> &middot; Stage 1b<span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><b>TANK BATTLE</b> &middot; Stage 1c<span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="toast" role="status" aria-live="polite"></div>
 <button id="role" type="button">Test role: <span>Hunter</span></button>
 <button id="fs-again" class="corner" type="button" aria-label="Back to full screen" hidden>
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#dfe5e1" stroke-width="1.8"><path d="M1 6V1h5M12 1h5v5M17 12v5h-5M6 17H1v-5"/></svg>
@@ -168,12 +199,35 @@
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 1b &middot; controls test</p>
+      <p class="over">Stage 1c &middot; two players</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
-      <div class="buttons">
-        <button id="play-fs" class="btn" type="button">Play full screen</button>
-        <button id="play" class="btn" type="button">Play</button>
+      <div id="p-home" class="buttons">
+        <button id="create" class="btn" type="button">Create game</button>
+        <button id="join" class="btn secondary" type="button">Join game</button>
+        <button id="solo" class="textlink" type="button">Drive alone</button>
+      </div>
+      <div id="p-create" class="lobby" hidden>
+        <p class="lbl">Room code</p>
+        <p id="room-code" class="code"></p>
+        <p id="create-text" class="say"></p>
+        <p id="create-note" class="say error"></p>
+        <button id="create-cancel" class="btn secondary small" type="button">Cancel</button>
+      </div>
+      <div id="p-join" class="lobby" hidden>
+        <label class="lbl" for="code-in">Room code</label>
+        <input id="code-in" class="code-in" type="text" maxlength="4" placeholder="ABCD" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+        <p id="join-msg" class="say" role="alert"></p>
+        <div class="row">
+          <button id="join-go" class="btn small" type="button">Join</button>
+          <button id="join-back" class="btn secondary small" type="button">Back</button>
+        </div>
+      </div>
+      <div id="p-busy" class="lobby" hidden>
+        <p id="busy-text" class="say big"></p>
+        <p id="busy-count" class="say"></p>
+        <button id="busy-leave" class="btn secondary small" type="button">Leave</button>
+        <button id="busy-back" class="btn small" type="button">Back to start</button>
       </div>
     </div>
     <div id="hint-iphone" class="hint" hidden>
@@ -186,12 +240,12 @@
       </ol>
     </div>
     <div id="hint-ipad" class="hint" hidden>
-      <h2>Or add it to your Home Screen</h2>
+      <h2>Tip: add it to your Home Screen</h2>
       <p>Tap <b>Share</b>, then <b>Add to Home Screen</b>, and open Tank Battle from there. It then always opens full screen.</p>
     </div>
     <div id="hint-keys" class="hint" hidden>
       <h2>Keyboard</h2>
-      <p><b>Arrows</b> or <b>WASD</b> to drive, <b>Space</b> for the action button, <b>Enter</b> to start.</p>
+      <p><b>Arrows</b> or <b>WASD</b> to drive, <b>Space</b> for the action button, <b>Enter</b> to drive alone.</p>
     </div>
   </div>
 </div>
@@ -225,10 +279,22 @@
 <div id="leave" class="overlay" hidden>
   <div class="card" role="dialog" aria-labelledby="leave-t">
     <h2 id="leave-t">Leave the game?</h2>
-    <p>You'll go back to the start screen.</p>
+    <p id="leave-p">You'll go back to the start screen.</p>
     <div class="row">
       <button id="stay" class="btn" type="button">Stay</button>
       <button id="go" class="btn secondary" type="button">Leave</button>
+    </div>
+  </div>
+</div>
+
+<div id="link" class="overlay" hidden>
+  <div class="card" role="alertdialog" aria-labelledby="link-t">
+    <h2 id="link-t"></h2>
+    <p id="link-p"></p>
+    <p id="link-count" class="count"></p>
+    <div class="row">
+      <button id="link-leave" class="btn secondary" type="button">Leave</button>
+      <button id="link-back" class="btn" type="button">Back to start</button>
     </div>
   </div>
 </div>
@@ -245,20 +311,22 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=1b-5",
-  "./js/camera.js": "./js/camera.js?v=1b-5",
-  "./js/input.js": "./js/input.js?v=1b-5",
-  "./js/main.js": "./js/main.js?v=1b-5",
-  "./js/map.js": "./js/map.js?v=1b-5",
-  "./js/screen.js": "./js/screen.js?v=1b-5",
-  "./js/settings.js": "./js/settings.js?v=1b-5",
-  "./js/tank.js": "./js/tank.js?v=1b-5",
-  "./js/world.js": "./js/world.js?v=1b-5",
-  "./lib/three.module.js": "./lib/three.module.js?v=1b-5",
-  "./lib/three.core.js": "./lib/three.core.js?v=1b-5"
+  "./js/arena.js": "./js/arena.js?v=1c-1",
+  "./js/camera.js": "./js/camera.js?v=1c-1",
+  "./js/input.js": "./js/input.js?v=1c-1",
+  "./js/lobby.js": "./js/lobby.js?v=1c-1",
+  "./js/main.js": "./js/main.js?v=1c-1",
+  "./js/map.js": "./js/map.js?v=1c-1",
+  "./js/net.js": "./js/net.js?v=1c-1",
+  "./js/screen.js": "./js/screen.js?v=1c-1",
+  "./js/settings.js": "./js/settings.js?v=1c-1",
+  "./js/tank.js": "./js/tank.js?v=1c-1",
+  "./js/world.js": "./js/world.js?v=1c-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=1c-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=1c-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=1b-5"></script>
-<script type="module" src="./js/main.js?v=1b-5"></script>
+<script src="lib/peerjs.min.js?v=1c-1"></script>
+<script type="module" src="./js/main.js?v=1c-1"></script>
 </body>
 </html>
