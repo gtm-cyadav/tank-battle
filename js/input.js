@@ -48,13 +48,9 @@ function makePad(zone, ring, knob) {
     ring.style.transform = `translate(${pad.ox}px, ${pad.oy}px)`;
   }
   function move(px, py) {
-    let dx = pad.axis === 'y' ? 0 : px - pad.ox, dy = pad.axis === 'x' ? 0 : py - pad.oy;
-    const d = Math.hypot(dx, dy), R = pad.travel;
-    if (d > R) {
-      // thumb went past the edge: drag the whole pad along behind it, so reversing is instant
-      place(pad.ox + dx - dx / d * R, pad.oy + dy - dy / d * R);
-      dx = pad.axis === 'y' ? 0 : px - pad.ox; dy = pad.axis === 'x' ? 0 : py - pad.oy;
-    }
+    // the pad stays where the thumb first landed; past the edge the knob just stops (= full push).
+    // (It used to slide along behind the thumb; Chetan found that had no limit, 2026-09-29.)
+    const dx = pad.axis === 'y' ? 0 : px - pad.ox, dy = pad.axis === 'x' ? 0 : py - pad.oy, R = pad.travel;
     const len = Math.min(1, Math.hypot(dx, dy) / R) || 0, ang = Math.atan2(dy, dx);
     pad.x = Math.cos(ang) * len; pad.y = Math.sin(ang) * len;
     knob.style.transform = `translate(${pad.x * R}px, ${pad.y * R}px)`;
