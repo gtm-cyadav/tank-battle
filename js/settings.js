@@ -1,5 +1,5 @@
 // Player settings (gear icon): control style, turning speed, joystick size and side, action button size and
-// position, camera height and distance, corner map on or off (1e). Saved on the phone, so they survive closing the game.
+// position, camera height and distance, corner map on or off (1e), sound on or off and graphics high or low (2A). Saved on the phone, so they survive closing the game.
 // Requested after the first real-device test (2026-09-29): driving straight was hard and
 // "up = forward" felt wrong, so point-to-drive is the default style.
 const $ = id => document.getElementById(id);
@@ -16,6 +16,8 @@ export const DEFAULTS = {
   camHeight: 3.0,       // m; the camera code still keeps it under the wall tops (fairness)
   camDistance: 7.5,     // m behind the tank
   map: 'on',            // corner map (walls and your own tank): 'on' | 'off'
+  sound: 'on',          // Stage 2A: 'on' | 'off' (mute)
+  graphics: 'high',     // Stage 2A: 'high' | 'low' (low: no shadows, lower sharpness, fewer effects, for slow phones)
 };
 
 // Slider ranges and labels. Camera height tops out at 3.8 m: with the squeeze rise it still stays under the 4.5 m walls.
@@ -28,7 +30,7 @@ const SLIDERS = {
   camHeight: { min: 1.8, max: 3.8, step: 0.1, show: v => v.toFixed(1) + ' m' },
   camDistance: { min: 4, max: 10, step: 0.5, show: v => v.toFixed(1) + ' m' },
 };
-const CHOICES = { style: ['point', 'sliders', 'tank'], stickSide: ['left', 'right'], map: ['on', 'off'] };
+const CHOICES = { style: ['point', 'sliders', 'tank'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'] };
 const STYLE_NOTES = {
   point: 'Push the way you want to go. The tank turns to face it, then drives dead straight. Pull back to turn round.',
   sliders: 'One thumb slides up and down for speed, the other slides left and right to steer. The middle of the steering slider is dead straight.',

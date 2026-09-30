@@ -3,6 +3,7 @@
 // or reopen; plain messages for a wrong code, a full room, a quiet or departed player, and the 60-second wait.
 import { createLink, randomToken } from './net.js';
 import { startPlaying, showStart, leaveToStart, enterFullscreen, refreshScreen, device } from './screen.js';
+import { randomWeather } from './weather.js';
 
 const $ = id => document.getElementById(id);
 const WAIT = 60;                         // seconds a dropped player gets to come back
@@ -176,10 +177,13 @@ function join() {
   showJoin();
   link.join({ code, token: room.token });
 }
+// Drive alone: the weather the player picked on the panel ('random' draws one each time)
+let soloWx = 'random';
+function showSoloWx() { for (const b of document.querySelectorAll('[data-wx]')) b.setAttribute('aria-pressed', b.dataset.wx === soloWx); }
 function solo(role) {   // role: 'hunter' | 'hider', picked by the player
   if (wantFullscreen()) enterFullscreen();
   stage = 'playing';
-  game.start({ mode: 'solo', role });
+  game.start({ mode: 'solo', role, weather: soloWx === 'random' ? randomWeather() : soloWx });
   startPlaying(false);
 }
 function rejoin(r) {
@@ -300,6 +304,8 @@ export function initLobby(hooks) {
   $('solo-hunter').addEventListener('click', () => solo('hunter'));
   $('solo-hider').addEventListener('click', () => solo('hider'));
   $('solo-back').addEventListener('click', () => panel('home'));
+  for (const b of document.querySelectorAll('[data-wx]')) b.addEventListener('click', () => { soloWx = b.dataset.wx; showSoloWx(); });
+  showSoloWx();
   $('create-cancel').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
   $('join-back').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
   $('join-go').addEventListener('click', join);

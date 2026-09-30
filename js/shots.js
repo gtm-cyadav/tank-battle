@@ -4,7 +4,7 @@
 // shoot through it, and a hider parked right against the barrel is still hit. Walls never move, so the distance
 // to the wall is found once, when the bullet is fired.
 import * as THREE from '../lib/three.module.js';
-import { rayToWall, WIDTH, DEPTH } from './world.js';
+import { rayToWall, isWallAt, WIDTH, DEPTH } from './world.js';
 import { RULES } from './rules.js';
 
 const MUZZLE = 2.8;              // barrel tip, m in front of the tank's centre
@@ -32,7 +32,9 @@ export function touchesTank(tank, ax, az, bx, bz) {
   return t0;
 }
 
-export function createShots(scene) {
+// fx (Stage 2A, effects.js + sound.js): { muzzle(x, y, z, dx, dz), wallHit(x, y, z, nx, nz) } for the flash, smoke,
+// sparks and sounds. The Stage 1 grey spheres are gone.
+export function createShots(scene, fx = { muzzle() {}, wallHit() {} }) {
   const live = [];
   // what a bullet looks like: a long bright streak with an orange glow at its head, so it reads against a grey sky
   // (the first version, a small pale box, was too hard to see on a phone: Chetan, 2026-09-29)
@@ -47,17 +49,6 @@ export function createShots(scene) {
   })();
   // the glow keeps the same size on screen however far the bullet flies (about a twentieth of the screen height)
   const glowMat = new THREE.SpriteMaterial({ map: glowTex, depthWrite: false, sizeAttenuation: false });
-  const puffGeo = new THREE.SphereGeometry(1, 12, 8);
-  const puffs = [];
-
-  function puff(x, y, z, size, color, time, alpha = 0.9) {
-    const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, depthWrite: false }));
-    m.position.set(x, y, z);
-    m.scale.setScalar(size * 0.3);
-    m.userData = { age: 0, time, size, alpha };
-    scene.add(m);
-    puffs.push(m);
-  }
 
   // shot: { id, x, z, yaw } where and which way the hunter's tank was when it fired.
   // ahead: seconds the shot has already been flying (it was fired on the other phone a moment ago).
@@ -74,10 +65,7 @@ export function createShots(scene) {
     scene.add(mesh);
     const b = { ...shot, dx, dz, wall, s: 0, extra: Math.max(0, ahead) * RULES.bulletSpeed, age: 0, mesh };
     live.push(b);
-    if (ahead < 0.2 && wall > MUZZLE) {   // muzzle flash and a puff of smoke
-      puff(shot.x + dx * MUZZLE, HEIGHT, shot.z + dz * MUZZLE, 1.2, 0xffb347, 0.12);
-      puff(shot.x + dx * (MUZZLE + 0.6), HEIGHT + 0.2, shot.z + dz * (MUZZLE + 0.6), 1.2, 0x9a9e9b, 0.5, 0.35);
-    }
+    if (ahead < 0.2 && wall > MUZZLE) fx.muzzle(shot.x + dx * MUZZLE, HEIGHT, shot.z + dz * MUZZLE, dx, dz);   // flash and smoke
     return b;
   }
 
@@ -94,27 +82,20 @@ export function createShots(scene) {
       const f = target && !hit ? touchesTank(target, ax, az, bx, bz) : -1;
       if (f >= 0) {
         const at = from + (to - from) * f;
-        if (!quiet) puff(b.x + b.dx * at, HEIGHT, b.z + b.dz * at, 1.1, 0xfff1d0, 0.25);
+        if (!quiet) b.at = { x: b.x + b.dx * at, z: b.z + b.dz * at };   // where it struck (the explosion goes here)
         hit = b; remove(i); continue;
       }
       b.s = to;
       if (b.s >= b.wall - 1e-6 || b.age > LIFE) {   // reached the wall
         const wx = b.x + b.dx * (b.wall - 0.2), wz = b.z + b.dz * (b.wall - 0.2);   // just in front of the wall face
-        puff(wx, HEIGHT, wz, 1.1, 0xffc070, 0.15);
-        puff(wx, HEIGHT, wz, 1.8, 0xb8b2a4, 0.5, 0.6);   // dust
+        // which face it struck: the wall is across x if a small step along x from here lands in it
+        const sx = Math.sign(b.dx), sz = Math.sign(b.dz), acrossX = sx && isWallAt(wx + sx * 0.4, wz) && !isWallAt(wx, wz + sz * 0.4);
+        fx.wallHit(wx, HEIGHT, wz, acrossX ? -sx : 0, acrossX ? 0 : -sz || -sx);
         remove(i); continue;
       }
       const shown = Math.max(b.s, MUZZLE);
       b.mesh.position.set(b.x + b.dx * shown, HEIGHT, b.z + b.dz * shown);
       b.mesh.visible = shown < b.wall;
-    }
-    for (let i = puffs.length - 1; i >= 0; i--) {
-      const m = puffs[i], u = m.userData;
-      u.age += dt;
-      const k = u.age / u.time;
-      if (k >= 1) { scene.remove(m); m.material.dispose(); puffs.splice(i, 1); continue; }
-      m.scale.setScalar(u.size * (0.3 + 0.7 * k));
-      m.material.opacity = u.alpha * (1 - k);
     }
     return hit;
   }

@@ -38,13 +38,19 @@ THREE.ShaderChunk.fog_fragment = '#ifdef USE_FOG\n\tfloat fogFactor = smogMax * 
 THREE.Material.prototype.onBeforeCompile = function (shader) { shader.uniforms.smogCenter = center; shader.uniforms.smogMax = strength; };
 
 // sky: the arena's sky material (its horizon follows the smog colour)
-export function setSmog(scene, name, sky) {
-  const s = SMOGS[name] || SMOGS.grey;
+// s: one of SMOGS, or a weather's own smog (weather.js) { color, top, near, far, max }
+export function setSmog(scene, s, sky) {
+  if (typeof s === 'string') s = SMOGS[s] || SMOGS.grey;
   scene.fog = new THREE.Fog(s.color, s.near, s.far);
   scene.background = new THREE.Color(s.color);
   strength.value = s.max;
+  smogU.fogColor.value.setHex(s.color); smogU.fogNear.value = s.near; smogU.fogFar.value = s.far;
   if (sky) { sky.uniforms.horizon.value.setHex(s.color); sky.uniforms.top.value.setHex(s.top); }
 }
+// The same smog for hand-written shaders (lamp glows, effects, rain): add these uniforms and use SMOG_GLSL.
+export const smogU = { smogCenter: center, smogMax: strength, fogColor: { value: new THREE.Color() }, fogNear: { value: 0 }, fogFar: { value: 1 } };
+export const SMOG_GLSL = `uniform vec2 smogCenter; uniform float smogMax, fogNear, fogFar; uniform vec3 fogColor;
+  float smogAt(vec3 w) { return smogMax * smoothstep(fogNear, fogFar, length(w.xz - smogCenter)); }`;
 export const smogAt = (x, z) => center.value.set(x, z);
 
 // ---- who can see whom ------------------------------------------------------------------------------------------

@@ -14,14 +14,21 @@
 <meta name="apple-mobile-web-app-title" content="Tank Battle">
 <meta name="theme-color" content="#141816">
 <meta name="format-detection" content="telephone=no">
+<link rel="preload" href="fonts/plex-mono-500.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* IBM Plex Mono (Stage 2A, Chetan's pick): stored with the game, SIL Open Font License 1.1 */
+  @font-face { font-family: 'Plex Mono'; font-weight: 400; font-display: swap; src: url(fonts/plex-mono-400.woff2) format('woff2'); }
+  @font-face { font-family: 'Plex Mono'; font-weight: 500; font-display: swap; src: url(fonts/plex-mono-500.woff2) format('woff2'); }
+  @font-face { font-family: 'Plex Mono'; font-weight: 700; font-display: swap; src: url(fonts/plex-mono-700.woff2) format('woff2'); }
   :root {
+    --font: 'Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
     --ink: #141816; --ink-2: rgba(16, 20, 18, 0.86); --line: rgba(223, 229, 225, 0.18);
     --text: #dfe5e1; --muted: #98a39c; --hunter: #ff7a1a; --hider: #2f7bff;
     --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
     --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
   }
-  html, body { margin: 0; padding: 0; background: #a9b1b4; color: var(--text); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  html, body { margin: 0; padding: 0; background: #a9b1b4; color: var(--text); font-family: var(--font); }
+  button, input { font-family: var(--font); }
   /* exact screen height, no page scroll, no pull-to-refresh, no zoom, no text selection or tap flash */
   html, body { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden;
     overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none;
@@ -32,7 +39,7 @@
     padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 
   /* ---- in-game corner bits ---- */
-  #hud { position: fixed; z-index: 6; left: max(12px, var(--sl)); top: max(10px, var(--st)); font-size: 12px; letter-spacing: 0.04em;
+  #hud { position: fixed; z-index: 6; left: max(12px, var(--sl)); top: max(10px, var(--st)); font-size: 11px; letter-spacing: 0.02em;
     background: rgba(20, 26, 24, 0.55); padding: 5px 9px; border-radius: 4px; pointer-events: none; }
   #hud b { color: var(--hunter); font-weight: 600; }
   .touch #hud .keys { display: none; }
@@ -40,14 +47,14 @@
   #rh { position: fixed; z-index: 6; top: max(10px, var(--st)); left: 50%; transform: translateX(-50%);
     display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
   #rh .chip { display: flex; align-items: center; white-space: nowrap; background: rgba(20, 26, 24, 0.62); border: 1px solid var(--line);
-    border-radius: 999px; font: 600 11px/1 system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
-  #rh .chip > span { padding: 8px 12px; }
+    border-radius: 999px; font: 500 11px/1 var(--font); letter-spacing: 0.04em; text-transform: uppercase; }
+  #rh .chip > span { padding: 8px 10px; }
   #rh .chip > span + span { border-left: 1px solid var(--line); }
   #rh-role { color: var(--hunter); }
   [data-role="hider"] #rh-role { color: var(--hider); }
-  #rh-clock { font-size: 15px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; min-width: 2.6em; text-align: center; }
+  #rh-clock { font-size: 15px; font-weight: 700; letter-spacing: 0; min-width: 2.8em; text-align: center; }
   #rh-clock.low { color: #ffb38a; }
-  #rh-note { margin: 0; font-size: 12px; background: rgba(20, 26, 24, 0.55); padding: 5px 10px; border-radius: 4px; white-space: nowrap; }
+  #rh-note { margin: 0; font-size: 12px; background: rgba(20, 26, 24, 0.62); padding: 5px 10px; border-radius: 4px; white-space: nowrap; }
   #rh-note:empty { display: none; }
   /* hider's ping alarm (1e, Chetan: "red highlights all over to show danger"): red glow from every edge, pulsing on
      each count, a flash at "Pinged", then steady for the 4 s. The middle stays clear for driving. Strength set by main.js. */
@@ -55,7 +62,7 @@
     background: radial-gradient(ellipse at center, rgba(255, 40, 28, 0) 42%, rgba(255, 40, 28, 0.42) 78%, rgba(210, 18, 12, 0.88) 100%);
     box-shadow: inset 0 0 0 3px rgba(255, 64, 48, 0.9); }
   #alarm::after { content: ''; position: absolute; inset: 0; background: rgba(255, 36, 24, 0.32); opacity: var(--flash); }
-  #rh-note.alarm { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; color: #ff6a5a; background: rgba(40, 8, 6, 0.72);
+  #rh-note.alarm { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; color: #ff6a5a; background: rgba(40, 8, 6, 0.72);
     border: 1px solid rgba(255, 70, 55, 0.6); padding: 6px 12px; }
   #cmap.alarm { border-color: #ff4a3a; box-shadow: 0 0 0 1px #ff4a3a, 0 0 14px rgba(255, 50, 35, 0.55); }
   .corner { position: fixed; z-index: 7; top: max(10px, var(--st)); width: 40px; height: 40px; display: grid; place-items: center;
@@ -110,7 +117,7 @@
   [data-map][data-side="right"] #action { --top-limit: calc(100dvh - var(--sb) - max(10px, var(--st)) - var(--map-h) - 40px - 128px * var(--bs)); }
   [data-role="hider"] #action { --c: var(--hider); }
   #action span { width: calc(92px * var(--bs)); height: calc(92px * var(--bs)); border-radius: 50%; display: grid; place-items: center;
-    font: 700 calc(13px * var(--bs))/1 system-ui, sans-serif; letter-spacing: 0.16em; color: #fff;
+    font: 700 calc(13px * var(--bs))/1 var(--font); letter-spacing: 0.1em; color: #fff;
     background: var(--c); background: color-mix(in srgb, var(--c) 72%, transparent); border: 2px solid rgba(255, 255, 255, 0.55);
     box-shadow: 0 3px 14px rgba(0, 0, 0, 0.28); transition: transform 0.06s, background 0.06s; }
   #action.pressed span { transform: scale(0.9); background: var(--c); border-color: #fff; }
@@ -126,16 +133,19 @@
     -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(223, 229, 225, 0.25) transparent; background: rgba(20, 24, 22, 0.95); border: 1px solid var(--line); border-radius: 10px; }
   .set-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px; background: rgba(20, 24, 22, 0.98); border-bottom: 1px solid var(--line); }
-  .set-head h2 { margin: 0; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600; }
+  .set-head h2 { margin: 0; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; }
   .set-head .btn { min-width: 0; padding: 9px 18px; font-size: 14px; }
   .set-body { padding: 4px 18px 18px; }
-  .set-body h3 { margin: 18px 0 10px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--hunter); font-weight: 600; }
+  .set-body h3 { margin: 18px 0 10px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--hunter); font-weight: 700; }
   .set-row { margin-bottom: 12px; }
   .set-row .lbl { display: flex; justify-content: space-between; font-size: 13px; color: var(--text); }
   .set-row .lbl span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
   .set-row input[type="range"] { width: 100%; height: 30px; margin: 2px 0 0; accent-color: var(--hunter); touch-action: none; }
   .seg { display: flex; margin-top: 7px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-  .seg button { flex: 1; background: none; border: 0; color: var(--muted); padding: 10px 4px; font: 600 12px/1.1 system-ui, sans-serif; cursor: pointer; }
+  .seg button { flex: 1; background: none; border: 0; color: var(--muted); padding: 10px 4px; font: 500 12px/1.1 var(--font); cursor: pointer; }
+  .seg.wrap { flex-wrap: wrap; }
+  .seg.wrap button { flex: 1 0 33%; border-top: 1px solid var(--line); margin-top: -1px; }
+  .seg.wrap button:nth-child(3n + 1) { border-left: 0; }
   .seg button + button { border-left: 1px solid var(--line); }
   .seg button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .note { margin: 7px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
@@ -147,30 +157,36 @@
   #start { z-index: 10; -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
   #gear-start { right: max(12px, var(--sr)); }
   .start-grid { display: flex; gap: 40px; align-items: center; max-width: 760px; }
-  .over { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
-  h1 { margin: 0; white-space: nowrap; font-size: clamp(34px, 7vh + 12px, 52px); line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 800; }
-  .rule { width: 56px; height: 2px; background: var(--hunter); margin: 16px 0 22px; }
+  .over { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  h1 { margin: 0; white-space: nowrap; font-size: clamp(30px, 6vh + 10px, 44px); line-height: 1; letter-spacing: 0.01em; text-transform: uppercase; font-weight: 700; }
+  .rule { width: 56px; height: 2px; background: var(--hunter); margin: 14px 0 12px; }
+  .tag { margin: 0 0 18px; font-size: 13px; color: var(--muted); }
+  /* a strip of worn hazard stripes along the bottom of the start screen */
+  #start::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; opacity: 0.7;
+    background: repeating-linear-gradient(-45deg, var(--hunter) 0 9px, #1d1f1e 9px 18px); }
+  .spec { position: absolute; left: max(24px, var(--sl)); bottom: max(14px, calc(var(--sb) + 8px)); margin: 0; font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: rgba(152, 163, 156, 0.7); }
   .buttons { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-  .btn { font: 600 15px/1 system-ui, sans-serif; letter-spacing: 0.04em; color: var(--ink); background: var(--hunter);
+  .btn { font: 700 14px/1 var(--font); letter-spacing: 0.02em; color: var(--ink); background: var(--hunter);
     border: 1px solid var(--hunter); border-radius: 6px; padding: 14px 22px; min-width: 200px; cursor: pointer; }
   .btn.secondary { background: transparent; color: var(--text); border-color: var(--line); }
-  .hint { max-width: 300px; font-size: 13px; line-height: 1.5; color: var(--muted); border-left: 1px solid var(--line); padding-left: 24px; }
-  .hint h2 { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text); margin: 0 0 8px; font-weight: 600; }
+  .hint { max-width: 300px; font-size: 12px; line-height: 1.55; color: var(--muted); border-left: 1px solid var(--line); padding-left: 24px; }
+  .hint h2 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); margin: 0 0 8px; font-weight: 700; }
   .hint p { margin: 0 0 8px; }
   .hint ol { margin: 0; padding-left: 18px; }
   .hint li { margin-bottom: 4px; }
   .hint b { color: var(--text); font-weight: 600; }
-  .textlink { background: none; border: 0; padding: 8px 2px; margin-top: 2px; font: 500 14px/1 system-ui, sans-serif; color: var(--muted);
+  .textlink { background: none; border: 0; padding: 8px 2px; margin-top: 2px; font: 500 13px/1 var(--font); color: var(--muted);
     text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--line); cursor: pointer; }
   .lobby { min-width: 260px; max-width: 320px; }
-  .lobby .lbl { display: block; margin: 0 0 6px; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
-  .code { margin: 0 0 10px; font: 800 44px/1 system-ui, sans-serif; letter-spacing: 0.3em; color: var(--text); }
+  .lobby .lbl { display: block; margin: 0 0 6px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .code { margin: 0 0 10px; font: 700 42px/1 var(--font); letter-spacing: 0.18em; color: var(--text); }
   .code.pending { color: var(--muted); }
-  .say { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+  .say { margin: 0 0 12px; font-size: 12px; line-height: 1.55; color: var(--muted); }
   .say:empty { display: none; }
-  .say.big { font-size: 16px; color: var(--text); }
+  .say.big { font-size: 15px; color: var(--text); }
   .say.error { color: #ffb38a; }
-  .code-in { box-sizing: border-box; width: 200px; margin: 0 0 12px; padding: 10px 14px; font: 800 30px/1 system-ui, sans-serif; letter-spacing: 0.3em;
+  .code-in { box-sizing: border-box; width: 200px; margin: 0 0 12px; padding: 10px 14px; font: 700 30px/1 var(--font); letter-spacing: 0.2em;
     text-transform: uppercase; color: var(--text); background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); border-radius: 6px; outline: none;
     -webkit-user-select: text; user-select: text; touch-action: manipulation; }
   .code-in::placeholder { color: rgba(223, 229, 225, 0.22); }
@@ -184,7 +200,7 @@
 
   #toast { position: fixed; z-index: 8; top: max(56px, calc(var(--st) + 46px)); left: 50%; transform: translate(-50%, -8px); opacity: 0;
     max-width: calc(100vw - 48px); padding: 9px 16px; border-radius: 6px; background: rgba(20, 26, 24, 0.82); border: 1px solid var(--line);
-    font-size: 13px; letter-spacing: 0.02em; color: var(--text); white-space: nowrap; pointer-events: none; transition: opacity 0.25s, transform 0.25s; }
+    font-size: 12px; color: var(--text); white-space: nowrap; pointer-events: none; transition: opacity 0.25s, transform 0.25s; }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
   [data-match] #toast { top: max(80px, calc(var(--st) + 70px)); }
   [data-card] #toast { top: auto; bottom: max(14px, var(--sb)); transform: translate(-50%, 8px); }   /* under the round card, not over it */
@@ -200,6 +216,9 @@
   #round .card { pointer-events: auto; min-width: 280px; max-width: 380px; padding: 20px 28px; background: rgba(20, 24, 22, 0.94); }
   #round .over { margin: 0 0 8px; }
   #round .card p { margin: 0 0 6px; }
+  #round #rc-wx { margin-top: 10px; color: var(--text); font-size: 12px; }
+  #round #rc-wx:empty { display: none; }
+  #round #rc-wx::before { content: 'Weather '; color: var(--muted); }
   #round #rc-score { color: var(--text); }
   #round #rc-count { margin-top: 12px; font-variant-numeric: tabular-nums; }
   #round #rc-count:empty { display: none; }
@@ -208,13 +227,21 @@
   #rotate { z-index: 30; background: var(--ink); text-align: center; }
   #rotate svg { display: block; margin: 0 auto 22px; animation: turn 2.4s ease-in-out infinite; }
   @keyframes turn { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
-  #rotate p { margin: 0; font-size: 17px; line-height: 1.5; }
-  #rotate p + p { color: var(--muted); font-size: 15px; }
+  #rotate p { margin: 0; font-size: 16px; line-height: 1.5; }
+  #rotate p + p { color: var(--muted); font-size: 14px; }
 
   #leave { z-index: 20; background: rgba(12, 15, 14, 0.6); }
   .card { background: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 26px 28px; min-width: 260px; text-align: center; }
-  .card h2 { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
-  .card p { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .card p { margin: 0 0 20px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  /* Drive alone: buttons on the left, weather picker beside them (stacked, it didn't fit a 375 px high phone) */
+  #p-solo:not([hidden]) { display: grid; grid-template-columns: auto 210px; grid-template-areas: 'lbl lbl' 'say say' 'btn wx'; column-gap: 24px; max-width: none; }
+  #p-solo > .lbl { grid-area: lbl; } #p-solo > .say { grid-area: say; } #p-solo > .buttons { grid-area: btn; } #p-solo > .solo-wx { grid-area: wx; }
+  #p-solo .btn { min-width: 180px; }
+  .solo-wx .lbl { margin-bottom: 0; }
+  .solo-wx .seg { margin-top: 6px; }
+  /* inner panels: no tagline or build line, so everything fits a short screen */
+  #start:not([data-panel="home"]) .tag, #start:not([data-panel="home"]) .spec { display: none; }
   .card .row { display: flex; gap: 10px; justify-content: center; }
   .card .btn { min-width: 110px; }
 </style>
@@ -223,7 +250,7 @@
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 1e</span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 2A &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="rh" hidden>
   <div class="chip"><span id="rh-role">Hunter</span><span id="rh-clock">3:00</span><span id="rh-round">Round 1</span><span id="rh-score">You 0 &ndash; 0 Them</span></div>
@@ -249,9 +276,10 @@
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 1e &middot; limited view</p>
+      <p class="over">Stage 2A &middot; weather, sound, effects</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
+      <p class="tag">Two phones. One hunter. Three minutes.</p>
       <div id="p-home" class="buttons">
         <button id="create" class="btn" type="button">Create game</button>
         <button id="join" class="btn secondary" type="button">Join game</button>
@@ -260,6 +288,8 @@
       <div id="p-solo" class="lobby" hidden>
         <p class="lbl">Drive alone as</p>
         <p class="say">Practice only. No clock, no score.</p>
+        <div class="solo-wx"><span class="lbl">Weather</span>
+          <div class="seg wrap"><button type="button" data-wx="random">Random</button><button type="button" data-wx="sunny">Sunny</button><button type="button" data-wx="overcast">Overcast</button><button type="button" data-wx="dusk">Dusk</button><button type="button" data-wx="rain">Rain</button><button type="button" data-wx="fog">Fog</button></div></div>
         <div class="buttons">
           <button id="solo-hunter" class="btn" type="button">Hunter (fire)</button>
           <button id="solo-hider" class="btn secondary" type="button">Hider (sprint)</button>
@@ -307,6 +337,7 @@
       <p><b>Arrows</b> or <b>WASD</b> to drive, <b>Space</b> for the action button, <b>Enter</b> to drive alone.</p>
     </div>
   </div>
+  <p id="spec" class="spec"></p>
 </div>
 
 <div id="settings" class="overlay" hidden>
@@ -330,6 +361,12 @@
       <div class="set-row"><div class="lbl"><span>Height</span><span id="val-camHeight"></span></div><input id="set-camHeight" type="range" aria-label="Height"></div>
       <div class="set-row"><div class="lbl"><span>Distance behind</span><span id="val-camDistance"></span></div><input id="set-camDistance" type="range" aria-label="Distance behind"></div>
       <p class="note">The camera always stays below the wall tops, so nobody can see over walls.</p>
+      <h3>Sound</h3>
+      <div class="set-row"><div class="seg"><button type="button" data-set="sound" data-value="on">On</button><button type="button" data-set="sound" data-value="off">Off</button></div>
+        <p class="note">Starts after your first tap. Silent while the game is in the background. On iPhone, the ring/silent switch also mutes it.</p></div>
+      <h3>Graphics</h3>
+      <div class="set-row"><div class="seg"><button type="button" data-set="graphics" data-value="high">High</button><button type="button" data-set="graphics" data-value="low">Low</button></div>
+        <p class="note">Low: no shadows, a softer picture and fewer effects, for phones that stutter. Wall and floor detail changes the next time the game opens.</p></div>
       <h3>Corner map</h3>
       <div class="set-row"><div class="seg"><button type="button" data-set="map" data-value="on">On</button><button type="button" data-set="map" data-value="off">Off</button></div>
         <p class="note">Shows the walls and your own tank. Never the other player. While a ping is on, it shows even when switched off.</p></div>
@@ -356,6 +393,7 @@
     <p id="rc-p"></p>
     <p id="rc-score"></p>
     <p id="rc-count"></p>
+    <p id="rc-wx"></p>
     <div id="rc-buttons" class="row">
       <button id="rc-again" class="btn" type="button">Play again</button>
       <button id="rc-leave" class="btn secondary" type="button">Leave</button>
@@ -387,26 +425,31 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=1e-2",
-  "./js/camera.js": "./js/camera.js?v=1e-2",
-  "./js/cornermap.js": "./js/cornermap.js?v=1e-2",
-  "./js/input.js": "./js/input.js?v=1e-2",
-  "./js/lobby.js": "./js/lobby.js?v=1e-2",
-  "./js/main.js": "./js/main.js?v=1e-2",
-  "./js/map.js": "./js/map.js?v=1e-2",
-  "./js/net.js": "./js/net.js?v=1e-2",
-  "./js/rules.js": "./js/rules.js?v=1e-2",
-  "./js/screen.js": "./js/screen.js?v=1e-2",
-  "./js/settings.js": "./js/settings.js?v=1e-2",
-  "./js/shots.js": "./js/shots.js?v=1e-2",
-  "./js/tank.js": "./js/tank.js?v=1e-2",
-  "./js/vision.js": "./js/vision.js?v=1e-2",
-  "./js/world.js": "./js/world.js?v=1e-2",
-  "./lib/three.module.js": "./lib/three.module.js?v=1e-2",
-  "./lib/three.core.js": "./lib/three.core.js?v=1e-2"
+  "./js/arena.js": "./js/arena.js?v=2a-1",
+  "./js/camera.js": "./js/camera.js?v=2a-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=2a-1",
+  "./js/effects.js": "./js/effects.js?v=2a-1",
+  "./js/input.js": "./js/input.js?v=2a-1",
+  "./js/lamps.js": "./js/lamps.js?v=2a-1",
+  "./js/lobby.js": "./js/lobby.js?v=2a-1",
+  "./js/main.js": "./js/main.js?v=2a-1",
+  "./js/map.js": "./js/map.js?v=2a-1",
+  "./js/net.js": "./js/net.js?v=2a-1",
+  "./js/rules.js": "./js/rules.js?v=2a-1",
+  "./js/screen.js": "./js/screen.js?v=2a-1",
+  "./js/settings.js": "./js/settings.js?v=2a-1",
+  "./js/shots.js": "./js/shots.js?v=2a-1",
+  "./js/sound.js": "./js/sound.js?v=2a-1",
+  "./js/tank.js": "./js/tank.js?v=2a-1",
+  "./js/textures.js": "./js/textures.js?v=2a-1",
+  "./js/vision.js": "./js/vision.js?v=2a-1",
+  "./js/weather.js": "./js/weather.js?v=2a-1",
+  "./js/world.js": "./js/world.js?v=2a-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=2a-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=2a-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=1e-2"></script>
-<script type="module" src="./js/main.js?v=1e-2"></script>
+<script src="lib/peerjs.min.js?v=2a-1"></script>
+<script type="module" src="./js/main.js?v=2a-1"></script>
 </body>
 </html>

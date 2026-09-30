@@ -14,6 +14,8 @@
 //     centre) and gives it to the referee, which puts it in the match for both phones. After the 4 s the circle is
 //     dropped from the match on both phones.
 
+import { randomWeather } from './weather.js';
+
 export const RULES = {
   round: 180,        // s on the clock (was 120; raised with the 1.3x bigger map, Chetan, 2026-09-29)
   headStart: 20,     // s before the hunter can fire (was 15; same reason)
@@ -46,7 +48,10 @@ const other = side => side === 'host' ? 'guest' : 'host';
 //   score: { host, guest }, phase: 'toss' | 'play' | 'break' | 'over', t: seconds into this phase,
 //   result: last round's { win, how: 'hit' | 'time', left (seconds on the clock) } or null,
 //   again: { host, guest } who has tapped Play again,
-//   ping: the circle of the ping showing now { n, x, z } (centre, m), or null
+//   ping: the circle of the ping showing now { n, x, z } (centre, m), or null,
+//   wx: this round's weather (Stage 2A: drawn at random by the referee for every round, both phones use it),
+//   next: during the break, the next round's weather (shown on the card first), else null.
+//   result.at: where the hider was hit { x, z } (for the explosion on the hunter's phone), when known
 // hooks: send(msg), changed(match, before) whenever phase, round or match number change, and on start,
 //   where() this phone's tank { x, z } (the hider's phone uses it to draw the ping circle)
 export function createRules(hooks) {
@@ -78,24 +83,26 @@ export function createRules(hooks) {
   // ---- referee only -----------------------------------------------------------------------------------------
   function newMatch(mid) {
     set({ mid, round: 1, first: Math.random() < 0.5 ? 'host' : 'guest', score: { host: 0, guest: 0 },
-      phase: 'toss', t: 0, result: null, again: { host: false, guest: false }, ping: null });
+      phase: 'toss', t: 0, result: null, again: { host: false, guest: false }, ping: null, wx: randomWeather(), next: null });
     broadcast();
   }
   function startRound(n) {
-    set({ ...match, round: n, phase: 'play', t: 0, ping: null });
+    set({ ...match, round: n, phase: 'play', t: 0, ping: null, wx: match.next || match.wx, next: null });
     broadcast();
   }
-  function endRound(win, how, t) {
+  function endRound(win, how, t, at) {
     const score = { ...match.score, [win]: match.score[win] + 1 };
     const over = score[win] >= RULES.wins;
-    set({ ...match, score, phase: over ? 'over' : 'break', t: 0, result: { win, how, left: Math.max(0, RULES.round - t) }, ping: null });
+    const result = { win, how, left: Math.max(0, RULES.round - t) };
+    if (at) result.at = at;
+    set({ ...match, score, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather() });
     broadcast();
   }
   // a hit reported by the hider's phone (this one or the other): counts only in the same round, before 0:00
   function judgeHit(h) {
     if (!match || match.phase !== 'play' || h.mid !== match.mid || h.r !== match.round) return;
     if (!(h.e >= 0 && h.e < RULES.round)) return;
-    endRound(hunterSide(), 'hit', h.e);
+    endRound(hunterSide(), 'hit', h.e, Number.isFinite(h.x) && Number.isFinite(h.z) ? { x: h.x, z: h.z } : null);
   }
 
   // ---- both phones ------------------------------------------------------------------------------------------
@@ -208,10 +215,11 @@ export function createRules(hooks) {
     pause(on) { paused = on; if (!on) broadcast(); },
     tick,
     onMessage,
-    // the hider's phone saw a bullet hit its own tank, `e` seconds into the round
-    reportHit(e) {
+    // the hider's phone saw a bullet hit its own tank, `e` seconds into the round, at `at` { x, z } (optional)
+    reportHit(e, at) {
       if (!match || match.phase !== 'play' || e >= RULES.round || hunterSide() === side) return;
       const h = { t: 'h', mid: match.mid, r: match.round, e };
+      if (at) { h.x = Math.round(at.x * 100) / 100; h.z = Math.round(at.z * 100) / 100; }
       if (referee()) judgeHit(h);
       else if (!pendingHit) { pendingHit = h; hitClock = 0; hooks.send(h); }
     },

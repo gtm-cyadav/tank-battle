@@ -20,7 +20,10 @@ export function makeTank(color) {
   const add = (geo, mat, x, y, z) => {
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z);
-    m.castShadow = m.receiveShadow = true;
+    // Stage 2A: sun shadows are drawn once per weather (arena.js), so a moving tank can't throw one (it would stay
+    // behind at the spot where it was drawn). The soft contact shadow below does that job; tanks still receive shadows.
+    m.castShadow = false;
+    m.receiveShadow = true;
     g.add(m);
     return m;
   };
