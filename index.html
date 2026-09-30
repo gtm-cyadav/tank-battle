@@ -67,8 +67,11 @@
   #cmap.alarm { border-color: #ff4a3a; box-shadow: 0 0 0 1px #ff4a3a, 0 0 14px rgba(255, 50, 35, 0.55); }
   .corner { position: fixed; z-index: 7; top: max(10px, var(--st)); width: 40px; height: 40px; display: grid; place-items: center;
     padding: 0; background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
-  #gear { right: max(12px, var(--sr)); }
-  #fs-again { right: calc(max(12px, var(--sr)) + 48px); }
+  /* top-right row (1f): menu in the corner, the gear one place in, the back-to-full-screen button next to it */
+  #menu-btn { right: max(12px, var(--sr)); }
+  #gear { right: calc(max(12px, var(--sr)) + 48px); }
+  #fs-again { right: calc(max(12px, var(--sr)) + 96px); }
+  [data-menu] #menu-btn { z-index: 16; border-color: rgba(223, 229, 225, 0.5); }   /* stays tappable above the open menu, to shut it */
   #minimap { position: fixed; z-index: 6; right: max(10px, var(--sr)); top: 60px; width: 192px; height: 128px;
     border: 1px solid #3b423e; opacity: 0.85; pointer-events: none; }
   /* corner map (1e): top-left, about 150 x 100 px on an 812-wide phone; the room label sits under it */
@@ -77,7 +80,7 @@
     border: 1px solid var(--line); border-radius: 4px; pointer-events: none; }
   #cmap.pinged { border-color: #b9d2ff; }
   [data-map] #hud { top: calc(max(10px, var(--st)) + var(--map-h) + 6px); }
-  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #rh, html:not([data-state="playing"]) #gear,
+  html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #rh, html:not([data-state="playing"]) #gear, html:not([data-state="playing"]) #menu-btn,
   html:not([data-state="playing"]) #cmap, html:not([data-state="playing"]) #alarm { display: none; }
   [data-match] #hud .brand, [data-match] #hud .keys { display: none; }
 
@@ -99,7 +102,8 @@
     transform: translate(var(--x), var(--y)); transition: transform 0.18s ease-out, opacity 0.18s; }
   .pad.active { opacity: 0.95; transition: none; }
   #stick { --w: calc(160px * var(--s)); --h: var(--w); --k: calc(56px * var(--s)); }
-  [data-style="sliders"] #stick { --w: calc(76px * var(--s)); --h: calc(196px * var(--s)); --k: calc(60px * var(--s)); }
+  /* speed slider: never taller than leaves its resting top clear of the top-right buttons (1f: at 140% on a notched iPhone it reached 2 px into them) */
+  [data-style="sliders"] #stick { --w: calc(76px * var(--s)); --h: min(196px * var(--s), 100dvh - var(--sb) - 90px); --k: calc(60px * var(--s)); }
   #steer { --w: min(228px * var(--s), 50vw - 40px); --h: calc(76px * var(--s)); --k: calc(60px * var(--s)); }
   [data-side="right"] #stick, #steer { --x: calc(100vw - var(--sr) - var(--w) / 2 - 38px); }
   [data-side="right"] #steer { --x: calc(var(--sl) + var(--w) / 2 + 38px); }
@@ -221,8 +225,16 @@
   #round #rc-wx::before { content: 'Weather '; color: var(--muted); }
   #round #rc-score { color: var(--text); }
   #round #rc-count { margin-top: 12px; font-variant-numeric: tabular-nums; }
-  #round #rc-count:empty { display: none; }
+  #round #rc-count:empty, #round #rc-p:empty { display: none; }
   #round .row { margin-top: 16px; }
+
+  /* in-game menu (1f): above the round card (it can be opened between rounds), below settings, the waiting card and the leave prompt */
+  #menu { z-index: 14; background: rgba(12, 15, 14, 0.45); }
+  #menu .card { width: min(340px, 100%); box-sizing: border-box; min-width: 0; padding: 20px 24px; }
+  #menu .card p { margin-bottom: 16px; }
+  #menu .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #menu .grid .btn { min-width: 0; padding: 13px 8px; }
+  #menu-quit { grid-column: 1 / -1; }
 
   #rotate { z-index: 30; background: var(--ink); text-align: center; }
   #rotate svg { display: block; margin: 0 auto 22px; animation: turn 2.4s ease-in-out infinite; }
@@ -260,6 +272,7 @@
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#dfe5e1" stroke-width="1.8"><path d="M1 6V1h5M12 1h5v5M17 12v5h-5M6 17H1v-5"/></svg>
 </button>
 <button id="gear" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
+<button id="menu-btn" class="corner" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
 <canvas id="minimap" hidden></canvas>
 <canvas id="cmap" hidden aria-hidden="true"></canvas>
 <div id="alarm" aria-hidden="true"></div>
@@ -386,6 +399,30 @@
   </div>
 </div>
 
+<div id="menu" class="overlay" hidden>
+  <div class="card" role="dialog" aria-labelledby="menu-t">
+    <div id="menu-main">
+      <h2 id="menu-t">Menu</h2>
+      <p id="menu-p"></p>
+      <div class="grid">
+        <button id="menu-resume" class="btn" type="button">Resume</button>
+        <button id="menu-settings" class="btn secondary" type="button">Settings</button>
+        <button id="menu-surrender" class="btn secondary" type="button">Surrender</button>
+        <button id="menu-leave" class="btn secondary" type="button">Leave match</button>
+        <button id="menu-quit" class="btn secondary" type="button">Quit to menu</button>
+      </div>
+    </div>
+    <div id="menu-ask" hidden>
+      <h2 id="ask-t"></h2>
+      <p id="ask-p"></p>
+      <div class="row">
+        <button id="ask-no" class="btn" type="button">Cancel</button>
+        <button id="ask-yes" class="btn secondary" type="button"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="round" class="overlay" hidden>
   <div class="card" role="status" aria-labelledby="rc-t">
     <p id="rc-over" class="over"></p>
@@ -425,31 +462,32 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=2a-1",
-  "./js/camera.js": "./js/camera.js?v=2a-1",
-  "./js/cornermap.js": "./js/cornermap.js?v=2a-1",
-  "./js/effects.js": "./js/effects.js?v=2a-1",
-  "./js/input.js": "./js/input.js?v=2a-1",
-  "./js/lamps.js": "./js/lamps.js?v=2a-1",
-  "./js/lobby.js": "./js/lobby.js?v=2a-1",
-  "./js/main.js": "./js/main.js?v=2a-1",
-  "./js/map.js": "./js/map.js?v=2a-1",
-  "./js/net.js": "./js/net.js?v=2a-1",
-  "./js/rules.js": "./js/rules.js?v=2a-1",
-  "./js/screen.js": "./js/screen.js?v=2a-1",
-  "./js/settings.js": "./js/settings.js?v=2a-1",
-  "./js/shots.js": "./js/shots.js?v=2a-1",
-  "./js/sound.js": "./js/sound.js?v=2a-1",
-  "./js/tank.js": "./js/tank.js?v=2a-1",
-  "./js/textures.js": "./js/textures.js?v=2a-1",
-  "./js/vision.js": "./js/vision.js?v=2a-1",
-  "./js/weather.js": "./js/weather.js?v=2a-1",
-  "./js/world.js": "./js/world.js?v=2a-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=2a-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=2a-1"
+  "./js/arena.js": "./js/arena.js?v=2a-2",
+  "./js/camera.js": "./js/camera.js?v=2a-2",
+  "./js/cornermap.js": "./js/cornermap.js?v=2a-2",
+  "./js/effects.js": "./js/effects.js?v=2a-2",
+  "./js/input.js": "./js/input.js?v=2a-2",
+  "./js/lamps.js": "./js/lamps.js?v=2a-2",
+  "./js/lobby.js": "./js/lobby.js?v=2a-2",
+  "./js/main.js": "./js/main.js?v=2a-2",
+  "./js/map.js": "./js/map.js?v=2a-2",
+  "./js/menu.js": "./js/menu.js?v=2a-2",
+  "./js/net.js": "./js/net.js?v=2a-2",
+  "./js/rules.js": "./js/rules.js?v=2a-2",
+  "./js/screen.js": "./js/screen.js?v=2a-2",
+  "./js/settings.js": "./js/settings.js?v=2a-2",
+  "./js/shots.js": "./js/shots.js?v=2a-2",
+  "./js/sound.js": "./js/sound.js?v=2a-2",
+  "./js/tank.js": "./js/tank.js?v=2a-2",
+  "./js/textures.js": "./js/textures.js?v=2a-2",
+  "./js/vision.js": "./js/vision.js?v=2a-2",
+  "./js/weather.js": "./js/weather.js?v=2a-2",
+  "./js/world.js": "./js/world.js?v=2a-2",
+  "./lib/three.module.js": "./lib/three.module.js?v=2a-2",
+  "./lib/three.core.js": "./lib/three.core.js?v=2a-2"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=2a-1"></script>
-<script type="module" src="./js/main.js?v=2a-1"></script>
+<script src="lib/peerjs.min.js?v=2a-2"></script>
+<script type="module" src="./js/main.js?v=2a-2"></script>
 </body>
 </html>

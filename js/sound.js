@@ -107,20 +107,21 @@ export const byDistance = (d, far = 70, floor = 0) => Math.max(floor, Math.pow(M
 // Every frame. s = {
 //   speed (own tank, m/s), throttle (0..1), sprint (true while sprinting),
 //   other: null or { speed, dist, pan, fade } (only while the other tank is in view),
-//   rain (0/1), lamp: { d, level } nearest lamp, heart (0 = off, else 0..1 how close to 0:00), quiet (true between rounds, cards) }
+//   rain (0/1), lamp: { d, level } nearest lamp, heart (0 = off, else 0..1 how close to 0:00), quiet (true between rounds, cards),
+//   off (true on the start screen: every loop stops, e.g. after Quit to menu, 1f) }
 export function frame(s) {
   if (!ctx || ctx.state !== 'running') return;
-  const q = s.quiet ? 0.35 : 1;
+  const on = s.off ? 0 : 1, q = on * (s.quiet ? 0.35 : 1);
   const sp = Math.min(1.8, Math.abs(s.speed) / 9);
   loop('engine', (0.22 + 0.2 * sp + 0.1 * s.throttle) * q, 0.78 + 0.32 * sp);
-  loop('sprint', s.sprint ? 0.45 : 0, 1.1);
+  loop('sprint', s.sprint ? 0.45 * on : 0, 1.1);
   const o = s.other;
   // the other tank's engine: its own loop voice (a second copy of the clip, lower and further away)
-  if (o) otherEngine(0.32 * byDistance(o.dist, 40) * o.fade * q, 0.72 + 0.3 * Math.min(1.8, Math.abs(o.speed) / 9), o.pan);
+  if (o && on) otherEngine(0.32 * byDistance(o.dist, 40) * o.fade * q, 0.72 + 0.3 * Math.min(1.8, Math.abs(o.speed) / 9), o.pan);
   else otherEngine(0);
-  loop('rain', s.rain ? 0.3 : 0, 1);
-  loop('lamp', s.lamp ? 0.18 * s.lamp.level * byDistance(s.lamp.d, 14) : 0, 1);
-  loop('heartbeat', s.heart ? 0.55 + 0.35 * s.heart : 0, 1 + 0.25 * s.heart);
+  loop('rain', s.rain ? 0.3 * on : 0, 1);
+  loop('lamp', s.lamp ? 0.18 * on * s.lamp.level * byDistance(s.lamp.d, 14) : 0, 1);
+  loop('heartbeat', s.heart ? (0.55 + 0.35 * s.heart) * on : 0, 1 + 0.25 * s.heart);
 }
 let other = null;
 function otherEngine(gain, rate = 1, pan = 0) {

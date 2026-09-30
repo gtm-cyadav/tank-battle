@@ -7,6 +7,12 @@
 //     referee, which counts the hit only if it landed before the clock reached 0:00.
 //   - The hunter's phone decides when it may fire (head start, reload) and tells the other phone about each shot.
 // The clock stops while the link is down (the 60-second wait), on both phones.
+// Surrender (1f, Chetan 2026-09-30): giving up loses the whole match at once; the other player wins and the score stays
+// as it was. Only the referee ends the match, so both phones always show the same result:
+//   - the referee's own player gives up: the referee ends the match there and then and tells the other phone;
+//   - the other phone's player gives up: that phone asks the referee (asked again every 0.5 s until the referee's match
+//     shows it over) and shows nothing new until the answer arrives. Whatever reached the referee first counts: a hit
+//     or 0:00 the referee had already judged stands, and a request that arrives after the match is over is ignored.
 // Hunter ping (Stage 1e): every 45 s of round time the hunter's corner map shows, for 4 s, a rough circle the hider is
 // somewhere inside; the hider gets a 3-second countdown first and sees the same circle.
 //   - When: the round clock, which the referee owns (so never in the head start, between rounds or while paused).
@@ -46,7 +52,8 @@ const other = side => side === 'host' ? 'guest' : 'host';
 // match (the referee's copy is the real one; the other phone holds a copy):
 //   mid: match number (goes up with each Play again), round: 1-3, first: who hunted round 1 ('host' | 'guest'),
 //   score: { host, guest }, phase: 'toss' | 'play' | 'break' | 'over', t: seconds into this phase,
-//   result: last round's { win, how: 'hit' | 'time', left (seconds on the clock) } or null,
+//   result: last round's { win, how: 'hit' | 'time', left (seconds on the clock) } or null; after a surrender
+//     { win (the match winner), how: 'gaveup', by (who gave up), left },
 //   again: { host, guest } who has tapped Play again,
 //   ping: the circle of the ping showing now { n, x, z } (centre, m), or null,
 //   wx: this round's weather (Stage 2A: drawn at random by the referee for every round, both phones use it),
@@ -64,6 +71,7 @@ export function createRules(hooks) {
   let pingClock = 0, pendingHit = null, hitClock = 0;
   let againMid = 0, againClock = 0;   // other phone: tapped Play again for this match (resent until the referee has it)
   let mine = null, circleClock = 0;   // hider's phone: the circle it drew for the current ping { mid, r, n, x, z }
+  let quitMid = 0, quitClock = 0;     // other phone: asked the referee to end this match as a surrender (asked again until it's over)
 
   const referee = () => side === 'host';
   const key = m => m ? `${m.mid}/${m.round}/${m.phase}` : '';
@@ -96,6 +104,13 @@ export function createRules(hooks) {
     const result = { win, how, left: Math.max(0, RULES.round - t) };
     if (at) result.at = at;
     set({ ...match, score, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather() });
+    broadcast();
+  }
+  // `who` gives up: the other player wins the match at once; the score stays as it was (Chetan's choice, 1f)
+  function giveUp(who) {
+    if (!match || match.phase === 'over') return;
+    const left = match.phase === 'play' ? Math.max(0, RULES.round - match.t) : match.result?.left ?? RULES.round;
+    set({ ...match, phase: 'over', t: 0, result: { win: other(who), how: 'gaveup', by: who, left }, ping: null, next: null });
     broadcast();
   }
   // a hit reported by the hider's phone (this one or the other): counts only in the same round, before 0:00
@@ -153,6 +168,7 @@ export function createRules(hooks) {
     if (!match) return;
     if (!referee() && match.phase === 'over') {
       if (!paused) match.t += dt;
+      quitMid = 0;
       if (againMid === match.mid && !match.again.guest && (againClock += dt) > 1) { againClock = 0; hooks.send({ t: 'a', mid: againMid }); }
       return;
     }
@@ -161,6 +177,8 @@ export function createRules(hooks) {
       if (!paused && heard < 1.5) match.t = Math.min(match.t + dt, phaseLength(match) + (match.phase === 'play' ? RULES.grace : 0));
       if ((pingClock += dt) > 2) { pingClock = 0; hooks.send({ t: 'ping', k: performance.now() }); }
       if (pendingHit && (hitClock += dt) > 0.5) { hitClock = 0; hooks.send(pendingHit); }   // resent until the referee rules
+      if (quitMid !== match.mid) quitMid = 0;   // a Play again or new match: that surrender is done
+      else if ((quitClock += dt) > 0.5) { quitClock = 0; hooks.send({ t: 'g', mid: quitMid }); }   // asked again until the referee ends it
       if (heard < 1.5) pings(dt);
       return;
     }
@@ -182,6 +200,7 @@ export function createRules(hooks) {
     if (m.t === 'pong') { delay = delay * 0.7 + Math.min(0.3, (performance.now() - m.k) / 2000) * 0.3; return true; }
     if (m.t === 'h' && referee()) { if (match && hunterSide() === 'host') judgeHit(m); return true; }   // only the hider's phone reports hits
     if (m.t === 'a' && referee()) { playAgain('guest', m.mid); return true; }
+    if (m.t === 'g') { if (referee() && match && m.mid === match.mid) giveUp('guest'); return true; }   // the other phone gave up
     if (m.t === 'pc') { if (referee()) takeCircle(m); return true; }
     if (m.t === 'm' && !referee()) {
       heard = 0;
@@ -207,11 +226,11 @@ export function createRules(hooks) {
     RULES,
     // side: 'host' | 'guest'; saved: the match to carry on with after a refresh (or null for a new one)
     start(s, saved) {
-      side = s; paused = false; pendingHit = null; againMid = 0; delay = 0.05; heard = 0; match = null; mine = null;
+      side = s; paused = false; pendingHit = null; againMid = 0; quitMid = 0; delay = 0.05; heard = 0; match = null; mine = null;
       if (saved) set(copy(saved));
       if (referee()) { if (!match) newMatch(1); else broadcast(); }
     },
-    stop() { side = null; match = null; pendingHit = null; mine = null; },
+    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; },
     pause(on) { paused = on; if (!on) broadcast(); },
     tick,
     onMessage,
@@ -224,6 +243,15 @@ export function createRules(hooks) {
       else if (!pendingHit) { pendingHit = h; hitClock = 0; hooks.send(h); }
     },
     playAgain() { if (match) playAgain(side, match.mid); },
+    // this phone's player gives up the match (Surrender in the menu). False if there is nothing to give up.
+    giveUp() {
+      if (!match || match.phase === 'over' || quitMid === match.mid) return false;
+      if (referee()) giveUp(side);
+      else { quitMid = match.mid; quitClock = 0; hooks.send({ t: 'g', mid: quitMid }); }
+      return true;
+    },
+    // the other phone gave up and is waiting for the referee to end the match (its tank stays still meanwhile)
+    get givingUp() { return !!match && quitMid === match.mid && match.phase !== 'over'; },
     get match() { return match; },
     get side() { return side; },
     get paused() { return paused; },

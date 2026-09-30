@@ -75,6 +75,9 @@ function render() {
   $('stick-side-label').textContent = settings.style === 'sliders' ? 'Speed slider side' : 'Side';
 }
 
+let openPanel = () => {};
+export const openSettings = () => openPanel(true);   // from the in-game menu (1f)
+
 export function initSettings(onOpenChange) {
   for (const k in SLIDERS) {
     const input = $('set-' + k);
@@ -91,6 +94,7 @@ export function initSettings(onOpenChange) {
     if (on) $('settings-panel').scrollTop = 0;
     onOpenChange(on);
   };
+  openPanel = open;
   for (const g of document.querySelectorAll('.gear')) g.addEventListener('click', () => open(true));
   $('set-done').addEventListener('click', () => open(false));
   render();

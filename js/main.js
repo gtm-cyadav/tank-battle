@@ -4,7 +4,8 @@ import { buildArena, useRenderer } from './arena.js';
 import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled } from './input.js';
-import { initScreen, refreshScreen, device } from './screen.js';
+import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
+import { initMenu, closeMenu, menuFrame } from './menu.js';
 import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
 import { VERSION } from './net.js';
 import { createRules, RULES } from './rules.js';
@@ -278,7 +279,7 @@ let soloWreck = 0;         // drive alone: seconds the practice tank stays wreck
 const opposite = role => role === 'hunter' ? 'hider' : 'hunter';
 
 const myRole = () => mode === 'solo' ? soloRole : (rules.role() || (mode === 'guest' ? 'hider' : 'hunter'));
-const inPlay = () => mode === 'solo' || (rules.match?.phase === 'play' && !rules.paused);
+const inPlay = () => mode === 'solo' || (rules.match?.phase === 'play' && !rules.paused && !rules.givingUp);
 function freshRound() {
   shots.clear();
   reload = 0; meter = 1; spent = false; sprinting = false; soloWreck = 0;
@@ -295,6 +296,7 @@ function showRoles(wreckHider = false) {
 // The referee moved the match on (coin toss, new round, round over, rematch). Runs on both phones.
 function phaseChanged(m, before) {
   if (!m) return;
+  if (m.phase !== 'play') closeMenu();   // a card is coming (coin toss, round result, match over): it replaces the menu
   const fresh = m.phase === 'toss' || m.phase === 'play';
   if (before) restoring = false;
   if (fresh && !restoring) {   // back to the starting corners
@@ -421,6 +423,13 @@ function drawRound() {
       text('rc-score', score);
       text('rc-count', `Round ${m.round + 1} starts in ${Math.max(1, Math.ceil(RULES.next - m.t))} s. You ${iHunted ? 'hide' : 'hunt'}.`);
       text('rc-wx', m.next ? weatherLine(m.next) : '');
+    } else if (r?.how === 'gaveup') {   // a surrender (1f): the other player won the whole match, score as it stood
+      text('rc-over', 'Match over');
+      text('rc-t', r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.');
+      text('rc-p', '');
+      text('rc-score', score);
+      text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
+      text('rc-wx', '');
     } else {
       text('rc-over', 'Match over');
       text('rc-t', won ? 'You win the match.' : 'They win the match.');
@@ -475,6 +484,15 @@ function drawAlarm(pv) {
 }
 $('rc-leave').addEventListener('click', leaveMatch);
 
+// In-game menu (1f): Resume, Settings, Surrender / Leave match (two players) or Quit to menu (drive alone).
+initMenu({
+  solo: () => mode === 'solo',
+  over: () => rules.match?.phase === 'over',
+  canGiveUp: () => mode !== 'solo' && !!rules.match && rules.match.phase !== 'over' && !rules.givingUp,
+  giveUp: () => rules.giveUp(),
+  leave: leaveMatch,
+});
+
 initLobby({
   start: startMatch,
   end: endMatch,
@@ -528,7 +546,7 @@ function frame(dt, draw = true, clockDt = dt) {
   clearTaps();
   const before = { x: player.position.x, z: player.position.z };
   const d = steer(inp, dt);
-  if (mode !== 'solo' && rules.match?.phase !== 'play') { d.throttle = 0; d.turn = 0; }   // tanks wait between rounds
+  if (mode !== 'solo' && (rules.match?.phase !== 'play' || rules.givingUp)) { d.throttle = 0; d.turn = 0; }   // tanks wait between rounds (and after giving up)
   d.boost = sprint(inp, dt);
   driveTank(player, d, dt);
   moveOther(dt);
@@ -544,6 +562,7 @@ function frame(dt, draw = true, clockDt = dt) {
   follow(player, dt);
   sendMine(dt);
   effects(dt, clockDt);
+  menuFrame();
   if (!draw) return;
   drawRound();
   smogAt(player.position.x, player.position.z);
@@ -574,13 +593,13 @@ function effects(dt, clockDt) {
     otherSound = { speed: oSpeed, dist: Math.hypot(dx, dz), pan: side * 0.7, fade: Math.max(0, otherFade) };
   }
   const near = arena.lamps.nearest(me.x, me.z);
-  soundFrame({ speed: player.userData.speed, throttle: Math.abs(drive.throttle), sprint: sprinting, other: otherSound,
+  soundFrame({ off: !isPlaying(), speed: player.userData.speed, throttle: Math.abs(drive.throttle), sprint: sprinting, other: otherSound,
     rain: WEATHERS[weather]?.rain || 0, lamp: { d: near.d, level: arena.lamps.level }, heart: left <= 10 && left > 0 ? Math.max(0.01, (10 - left) / 10) : 0, quiet });
 }
 // a faulty lamp fizzing near you
 arena.lamps.onZap(l => {
   const d = Math.hypot(l.x - player.position.x, l.z - player.position.z);
-  if (d < 20) play('zap', 0.55 * byDistance(d, 20) * Math.max(0.3, arena.lamps.level), 0.9 + Math.random() * 0.2);
+  if (d < 20 && isPlaying()) play('zap', 0.55 * byDistance(d, 20) * Math.max(0.3, arena.lamps.level), 0.9 + Math.random() * 0.2);
 });
 // every button: a quiet click
 document.addEventListener('click', e => { if (e.target.closest('button')) play('tap', 0.5); }, { capture: true });

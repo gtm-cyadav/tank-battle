@@ -78,8 +78,9 @@ const link = createLink({
     showCard('wait');
     startCountdown($('link-count'), WAIT, () => {
       link.close();
-      if (navigator.onLine === false) endMatch('Still no signal', nobodyWon());
-      else endMatch('They did not come back', nobodyWon());
+      const why = game.over() ? 'No rematch.' : nobodyWon();   // lost on the match-over card: the result already stands
+      if (navigator.onLine === false) endMatch('Still no signal', why);
+      else endMatch('They did not come back', why);
     });
   },
   waiting() {
