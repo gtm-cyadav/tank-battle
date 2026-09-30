@@ -13,6 +13,14 @@
 //   - the other phone's player gives up: that phone asks the referee (asked again every 0.5 s until the referee's match
 //     shows it over) and shows nothing new until the answer arrives. Whatever reached the referee first counts: a hit
 //     or 0:00 the referee had already judged stands, and a request that arrives after the match is over is ignored.
+// Leader choice (Stage 3A, Chetan 2026-09-30): every match starts with the phase 'pick', before the coin toss. Each
+// player chooses a leader (1-36) or Random (0) and taps Ready. The choices stay private to the phones until the
+// referee has both: it draws any Random (one draw, anywhere in 1-36, the two players may get the same leader), puts
+// the result in the match (`lead`) and moves on to the coin toss. Both phones use `lead` and nothing else, so they
+// always agree (also after a refresh, a rejoin or Play again); nobody is told a leader was Random.
+//   - the other phone sends its choice { t: 'c', mid, s, n, ok } and resends it every 0.5 s until the referee's match
+//     shows the same Ready state; s (a rising number) puts old messages in order;
+//   - the referee's match shows only who is Ready, never who chose what.
 // Hunter ping (Stage 1e): every 45 s of round time the hunter's corner map shows, for 4 s, a rough circle the hider is
 // somewhere inside; the hider gets a 3-second countdown first and sees the same circle.
 //   - When: the round clock, which the referee owns (so never in the head start, between rounds or while paused).
@@ -38,6 +46,7 @@ export const RULES = {
   pingShow: 4,       // s the circle shows
   pingWarn: 3,       // s of countdown the hider gets first
   pingSize: 25,      // m across
+  leaders: 36,       // leaders to pick from (Stage 3A); choice 0 = Random
 };
 
 // Ping number n happens this many seconds into the round, or null if there is no such ping (after the round ends,
@@ -71,6 +80,8 @@ export function createRules(hooks) {
   let pingClock = 0, pendingHit = null, hitClock = 0;
   let againMid = 0, againClock = 0;   // other phone: tapped Play again for this match (resent until the referee has it)
   let mine = null, circleClock = 0;   // hider's phone: the circle it drew for the current ping { mid, r, n, x, z }
+  let want = { n: 0, ok: false, s: 0 }, wantClock = 0;   // this phone's choice: leader (0 = Random), Ready, message number
+  let theirs = null;                  // referee: the other phone's choice { n, ok, s } (private, never put in the match)
   let quitMid = 0, quitClock = 0;     // other phone: asked the referee to end this match as a surrender (asked again until it's over)
 
   const referee = () => side === 'host';
@@ -90,8 +101,17 @@ export function createRules(hooks) {
 
   // ---- referee only -----------------------------------------------------------------------------------------
   function newMatch(mid) {
+    theirs = null; want = { n: want.n, ok: false, s: want.s };
     set({ mid, round: 1, first: Math.random() < 0.5 ? 'host' : 'guest', score: { host: 0, guest: 0 },
-      phase: 'toss', t: 0, result: null, again: { host: false, guest: false }, ping: null, wx: randomWeather(), next: null });
+      phase: 'pick', t: 0, result: null, again: { host: false, guest: false }, ping: null, wx: randomWeather(), next: null,
+      ready: { host: false, guest: false }, lead: null });
+    broadcast();
+  }
+  // both Ready: draw any Random and go to the coin toss
+  function resolvePick() {
+    if (!match || match.phase !== 'pick' || !match.ready.host || !match.ready.guest || !theirs?.ok || !want.ok) return;
+    const draw = n => n || 1 + Math.floor(Math.random() * RULES.leaders);
+    set({ ...match, phase: 'toss', t: 0, lead: { host: draw(want.n), guest: draw(theirs.n) } });
     broadcast();
   }
   function startRound(n) {
@@ -180,6 +200,7 @@ export function createRules(hooks) {
       if (quitMid !== match.mid) quitMid = 0;   // a Play again or new match: that surrender is done
       else if ((quitClock += dt) > 0.5) { quitClock = 0; hooks.send({ t: 'g', mid: quitMid }); }   // asked again until the referee ends it
       if (heard < 1.5) pings(dt);
+      if (match.phase === 'pick' && match.ready.guest !== want.ok && (wantClock += dt) > 0.5) sendChoice();   // resent until the referee shows it
       return;
     }
     if (paused) return;
@@ -195,7 +216,18 @@ export function createRules(hooks) {
     if ((beat += dt) >= 0.5) broadcast();
   }
 
+  function sendChoice() { wantClock = 0; if (!want.s) return; hooks.send({ t: 'c', mid: match.mid, s: want.s, n: want.n, ok: want.ok }); }
+
   function onMessage(m) {
+    if (m.t === 'c') {
+      if (referee() && match?.phase === 'pick' && m.mid === match.mid && !(theirs && m.s <= theirs.s) && Number.isInteger(m.n) && m.n >= 0 && m.n <= RULES.leaders) {
+        theirs = { n: m.n, ok: !!m.ok, s: m.s };
+        match.ready.guest = theirs.ok;
+        resolvePick();
+        if (match.phase === 'pick') broadcast();
+      }
+      return true;
+    }
     if (m.t === 'ping' && referee()) { hooks.send({ t: 'pong', k: m.k }); return true; }
     if (m.t === 'pong') { delay = delay * 0.7 + Math.min(0.3, (performance.now() - m.k) / 2000) * 0.3; return true; }
     if (m.t === 'h' && referee()) { if (match && hunterSide() === 'host') judgeHit(m); return true; }   // only the hider's phone reports hits
@@ -208,6 +240,8 @@ export function createRules(hooks) {
       if (m.run) next.t += delay;   // it has moved on by the time the message lands
       if (pendingHit && (next.mid !== pendingHit.mid || next.round !== pendingHit.r || next.phase !== 'play')) pendingHit = null;
       if (next.phase === 'over' && againMid === next.mid) next.again.guest = true;   // our tap may still be on its way
+      if (next.phase === 'pick' && match && (match.mid !== next.mid || match.phase !== 'pick')) want = { ...want, ok: false };   // a new match: choose again
+      if (next.phase === 'pick' && next.ready.guest !== want.ok) wantClock = 1;   // a choice waiting for the match goes out at once
       set(next);
       return true;
     }
@@ -227,10 +261,14 @@ export function createRules(hooks) {
     // side: 'host' | 'guest'; saved: the match to carry on with after a refresh (or null for a new one)
     start(s, saved) {
       side = s; paused = false; pendingHit = null; againMid = 0; quitMid = 0; delay = 0.05; heard = 0; match = null; mine = null;
+      want = { n: 0, ok: false, s: 0 }; wantClock = 0; theirs = null;
       if (saved) set(copy(saved));
-      if (referee()) { if (!match) newMatch(1); else broadcast(); }
+      if (referee()) {
+        if (match?.phase === 'pick') match.ready.guest = false;   // its private choice was lost: it sends it again
+        if (!match) newMatch(1); else broadcast();
+      }
     },
-    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; },
+    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; theirs = null; },
     pause(on) { paused = on; if (!on) broadcast(); },
     tick,
     onMessage,
@@ -243,6 +281,18 @@ export function createRules(hooks) {
       else if (!pendingHit) { pendingHit = h; hitClock = 0; hooks.send(h); }
     },
     playAgain() { if (match) playAgain(side, match.mid); },
+    // this phone's choice of leader (n: 1-36, or 0 = Random) and whether it is Ready. Only in the pick phase.
+    choose(n, ok) {
+      if (!match && !referee()) { want = { n, ok: !!ok, s: Math.max(want.s + 1, Date.now()) }; return false; }   // asked before the referee's first message: kept, sent once the match is here
+      if (!match || match.phase !== 'pick') return false;
+      want = { n, ok: !!ok, s: Math.max(want.s + 1, Date.now()) };
+      if (referee()) { match.ready.host = want.ok; resolvePick(); if (match.phase === 'pick') broadcast(); }
+      else sendChoice();
+      return true;
+    },
+    get ready() { return match?.ready?.[side] ?? false; },
+    // the leader numbers this phone's match uses: { me, them }, or null until the coin toss
+    leaders() { return match?.lead ? { me: match.lead[side], them: match.lead[other(side)] } : null; },
     // this phone's player gives up the match (Surrender in the menu). False if there is nothing to give up.
     giveUp() {
       if (!match || match.phase === 'over' || quitMid === match.mid) return false;

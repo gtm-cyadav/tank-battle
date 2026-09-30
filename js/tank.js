@@ -72,6 +72,8 @@ export function paintTank(tank, color, wrecked = false) {
   const u = tank.userData;
   u.paint.color.setHex(wrecked ? WRECK : PAINT[color] ?? color);
   u.paint.roughness = wrecked ? 0.95 : 0.72;
+  u.wrecked = wrecked;
+  u.clothMat?.color.setHex(wrecked ? 0x4a4744 : 0xffffff);
   u.fig.color.setHex(wrecked ? 0x4a4744 : 0xffffff);
   u.figMetal.color.setHex(wrecked ? 0x4a4744 : 0xffffff);
   tank.rotation.z = wrecked ? 0.06 : 0;   // a slight lean along its length
@@ -88,7 +90,7 @@ function refreshGhosts(tank) {
   for (const g of u.ghosts) g.parent?.remove(g);
   u.ghosts = [];
   const meshes = [];
-  tank.traverse(o => { if (o.isMesh && o !== u.blob && !o.userData.ghost) meshes.push(o); });
+  tank.traverse(o => { if (o.isMesh && o !== u.blob && !o.userData.ghost && !o.userData.noGhost) meshes.push(o); });
   for (const o of meshes) {
     const g = new THREE.Mesh(o.geometry, DEPTH_ONLY);
     g.userData.ghost = true;
@@ -157,6 +159,21 @@ export function bobble(tank, dt) {
     u.float.position.y = u.floatRest.y + 0.05 * Math.sin(b.t * 1.6);
     u.float.rotation.y = 0.3 * Math.sin(b.t * 0.5);
   }
+}
+
+// The flag's cloth waves along its length, more the faster the tank goes (flag.js / models.js FLAG): it moves in the
+// tank's front-to-back direction by at most FLAG.amp, so it stays inside the tank's outline. t: seconds.
+export function waveFlag(tank, t, dt) {
+  const u = tank.userData, c = u.cloth;
+  if (!c) return;
+  const pos = c.geometry.attributes.position, base = u.clothBase, W = 1.0, amp = 0.05 + 0.07 * Math.min(1, Math.abs(u.speed) / 9);
+  for (let i = 0; i < pos.count; i++) {
+    const x = base[i * 3], y = base[i * 3 + 1], k = x / W;
+    pos.setZ(i, amp * k * (Math.sin(x * 7 - t * 7 + y * 2.5) * 0.75 + Math.sin(x * 13 - t * 11) * 0.25));
+    pos.setY(i, y - 0.05 * k * k);
+  }
+  pos.needsUpdate = true;
+  c.geometry.computeVertexNormals();
 }
 
 // Forward is +z when yaw is 0. throttle and turn are -1..1 (turn +1 = right). boost: sprint multiplier (hider).

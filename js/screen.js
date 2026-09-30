@@ -51,7 +51,7 @@ function blockBrowserGestures() {
 // ---- screens ----------------------------------------------------------------------------------------------------
 let state = 'start';   // 'start' | 'playing'
 let onChange = () => {};
-const blocked = () => state !== 'playing' || !$('rotate').hidden || !$('leave').hidden || !$('settings').hidden || !$('link').hidden || !$('round').hidden || !$('menu').hidden;
+const blocked = () => state !== 'playing' || !$('rotate').hidden || !$('leave').hidden || !$('settings').hidden || !$('link').hidden || !$('round').hidden || !$('menu').hidden || !$('pick').hidden;
 const notify = () => {
   root.dataset.state = state;
   $('fs-again').hidden = !(state === 'playing' && device.canFullscreen && !device.homeScreen && !isFullscreen());

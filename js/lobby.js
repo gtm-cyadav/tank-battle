@@ -181,11 +181,13 @@ function join() {
 // Drive alone: the weather the player picked on the panel ('random' draws one each time)
 let soloWx = 'random';
 function showSoloWx() { for (const b of document.querySelectorAll('[data-wx]')) b.setAttribute('aria-pressed', b.dataset.wx === soloWx); }
-function solo(role) {   // role: 'hunter' | 'hider', picked by the player
-  if (wantFullscreen()) enterFullscreen();
-  stage = 'playing';
-  game.start({ mode: 'solo', role, weather: soloWx === 'random' ? randomWeather() : soloWx });
-  startPlaying(false);
+function solo(role) {   // role: 'hunter' | 'hider', picked by the player; then the leader picker (Stage 3A)
+  game.pickSolo((me, other) => {
+    if (wantFullscreen()) enterFullscreen();
+    stage = 'playing';
+    game.start({ mode: 'solo', role, weather: soloWx === 'random' ? randomWeather() : soloWx, me, other });
+    startPlaying(false);
+  });
 }
 function rejoin(r) {
   room = { ...r };

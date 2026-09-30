@@ -11,6 +11,7 @@
 // per role. Nothing throws a sun shadow (see tank.js).
 import * as THREE from '../lib/three.module.js';
 import { GLTFLoader } from '../lib/loaders/GLTFLoader.js';
+import { drawFlag } from './flags.js';
 
 const V = new URL(import.meta.url).searchParams.get('v') || 'local';
 const url = name => new URL(`../models/${name}.glb?v=${V}`, import.meta.url).href;
@@ -80,13 +81,56 @@ export function setLeader(tank, n, size = 1) {
 export function clearLeader(tank) {
   const u = tank.userData;
   for (const o of u.figure) o.parent?.remove(o);
+  dropFlag(u);
   u.figure = []; u.head = u.float = null; u.leader = 0; u.leaderScene = null; u.changed = true;
+}
+
+// ---- the flag (Stage 3A): a short mast at the back of the tank with a waving cloth showing the leader's flag ------
+// The mast stands at the rear right corner and the cloth flies inwards across the deck, facing backwards (so the chaser
+// reads it). Everything stays inside the tank's outline that bullets and the sight rule use (x within +-1.525 m, not
+// further than 1.95 m behind the centre), waves included, so the flag can never show through a wall. The cloth is one of
+// the tank's own materials, so it fades and takes the smog with the rest of the tank.
+export const FLAG = { mastX: 1.42, mastZ: -1.72, mastBase: 0.95, mastTop: 2.62, w: 1.0, h: 0.667, cols: 8, rows: 3, amp: 0.12 };
+const flagTex = new Map();
+function flagTexture(n) {
+  if (!flagTex.has(n)) {
+    const c = document.createElement('canvas'); c.width = 192; c.height = 128; drawFlag(c, n);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    flagTex.set(n, t);
+  }
+  return flagTex.get(n);
+}
+function dropFlag(u) {
+  if (u.clothMat) { u.mats = u.mats.filter(m => m !== u.clothMat); u.clothMat.dispose(); }
+  u.cloth = u.clothMat = u.clothBase = null;
+}
+function attachFlag(tank, n) {
+  const u = tank.userData, F = FLAG;
+  dropFlag(u);
+  const mastGeo = new THREE.CylinderGeometry(0.028, 0.04, F.mastTop - F.mastBase, 6);
+  mastGeo.setAttribute('color', new THREE.Float32BufferAttribute(new Array(mastGeo.attributes.position.count * 3).fill(0.85), 3));
+  const mast = new THREE.Mesh(mastGeo, u.dark);
+  mast.position.set(F.mastX, (F.mastBase + F.mastTop) / 2, F.mastZ);
+  mast.receiveShadow = true;
+  const geo = new THREE.PlaneGeometry(F.w, F.h, F.cols, F.rows).translate(F.w / 2, F.h / 2, 0);
+  u.clothMat = new THREE.MeshLambertMaterial({ map: flagTexture(n), side: THREE.DoubleSide, alphaTest: 0.5 });
+  u.mats.push(u.clothMat);
+  const cloth = new THREE.Mesh(geo, u.clothMat);
+  cloth.userData.noGhost = true;   // a single sheet: no depth-only copy (it would fill in a pennant's notch)
+  cloth.position.set(F.mastX - 0.03, F.mastTop - 0.07 - F.h, F.mastZ);
+  cloth.rotation.y = Math.PI;      // faces backwards; the cloth then flies towards the middle of the tank
+  cloth.frustumCulled = false;
+  u.cloth = cloth; u.clothBase = geo.attributes.position.array.slice();
+  tank.add(mast, cloth); u.figure.push(mast, cloth);
+  if (u.fade < 1) { u.clothMat.transparent = true; u.clothMat.opacity = u.fade; }
+  if (u.wrecked) u.clothMat.color.setHex(0x4a4744);
 }
 function attachLeader(tank, n, scene) {
   const u = tank.userData;
   for (const o of u.figure) o.parent?.remove(o);
   u.figure = [];
   u.leaderScene = scene;
+  attachFlag(tank, n);
   const part = name => { const o = scene.getObjectByName(name); return o ? dress(u, o) : null; };
   const body = part('fig_body'), head = part('fig_head'), props = part('fig_props'), onBarrel = part('fig_barrel'), float = part('fig_float');
   // the figure: body and head in one group standing in the hatch, turned to face back and sized

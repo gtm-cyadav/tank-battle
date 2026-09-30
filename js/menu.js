@@ -38,7 +38,7 @@ function render() {
 }
 
 function open() {
-  if (menuOpen() || !isPlaying() || !$('rotate').hidden || !$('leave').hidden || !$('settings').hidden || !$('link').hidden) return;
+  if (menuOpen() || !isPlaying() || !$('rotate').hidden || !$('leave').hidden || !$('settings').hidden || !$('link').hidden || !$('pick').hidden) return;
   asking = null;
   render();
   $('menu').hidden = false;

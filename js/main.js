@@ -1,8 +1,10 @@
 // Tank Battle: game start-up and main loop.
 import * as THREE from '../lib/three.module.js';
 import { buildArena, useRenderer } from './arena.js';
-import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, bobble, shakeHead, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
+import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, bobble, shakeHead, waveFlag, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
 import { loadTank, applyTank, setLeader, clearLeader, READY } from './models.js';
+import { initPicker, openPicker, closePicker, pickerOpen, pickerSync, savedChoice } from './picker.js';
+import { nameOf } from './leaders.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled } from './input.js';
 import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
@@ -37,6 +39,7 @@ const fx = createEffects(scene, camera, settings.graphics);
 // phones (the referee draws it, rules.js). Drive alone: the player picks. ?weather=<name> forces one (testing only).
 const WX_TEST = new URLSearchParams(location.search).get('weather');
 let weather = null;
+let myLeader = 0, otherLeader = 0;   // the leader numbers on the two tanks (0 = none yet)
 let otherFade = 1;
 function useWeather(name) {
   if (!(name in WEATHERS)) name = DEFAULT_WEATHER;
@@ -51,7 +54,7 @@ function useWeather(name) {
 let roomCode = '';
 function showRoom() {
   const w = WEATHERS[weather] || WEATHERS[DEFAULT_WEATHER];
-  $('hud-room').textContent = [roomCode ? `Room ${roomCode}` : '', `${w.label} ${w.view} m`].filter(Boolean).join(' · ');
+  $('hud-room').textContent = [roomCode ? `Room ${roomCode}` : '', nameOf(myLeader), `${w.label} ${w.view} m`].filter(Boolean).join(' · ');
 }
 useWeather(DEFAULT_WEATHER);
 
@@ -66,30 +69,20 @@ place(player, SPAWNS[0]);
 place(other, SPAWNS[1]);
 scene.add(player, other);
 
-// Stage 2B: the Blender tank replaces the plain boxes as soon as it has loaded; each tank carries a leader's bobblehead.
-// TEMPORARY until Stage 3's picker: your leader is ?leader=N (N = the number in the brief's list) or a random one
-// (kept for this tab, so a refresh keeps it); the other phone is told it with every tank message. Drive alone: the
-// parked tank gets ?other=N or a random different one.
+// Stage 2B: the Blender tank replaces the plain boxes as soon as it has loaded; each tank carries a leader's bobblehead
+// and (Stage 3A) that leader's flag on a mast. Who wears what comes from the leader picker (picker.js): in a two-player
+// match from the referee's match (rules.js `lead`, so both phones always agree); Drive alone from the picker's choice.
+// ?leader=N and ?other=N (N = the number in the brief's list) only set what Drive alone's picker starts on, for testing.
 loadTank().then(() => { applyTank(player); applyTank(other); otherFade = -1; }).catch(e => console.warn('tank model', e));
-const pickLeader = (want, not) => {
-  const n = parseInt(want, 10);
-  if (READY.includes(n)) return n;
-  const pool = READY.filter(x => x !== not);
-  return pool[Math.floor(Math.random() * pool.length)] || READY[0];
-};
 const QS = new URLSearchParams(location.search);
-let myLeader = (() => {
-  let keep = null;
-  try { keep = sessionStorage.getItem('tb-leader'); } catch {}
-  const n = pickLeader(QS.get('leader') || keep);
-  try { sessionStorage.setItem('tb-leader', String(n)); } catch {}
-  return n;
-})();
-const soloOther = () => pickLeader(QS.get('other'), myLeader);
+const randomLeader = () => READY[Math.floor(Math.random() * READY.length)];
 // the other player's figure is drawn 1.3 m tall on this screen (Chetan, 2026-09-30), your own 1.0 m
 const wearLeader = (tank, n) => setLeader(tank, n, tank === other ? 1.3 : 1).then(() => { if (tank === other) otherFade = -1; }).catch(e => console.warn('leader model', n, e));
-wearLeader(player, myLeader);
-wearLeader(other, soloOther());
+function dressLeaders(me, them) {
+  if (me !== myLeader) { myLeader = me; if (me) wearLeader(player, me); else clearLeader(player); }
+  if (them !== otherLeader) { otherLeader = them; if (them) wearLeader(other, them); else clearLeader(other); }
+  showRoom();
+}
 
 const follow = makeChaseCamera(camera);
 onSettings(s => follow.set(s.camHeight, s.camDistance));
@@ -152,6 +145,7 @@ initSettings(refreshScreen);
 if (device.ipad) $('rotate-1').textContent = 'Turn your iPad sideways.';
 $('spec').textContent = `Build ${VERSION} · Yard 156 x 104 m · Best of 3`;
 
+let flagT = 0;   // seconds, for the flags' waving
 let taps = 0;   // action presses so far (testing only)
 
 // ---- two players (Stage 1c) ----------------------------------------------------------------------------------
@@ -160,12 +154,12 @@ let taps = 0;   // action presses so far (testing only)
 let mode = 'solo';
 let soloRole = 'hunter';
 // vis: on the hunter's phone, the hider's phone last said it may be in sight (it sends { h: 1 } and no position otherwise)
-const remote = { x: 0, z: 0, yaw: 0, speed: 0, cx: NaN, cz: NaN, at: 0, have: false, vis: false, paused: false, L: 0 };
+const remote = { x: 0, z: 0, yaw: 0, speed: 0, cx: NaN, cz: NaN, at: 0, have: false, vis: false, paused: false };
 let sendClock = 0;
 const SEND_EVERY = 0.05;   // 20 position updates a second
 
 let weatherPick = null;   // drive alone: the weather the player picked
-function startMatch({ mode: m, code, pos, match, role, weather: wx }) {
+function startMatch({ mode: m, code, pos, match, role, weather: wx, me: pickMe, other: pickOther }) {
   mode = m;
   weatherPick = wx || null;
   fx.clear(); wreck = null;
@@ -180,15 +174,18 @@ function startMatch({ mode: m, code, pos, match, role, weather: wx }) {
   else if (match?.wx) useWeather(match.wx);
   showRoom();
   $('leave-p').textContent = mode === 'solo' ? "You'll go back to the start screen." : 'The other player will be told you left.';
-  Object.assign(remote, { have: false, vis: false, paused: false, L: 0 });   // the other tank appears with its first position update
-  if (mode === 'solo') wearLeader(other, soloOther());
-  else clearLeader(other);   // no stand-in figure: the other phone's leader comes with its first message
+  Object.assign(remote, { have: false, vis: false, paused: false });   // the other tank appears with its first position update
+  // Drive alone: the picker's two choices (Random drawn now). Two players: nobody yet, the leaders come with the coin toss.
+  myLeader = otherLeader = -1;
+  if (mode === 'solo') dressLeaders(pickMe || randomLeader(), pickOther || randomLeader());
+  else dressLeaders(0, 0);
   sendClock = 0;
   if (mode === 'solo') { rules.stop(); delete root.dataset.match; }
   else { root.dataset.match = ''; restoring = !!pos; rules.start(mode, match || null); }
   showRoles(rules.match && rules.match.phase !== 'play' && rules.match.phase !== 'toss' && rules.match.result?.how === 'hit');
 }
 function endMatch() {
+  closePicker();
   mode = 'solo';
   rules.stop();
   freshRound();
@@ -201,7 +198,6 @@ function onRemote(m) {
   if (mode === 'solo' || rules.onMessage(m)) return;
   if (m.t === 'f') { incoming(m); return; }
   if (m.t !== 's') return;
-  if (m.L && m.L !== remote.L) { remote.L = m.L; wearLeader(other, m.L); }   // the other player's bobblehead (loaded ahead of sight)
   if (m.h) { remote.vis = false; return; }   // the hider's phone: the hunter can't see it (no position sent)
   if (m.k !== posKey()) return;   // sent before one phone moved on to the next round (roles may have swapped)
   const jump = !remote.have || !remote.vis;   // first news, or back in sight: put it straight there
@@ -233,9 +229,9 @@ function sendMine(dt) {
   if (sendClock < SEND_EVERY) return;
   sendClock = 0;
   // the hider: while the hunter can't see it, say so, and never where it is (brief: anti-cheat)
-  if (myRole() === 'hider' && !hunterSees()) { sendState({ t: 's', h: 1, L: myLeader }); return; }
+  if (myRole() === 'hider' && !hunterSees()) { sendState({ t: 's', h: 1 }); return; }
   const p = player.position, r = v => Math.round(v * 100) / 100;
-  const m = { t: 's', k: posKey(), x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed), L: myLeader };
+  const m = { t: 's', k: posKey(), x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed) };
   if (myRole() === 'hunter') { m.cx = r(camera.position.x); m.cz = r(camera.position.z); }   // the hider's phone judges sight from here too
   sendState(m);
 }
@@ -311,6 +307,12 @@ function showRoles(wreckHider = false) {
 function phaseChanged(m, before) {
   if (!m) return;
   if (m.phase !== 'play') closeMenu();   // a card is coming (coin toss, round result, match over): it replaces the menu
+  if (m.phase === 'pick') {   // Stage 3A: choose a leader before the coin toss (a refresh mid-pick keeps a Ready already given)
+    const ready = !!m.ready?.[rules.side];
+    openPicker({ ready });
+    if (ready) rules.choose(savedChoice().me, true);
+  } else closePicker();
+  if (m.lead) { const l = rules.leaders(); dressLeaders(l.me, l.them); }   // the same on both phones (the referee's draw)
   const fresh = m.phase === 'toss' || m.phase === 'play';
   if (before) restoring = false;
   if (fresh && !restoring) {   // back to the starting corners
@@ -415,7 +417,7 @@ function drawRound() {
   text('rh-note', m.phase === 'play' && wait > 0 ? (role === 'hunter' ? `You can fire in ${wait} s.` : `The hunter can fire in ${wait} s.`)
     : beat ? (role === 'hunter' ? 'Direct hit.' : 'You were hit.') : ping);
 
-  const card = m.phase !== 'play' && !beat;
+  const card = m.phase !== 'play' && m.phase !== 'pick' && !beat;
   blockChanged = show('round', card);
   if (blockChanged) { if (card) root.dataset.card = ''; else delete root.dataset.card; }
   if (card) {
@@ -428,6 +430,7 @@ function drawRound() {
       text('rc-over', 'Coin toss');
       text('rc-t', iHunted ? 'You hunt first.' : 'You hide first.');
       text('rc-p', iHunted ? `The other player hides. They get a ${RULES.headStart}-second head start.` : `The other player hunts. You get a ${RULES.headStart}-second head start.`);
+      text('rc-who', `You are ${nameOf(myLeader)}. The other player is ${nameOf(otherLeader)}.`);
       text('rc-score', 'Best of 3. Roles swap every round.');
       text('rc-count', `Round 1 starts in ${Math.max(1, Math.ceil(RULES.toss - m.t))} s.`);
       text('rc-wx', weatherLine(m.wx));
@@ -435,6 +438,7 @@ function drawRound() {
       text('rc-over', `Round ${m.round}`);
       text('rc-t', won ? 'You win the round.' : 'They win the round.');
       text('rc-p', how);
+      text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
       text('rc-score', score);
       text('rc-count', `Round ${m.round + 1} starts in ${Math.max(1, Math.ceil(RULES.next - m.t))} s. You ${iHunted ? 'hide' : 'hunt'}.`);
       text('rc-wx', m.next ? weatherLine(m.next) : '');
@@ -442,6 +446,7 @@ function drawRound() {
       text('rc-over', 'Match over');
       text('rc-t', r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.');
       text('rc-p', '');
+      text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
       text('rc-score', score);
       text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
       text('rc-wx', '');
@@ -449,6 +454,7 @@ function drawRound() {
       text('rc-over', 'Match over');
       text('rc-t', won ? 'You win the match.' : 'They win the match.');
       text('rc-p', `Round ${m.round}: ${how.charAt(0).toLowerCase()}${how.slice(1)}`);
+      text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
       text('rc-score', score);
       text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
       text('rc-wx', '');
@@ -508,10 +514,23 @@ initMenu({
   leave: leaveMatch,
 });
 
+// Leader picker (Stage 3A): ready(n, ok) is a two-player choice, start() begins Drive alone.
+let soloGo = null;
+initPicker({
+  ready: (n, ok) => rules.choose(n, ok),
+  leave: () => { $('leave').hidden = false; refreshScreen(); },   // the same "Leave the game?" question as a back-swipe
+  start: (me, other) => soloGo?.(me, other),
+  changed: () => refreshScreen(),
+});
+
 initLobby({
+  pickSolo(go) {   // Drive alone: choose both leaders, then go
+    soloGo = (me, them) => { closePicker(); soloGo = null; go(me, them); };
+    openPicker({ solo: true, me: parseInt(QS.get('leader'), 10), other: parseInt(QS.get('other'), 10) });
+  },
   start: startMatch,
   end: endMatch,
-  finish() { rules.stop(); shots.clear(); drawRound(); },   // the match ended early; the lobby shows why
+  finish() { closePicker(); rules.stop(); shots.clear(); drawRound(); },   // the match ended early; the lobby shows why
   remote: onRemote,
   paused(on) { remote.paused = on; if (on) remote.speed = 0; rules.pause(on); },
   pos: () => ({ x: player.position.x, z: player.position.z, yaw: player.rotation.y }),
@@ -575,6 +594,8 @@ function frame(dt, draw = true, clockDt = dt) {
   rules.tick(clockDt);
   settleBarrel(player, dt); settleBarrel(other, dt);
   bobble(player, dt); if (other.visible) bobble(other, dt);
+  flagT += dt; waveFlag(player, flagT); if (other.visible) waveFlag(other, flagT);
+  if (mode !== 'solo' && rules.match?.phase === 'pick') pickerSync(!!rules.match.ready?.[rules.side === 'host' ? 'guest' : 'host']);
   follow(player, dt);
   sendMine(dt);
   effects(dt, clockDt);
@@ -583,7 +604,7 @@ function frame(dt, draw = true, clockDt = dt) {
   drawRound();
   smogAt(player.position.x, player.position.z);
   fx.applyShake(dt);   // turns the camera a touch (never moves it, so it can't peek round a wall)
-  renderer.render(scene, camera);
+  if (!pickerOpen()) renderer.render(scene, camera);   // the picker covers the whole screen: don't draw behind it
   drawMap();
   drawMinimap();
 }
@@ -628,7 +649,7 @@ renderer.setAnimationLoop(now => {
   frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { THREE, scene, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+window.__tb = { THREE, scene, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },
