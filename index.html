@@ -262,7 +262,7 @@
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 2A &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 2B &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="rh" hidden>
   <div class="chip"><span id="rh-role">Hunter</span><span id="rh-clock">3:00</span><span id="rh-round">Round 1</span><span id="rh-score">You 0 &ndash; 0 Them</span></div>
@@ -289,7 +289,7 @@
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 2A &middot; weather, sound, effects</p>
+      <p class="over">Stage 2B &middot; tanks and leaders</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
       <p class="tag">Two phones. One hunter. Three minutes.</p>
@@ -462,32 +462,37 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=2a-2",
-  "./js/camera.js": "./js/camera.js?v=2a-2",
-  "./js/cornermap.js": "./js/cornermap.js?v=2a-2",
-  "./js/effects.js": "./js/effects.js?v=2a-2",
-  "./js/input.js": "./js/input.js?v=2a-2",
-  "./js/lamps.js": "./js/lamps.js?v=2a-2",
-  "./js/lobby.js": "./js/lobby.js?v=2a-2",
-  "./js/main.js": "./js/main.js?v=2a-2",
-  "./js/map.js": "./js/map.js?v=2a-2",
-  "./js/menu.js": "./js/menu.js?v=2a-2",
-  "./js/net.js": "./js/net.js?v=2a-2",
-  "./js/rules.js": "./js/rules.js?v=2a-2",
-  "./js/screen.js": "./js/screen.js?v=2a-2",
-  "./js/settings.js": "./js/settings.js?v=2a-2",
-  "./js/shots.js": "./js/shots.js?v=2a-2",
-  "./js/sound.js": "./js/sound.js?v=2a-2",
-  "./js/tank.js": "./js/tank.js?v=2a-2",
-  "./js/textures.js": "./js/textures.js?v=2a-2",
-  "./js/vision.js": "./js/vision.js?v=2a-2",
-  "./js/weather.js": "./js/weather.js?v=2a-2",
-  "./js/world.js": "./js/world.js?v=2a-2",
-  "./lib/three.module.js": "./lib/three.module.js?v=2a-2",
-  "./lib/three.core.js": "./lib/three.core.js?v=2a-2"
+  "./js/arena.js": "./js/arena.js?v=2b-1",
+  "./js/camera.js": "./js/camera.js?v=2b-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=2b-1",
+  "./js/effects.js": "./js/effects.js?v=2b-1",
+  "./js/input.js": "./js/input.js?v=2b-1",
+  "./js/lamps.js": "./js/lamps.js?v=2b-1",
+  "./js/lobby.js": "./js/lobby.js?v=2b-1",
+  "./js/main.js": "./js/main.js?v=2b-1",
+  "./js/map.js": "./js/map.js?v=2b-1",
+  "./js/menu.js": "./js/menu.js?v=2b-1",
+  "./js/models.js": "./js/models.js?v=2b-1",
+  "./js/net.js": "./js/net.js?v=2b-1",
+  "./js/rules.js": "./js/rules.js?v=2b-1",
+  "./js/screen.js": "./js/screen.js?v=2b-1",
+  "./js/settings.js": "./js/settings.js?v=2b-1",
+  "./js/shots.js": "./js/shots.js?v=2b-1",
+  "./js/sound.js": "./js/sound.js?v=2b-1",
+  "./js/tank.js": "./js/tank.js?v=2b-1",
+  "./js/textures.js": "./js/textures.js?v=2b-1",
+  "./js/vision.js": "./js/vision.js?v=2b-1",
+  "./js/weather.js": "./js/weather.js?v=2b-1",
+  "./js/world.js": "./js/world.js?v=2b-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=2b-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=2b-1",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=2b-1",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=2b-1",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=2b-1",
+  "three": "./lib/three.module.js?v=2b-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=2a-2"></script>
-<script type="module" src="./js/main.js?v=2a-2"></script>
+<script src="lib/peerjs.min.js?v=2b-1"></script>
+<script type="module" src="./js/main.js?v=2b-1"></script>
 </body>
 </html>

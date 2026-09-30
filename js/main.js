@@ -1,7 +1,8 @@
 // Tank Battle: game start-up and main loop.
 import * as THREE from '../lib/three.module.js';
 import { buildArena, useRenderer } from './arena.js';
-import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
+import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, bobble, shakeHead, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
+import { loadTank, applyTank, setLeader, clearLeader, READY } from './models.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled } from './input.js';
 import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
@@ -64,6 +65,31 @@ const other = makeTank(COLORS.hider);   // the other player's tank (parked, when
 place(player, SPAWNS[0]);
 place(other, SPAWNS[1]);
 scene.add(player, other);
+
+// Stage 2B: the Blender tank replaces the plain boxes as soon as it has loaded; each tank carries a leader's bobblehead.
+// TEMPORARY until Stage 3's picker: your leader is ?leader=N (N = the number in the brief's list) or a random one
+// (kept for this tab, so a refresh keeps it); the other phone is told it with every tank message. Drive alone: the
+// parked tank gets ?other=N or a random different one.
+loadTank().then(() => { applyTank(player); applyTank(other); otherFade = -1; }).catch(e => console.warn('tank model', e));
+const pickLeader = (want, not) => {
+  const n = parseInt(want, 10);
+  if (READY.includes(n)) return n;
+  const pool = READY.filter(x => x !== not);
+  return pool[Math.floor(Math.random() * pool.length)] || READY[0];
+};
+const QS = new URLSearchParams(location.search);
+let myLeader = (() => {
+  let keep = null;
+  try { keep = sessionStorage.getItem('tb-leader'); } catch {}
+  const n = pickLeader(QS.get('leader') || keep);
+  try { sessionStorage.setItem('tb-leader', String(n)); } catch {}
+  return n;
+})();
+const soloOther = () => pickLeader(QS.get('other'), myLeader);
+// the other player's figure is drawn 1.3 m tall on this screen (Chetan, 2026-09-30), your own 1.0 m
+const wearLeader = (tank, n) => setLeader(tank, n, tank === other ? 1.3 : 1).then(() => { if (tank === other) otherFade = -1; }).catch(e => console.warn('leader model', n, e));
+wearLeader(player, myLeader);
+wearLeader(other, soloOther());
 
 const follow = makeChaseCamera(camera);
 onSettings(s => follow.set(s.camHeight, s.camDistance));
@@ -134,7 +160,7 @@ let taps = 0;   // action presses so far (testing only)
 let mode = 'solo';
 let soloRole = 'hunter';
 // vis: on the hunter's phone, the hider's phone last said it may be in sight (it sends { h: 1 } and no position otherwise)
-const remote = { x: 0, z: 0, yaw: 0, speed: 0, cx: NaN, cz: NaN, at: 0, have: false, vis: false, paused: false };
+const remote = { x: 0, z: 0, yaw: 0, speed: 0, cx: NaN, cz: NaN, at: 0, have: false, vis: false, paused: false, L: 0 };
 let sendClock = 0;
 const SEND_EVERY = 0.05;   // 20 position updates a second
 
@@ -154,7 +180,9 @@ function startMatch({ mode: m, code, pos, match, role, weather: wx }) {
   else if (match?.wx) useWeather(match.wx);
   showRoom();
   $('leave-p').textContent = mode === 'solo' ? "You'll go back to the start screen." : 'The other player will be told you left.';
-  Object.assign(remote, { have: false, vis: false, paused: false });   // the other tank appears with its first position update
+  Object.assign(remote, { have: false, vis: false, paused: false, L: 0 });   // the other tank appears with its first position update
+  if (mode === 'solo') wearLeader(other, soloOther());
+  else clearLeader(other);   // no stand-in figure: the other phone's leader comes with its first message
   sendClock = 0;
   if (mode === 'solo') { rules.stop(); delete root.dataset.match; }
   else { root.dataset.match = ''; restoring = !!pos; rules.start(mode, match || null); }
@@ -173,6 +201,7 @@ function onRemote(m) {
   if (mode === 'solo' || rules.onMessage(m)) return;
   if (m.t === 'f') { incoming(m); return; }
   if (m.t !== 's') return;
+  if (m.L && m.L !== remote.L) { remote.L = m.L; wearLeader(other, m.L); }   // the other player's bobblehead (loaded ahead of sight)
   if (m.h) { remote.vis = false; return; }   // the hider's phone: the hunter can't see it (no position sent)
   if (m.k !== posKey()) return;   // sent before one phone moved on to the next round (roles may have swapped)
   const jump = !remote.have || !remote.vis;   // first news, or back in sight: put it straight there
@@ -204,9 +233,9 @@ function sendMine(dt) {
   if (sendClock < SEND_EVERY) return;
   sendClock = 0;
   // the hider: while the hunter can't see it, say so, and never where it is (brief: anti-cheat)
-  if (myRole() === 'hider' && !hunterSees()) { sendState({ t: 's', h: 1 }); return; }
+  if (myRole() === 'hider' && !hunterSees()) { sendState({ t: 's', h: 1, L: myLeader }); return; }
   const p = player.position, r = v => Math.round(v * 100) / 100;
-  const m = { t: 's', k: posKey(), x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed) };
+  const m = { t: 's', k: posKey(), x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed), L: myLeader };
   if (myRole() === 'hunter') { m.cx = r(camera.position.x); m.cz = r(camera.position.z); }   // the hider's phone judges sight from here too
   sendState(m);
 }
@@ -231,29 +260,14 @@ function sight() {
   else show = remote.have && remote.vis && performance.now() - remote.at < 1500;
   const f = !hunter ? 1 : show ? fade(Math.hypot(other.position.x - player.position.x, other.position.z - player.position.z)) : 0;
   other.visible = show && f > 0;
-  if (f !== otherFade) { otherFade = f; setFade(f); }
+  if (f !== otherFade || other.userData.changed) { otherFade = f; setFade(other, f); }
 }
-// Fading: the tank turns see-through as one solid shape. A depth-only copy of each part is drawn first (after the
-// walls), so only the tank's front surface shows, never its inside parts through each other.
-const DEPTH_ONLY = new THREE.MeshBasicMaterial({ colorWrite: false });
-const ghosts = other.children.filter(o => o.isMesh && o !== other.userData.blob).map(o => {
-  const g = new THREE.Mesh(o.geometry, DEPTH_ONLY);
-  g.renderOrder = 1; g.visible = false;
-  o.add(g);
-  return g;
-});
-function setFade(f) {
-  const u = other.userData, see = f < 1;
-  for (const m of [u.paint, u.dark]) { m.opacity = f; if (m.transparent !== see) { m.transparent = see; m.needsUpdate = true; } }
-  for (const g of ghosts) g.visible = see;
-  u.blob.material.opacity = 0.35 * f;
-}
+// Fading (tank.js setFade): the whole tank, figure and props turn see-through as one solid shape.
 // On the hunter's screen the hider's tank fades out at the edge of the view. On the hider's screen the hunter's tank never fades in the smog.
 function dressOther(asHider) {
-  const u = other.userData;
-  for (const m of [u.paint, u.dark, u.blob.material]) if (m.fog !== asHider) { m.fog = asHider; m.needsUpdate = true; }
+  setFog(other, asHider);
   // (no tank throws a sun shadow since Stage 2A, see tank.js, so the hider's shadow can't give it away either)
-  otherFade = 1; setFade(1);
+  otherFade = 1; setFade(other, 1);
 }
 
 // ---- the rules: roles, firing, sprint, rounds (Stage 1d) -----------------------------------------------------
@@ -320,6 +334,7 @@ function phaseChanged(m, before) {
 // The hider's tank blowing up at `at` { x, z }. mine: it's this phone's own tank.
 function boom(at, mine) {
   wreck = at;
+  shakeHead(myRole() === 'hider' || mode === 'solo' && soloRole === 'hider' ? player : other, 1);
   fx.explosion(at.x, at.z);
   const d = Math.hypot(at.x - player.position.x, at.z - player.position.z);
   fx.kick(mine ? 1.1 : 0.9 * byDistance(d, 60, 0.15));
@@ -559,6 +574,7 @@ function frame(dt, draw = true, clockDt = dt) {
   if (soloWreck > 0 && (soloWreck -= dt) <= 0) { paintTank(other, COLORS.hider); wreck = null; }
   rules.tick(clockDt);
   settleBarrel(player, dt); settleBarrel(other, dt);
+  bobble(player, dt); if (other.visible) bobble(other, dt);
   follow(player, dt);
   sendMine(dt);
   effects(dt, clockDt);
@@ -612,7 +628,7 @@ renderer.setAnimationLoop(now => {
   frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { THREE, scene, camera, renderer, player, other, place, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+window.__tb = { THREE, scene, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },

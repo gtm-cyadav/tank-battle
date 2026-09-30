@@ -1,3 +1,6 @@
 PROJECT.md
 tools/
 .claude/
+models/*.blend
+models/*.blend1
+models/work/
