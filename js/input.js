@@ -152,5 +152,7 @@ export function readInput() {
   return input;
 }
 
+export const inputEnabled = () => enabled;   // the poke (main.js) only listens while the controls are live
+
 // Call once per frame after the game has used actionTaps.
 export function clearTaps() { input.actionTaps = 0; }

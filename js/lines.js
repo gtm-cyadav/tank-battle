@@ -239,3 +239,70 @@ export function quoteFor(result, lead) {
   const text = surviveLine(who);
   return text && { who, tag: 'Survived', text, kind: 'survive' };
 }
+
+// ---- Stage 4A (Chetan, 2026-10-01): the easter-egg texts ---------------------------------------------------------
+// BUMP: what each leader says when the two tanks stay touching (one line each). Cleopatra's and Genghis Khan's are Chetan's
+// own, kept exactly as written. The rest are in the brief (section 16) with their approval status.
+export const BUMP = [null,
+  'Sorry. The map was upside down.',
+  'Mind the teacup, old chap.',
+  'I am not blocking you. I am stalling.',
+  'Mind the chin.',
+  'That bump is off the record.',
+  'Nobody bumps better. Believe me.',
+  'Not a collision. A special parking exercise.',
+  'Careful. I only own the one hoodie.',
+  'No bump occurred. Inspectors may leave.',
+  'My hair took no damage. The newspaper says so.',
+  'I am not short. You are simply too close.',
+  'Careful who stands this close to a Caesar.',
+  'Bump detected. Premium bumps cost extra.',
+  'Mind the penguin. He has medals.',
+  'I predicted this bump. It was not avoided.',
+  'Do not turn your back. Or your turret.',
+  'Watch the eyeliner',
+  "Move, I'm conquering",
+  'I am sorry. Peace be with your bumper.',
+  'Please wait. The speech is not over.',
+  'Howzat! Was that a no-ball?',
+  'Careful. The honey pot is delicate.',
+  'Even Persia gave way. Please give way.',
+  'Mind the elephant. He bumps back.',
+  'Longship bumper. Very sturdy. Sorry.',
+  'Mind the tea set. Then mind your manners.',
+  'My moustache took the hit. It is fine.',
+  'God never said anything about bumping.',
+  'Watch the hair. And the wheels.',
+  'Shield up. Bump absorbed.',
+  'We are not amused by this bump.',
+  'Mind the cigar. It survived worse.',
+  'A bump! Is anyone hurt? I have a bag.',
+  'Hungry and bumping. Bad combination.',
+  'Found you. Wait, you found me.',
+  'Birbal, explain this bump.',
+];
+export const bumpLine = n => BUMP[n] || null;
+// What the bubble shows when the tanks bump: the hunter's leader first, then the hider's (the same order on both phones).
+// lead: { host, guest } leader numbers; hunter: 'host' | 'guest'.
+export function bumpPair(lead, hunter) {
+  if (!lead || !hunter) return null;
+  const a = lead[hunter], b = lead[hunter === 'host' ? 'guest' : 'host'];
+  if (!BUMP[a] || !BUMP[b]) return null;
+  return [{ who: a, text: BUMP[a] }, { who: b, text: BUMP[b] }];
+}
+// Bobblehead poke: a random line from your own leader, from the lines they already say (watching, taunt, survival, single,
+// bump). No new text; the choice is local to the phone that was tapped.
+export function pokeLines(n) {
+  if (!TAUNT[n]) return [];
+  const all = [...(WATCH[n] || []), TAUNT[n], SURVIVE[n], SINGLE[n], BUMP[n]].filter(Boolean);
+  return [...new Set(all)];
+}
+export function pokeLine(n, last, rand = Math.random) {
+  const pool = pokeLines(n);
+  if (!pool.length) return null;
+  const fresh = pool.filter(t => t !== last);
+  return (fresh.length ? fresh : pool)[Math.floor(rand() * (fresh.length || pool.length))];
+}
+export const CLUCK = 'Cluck.';
+export const SORRY = 'Sorry!';
+export const REMATCH = 'Best of 3? Make it 5.';

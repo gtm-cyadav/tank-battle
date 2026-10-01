@@ -29,6 +29,7 @@
 //     dropped from the match on both phones.
 
 import { randomWeather } from './weather.js';
+import { shotEffects, badgesOf } from './eggs.js';
 
 export const RULES = {
   round: 180,        // s on the clock (was 120; raised with the 1.3x bigger map, Chetan, 2026-09-29)
@@ -49,7 +50,22 @@ export const RULES = {
   pingWarn: 3,       // s of countdown the hider gets first
   pingSize: 25,      // m across
   leaders: 36,       // leaders to pick from (Stage 3A); choice 0 = Random
+  speedrun: 20,      // s of hunting time (after the head start) a hit must come inside to earn the Speedrun badge (Stage 4A)
+  bumpHold: 0.25,    // s the two tanks must stay touching before it counts as a bump (Stage 4A)
+  bumpGap: 20,       // s of round time between two bump lines
+  bumpMax: 3,        // bump lines in one round, at most
 };
+
+// What the match carries for the easter eggs (Stage 4A). All of it is decided by the referee phone alone and read by both,
+// so a refresh, a rejoin or a role swap can never replay or change anything:
+//   gold      the hunter's shot stopped against the chicken's block this round (the tank trim is gold until the next round)
+//   silver    the hider's tank drove up to the chicken this round (the hider's trim is silver until the next round)
+//   bump      how many bump lines have been spoken this round; bumpAt: round clock when the last one was
+//   sorry     1 once a shot has passed the tourist this round
+//   seen      the hider's phone said, at some moment of this round, that the hunter may have seen it (for the Ghost badge)
+//   lastShot  round clock when the hunter's last shot left the gun (-1 = none; for the Cinematic escape badge)
+const EGG0 = { gold: false, silver: false, bump: 0, bumpAt: -99, sorry: 0, seen: false, lastShot: -1 };
+const eggKey = m => m ? `${m.mid}/${m.round}/${m.gold ? 1 : 0}${m.silver ? 1 : 0}/${m.bump | 0}/${m.sorry | 0}` : '';
 
 // Ping number n happens this many seconds into the round, or null if there is no such ping (after the round ends,
 // or inside the head start).
@@ -85,6 +101,9 @@ export function createRules(hooks) {
   let want = { n: 0, ok: false, s: 0 }, wantClock = 0;   // this phone's choice: leader (0 = Random), Ready, message number
   let theirs = null;                  // referee: the other phone's choice { n, ok, s } (private, never put in the match)
   let quitMid = 0, quitClock = 0;     // other phone: asked the referee to end this match as a surrender (asked again until it's over)
+  let due = [];                       // referee: eggs waiting for a bullet to arrive { at (round clock), k: 'gold' | 'sorry' }
+  let honkSent = null;                // hider's phone (not the referee): told the referee it drove up to the chicken { mid, r, clock }
+  let seenSent = null;                // hider's phone (not the referee): told the referee the hunter may have seen it { mid, r, clock }
 
   const referee = () => side === 'host';
   const key = m => m ? `${m.mid}/${m.round}/${m.phase}` : '';
@@ -95,6 +114,7 @@ export function createRules(hooks) {
     const before = match;
     match = next;
     if (key(before) !== key(match)) hooks.changed(match, before);
+    if (eggKey(before) !== eggKey(match)) hooks.eggs?.(match, before);
   }
   function broadcast() {
     beat = 0;
@@ -106,7 +126,8 @@ export function createRules(hooks) {
     theirs = null; want = { n: want.n, ok: false, s: want.s };
     set({ mid, round: 1, first: Math.random() < 0.5 ? 'host' : 'guest', score: { host: 0, guest: 0 },
       phase: 'pick', t: 0, result: null, again: { host: false, guest: false }, ping: null, wx: randomWeather(), next: null,
-      ready: { host: false, guest: false }, lead: null });
+      ready: { host: false, guest: false }, lead: null, ...EGG0 });
+    due = [];
     broadcast();
   }
   // both Ready: draw any Random and go to the coin toss
@@ -117,7 +138,8 @@ export function createRules(hooks) {
     broadcast();
   }
   function startRound(n) {
-    set({ ...match, round: n, phase: 'play', t: 0, ping: null, wx: match.next || match.wx, next: null });
+    due = [];
+    set({ ...match, round: n, phase: 'play', t: 0, ping: null, wx: match.next || match.wx, next: null, ...EGG0 });
     broadcast();
   }
   function endRound(win, how, t, at) {
@@ -125,6 +147,9 @@ export function createRules(hooks) {
     const over = score[win] >= RULES.wins;
     const result = { win, how, left: Math.max(0, RULES.round - t) };
     if (at) result.at = at;
+    const badges = badgesOf(how, result.left, !!match.seen, match.lastShot ?? -1, RULES);   // written once, here, so both phones read the same
+    if (badges.length) result.badges = badges;
+    due = [];
     set({ ...match, score, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather() });
     broadcast();
   }
@@ -132,6 +157,7 @@ export function createRules(hooks) {
   function giveUp(who) {
     if (!match || match.phase === 'over') return;
     const left = match.phase === 'play' ? Math.max(0, RULES.round - match.t) : match.result?.left ?? RULES.round;
+    due = [];
     set({ ...match, phase: 'over', t: 0, result: { win: other(who), how: 'gaveup', by: who, left }, ping: null, next: null });
     broadcast();
   }
@@ -140,6 +166,48 @@ export function createRules(hooks) {
     if (!match || match.phase !== 'play' || h.mid !== match.mid || h.r !== match.round) return;
     if (!(h.e >= 0 && h.e < RULES.round)) return;
     endRound(hunterSide(), 'hit', h.e, Number.isFinite(h.x) && Number.isFinite(h.z) ? { x: h.x, z: h.z } : null);
+  }
+
+  // ---- easter eggs (Stage 4A, referee only) ------------------------------------------------------------------
+  // A shot of the hunter's, from this phone or the other: where its bullet ends and whether it passes the tourist are fixed
+  // by the shot and the clock, so they are worked out here once and put in the match for both phones.
+  function noteShot(f) {
+    if (!match || match.phase !== 'play' || paused || f.mid !== match.mid || f.r !== match.round) return;
+    if (![f.x, f.z, f.y, f.e].every(Number.isFinite) || !(f.e >= RULES.headStart && f.e < RULES.round)) return;
+    match.lastShot = Math.max(match.lastShot ?? -1, f.e);
+    const fx = shotEffects({ x: f.x, z: f.z, yaw: f.y }, f.e, match.mid, match.round, RULES.bulletSpeed);
+    if (fx.chicken && !match.gold && !due.some(d => d.k === 'gold')) due.push({ at: Math.max(fx.arrive, match.t), k: 'gold' });
+    if (fx.sorry !== null && !match.sorry && !due.some(d => d.k === 'sorry')) due.push({ at: Math.max(fx.sorry, match.t), k: 'sorry' });
+  }
+  function dueEggs() {
+    if (!due.length || match.phase !== 'play') return;
+    const now = due.filter(d => d.at <= match.t);
+    if (!now.length) return;
+    due = due.filter(d => d.at > match.t);
+    const next = { ...match };
+    for (const d of now) { if (d.k === 'gold') next.gold = true; else next.sorry = 1; }
+    set(next);
+    broadcast();
+  }
+  // the two tanks have stayed touching: a bump line, if the gap since the last one and the round's limit allow
+  function noteBump() {
+    if (!match || match.phase !== 'play' || paused || (match.bump | 0) >= RULES.bumpMax || match.t - (match.bumpAt ?? -99) < RULES.bumpGap) return false;
+    set({ ...match, bump: (match.bump | 0) + 1, bumpAt: match.t });
+    broadcast();
+    return true;
+  }
+  // the hider's phone: the hunter may have seen it. The referee notes it; the other phone tells the referee until it shows.
+  function noteSeen() {
+    if (!match || match.phase !== 'play' || hunterSide() === side || match.seen) return;
+    if (referee()) { set({ ...match, seen: true }); broadcast(); }
+    else if (!seenSent || seenSent.mid !== match.mid || seenSent.r !== match.round) { seenSent = { mid: match.mid, r: match.round, clock: 0 }; hooks.send({ t: 'sn', mid: match.mid, r: match.round }); }
+  }
+
+  // the hider's phone: it drove up to the chicken (it alone knows exactly where it is). The referee notes it; the other phone tells it until it shows.
+  function noteHonk() {
+    if (!match || match.phase !== 'play' || paused || hunterSide() === side || match.silver) return;
+    if (referee()) { set({ ...match, silver: true }); broadcast(); }
+    else if (!honkSent || honkSent.mid !== match.mid || honkSent.r !== match.round) { honkSent = { mid: match.mid, r: match.round, clock: 0 }; hooks.send({ t: 'hn', mid: match.mid, r: match.round }); }
   }
 
   // ---- both phones ------------------------------------------------------------------------------------------
@@ -202,6 +270,8 @@ export function createRules(hooks) {
       if (quitMid !== match.mid) quitMid = 0;   // a Play again or new match: that surrender is done
       else if ((quitClock += dt) > 0.5) { quitClock = 0; hooks.send({ t: 'g', mid: quitMid }); }   // asked again until the referee ends it
       if (heard < 1.5) pings(dt);
+      if (honkSent && !match.silver && match.phase === 'play' && honkSent.mid === match.mid && honkSent.r === match.round && (honkSent.clock += dt) > 0.5) { honkSent.clock = 0; hooks.send({ t: 'hn', mid: honkSent.mid, r: honkSent.r }); }
+      if (seenSent && !match.seen && match.phase === 'play' && seenSent.mid === match.mid && seenSent.r === match.round && (seenSent.clock += dt) > 0.5) { seenSent.clock = 0; hooks.send({ t: 'sn', mid: seenSent.mid, r: seenSent.r }); }
       if (match.phase === 'pick' && match.ready.guest !== want.ok && (wantClock += dt) > 0.5) sendChoice();   // resent until the referee shows it
       return;
     }
@@ -215,6 +285,7 @@ export function createRules(hooks) {
       if (hiderHere || match.t >= RULES.round + RULES.grace) endRound(other(hunterSide()), 'time', RULES.round);
     }
     pings(dt);
+    dueEggs();
     if ((beat += dt) >= 0.5) broadcast();
   }
 
@@ -236,6 +307,9 @@ export function createRules(hooks) {
     if (m.t === 'a' && referee()) { playAgain('guest', m.mid); return true; }
     if (m.t === 'g') { if (referee() && match && m.mid === match.mid) giveUp('guest'); return true; }   // the other phone gave up
     if (m.t === 'pc') { if (referee()) takeCircle(m); return true; }
+    if (m.t === 'hn') { if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.silver && !paused) { set({ ...match, silver: true }); broadcast(); } return true; }
+    if (m.t === 'sn') { if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.seen) { set({ ...match, seen: true }); broadcast(); } return true; }
+    if (m.t === 'f') { if (referee() && match && hunterSide() !== 'host') noteShot(m); return false; }   // the hunter's shot: the referee looks at it, main.js draws it
     if (m.t === 'm' && !referee()) {
       heard = 0;
       const next = copy(m.m);
@@ -263,14 +337,14 @@ export function createRules(hooks) {
     // side: 'host' | 'guest'; saved: the match to carry on with after a refresh (or null for a new one)
     start(s, saved) {
       side = s; paused = false; pendingHit = null; againMid = 0; quitMid = 0; delay = 0.05; heard = 0; match = null; mine = null;
-      want = { n: 0, ok: false, s: 0 }; wantClock = 0; theirs = null;
+      want = { n: 0, ok: false, s: 0 }; wantClock = 0; theirs = null; due = []; seenSent = null; honkSent = null;
       if (saved) set(copy(saved));
       if (referee()) {
         if (match?.phase === 'pick') match.ready.guest = false;   // its private choice was lost: it sends it again
         if (!match) newMatch(1); else broadcast();
       }
     },
-    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; theirs = null; },
+    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; theirs = null; due = []; seenSent = null; honkSent = null; },
     pause(on) { paused = on; if (!on) broadcast(); },
     tick,
     onMessage,
@@ -283,6 +357,12 @@ export function createRules(hooks) {
       else if (!pendingHit) { pendingHit = h; hitClock = 0; hooks.send(h); }
     },
     playAgain() { if (match) playAgain(side, match.mid); },
+    // Stage 4A (this phone's game tells the rules): the hunter fired on this phone (referee only looks at it), the tanks have
+    // stayed touching (referee only), the hider's phone says the hunter may have seen it (either phone).
+    noteShot(f) { if (referee()) noteShot(f); },
+    noteBump() { return referee() && noteBump(); },
+    noteSeen,
+    noteHonk,
     // this phone's choice of leader (n: 1-36, or 0 = Random) and whether it is Ready. Only in the pick phase.
     choose(n, ok) {
       if (!match && !referee()) { want = { n, ok: !!ok, s: Math.max(want.s + 1, Date.now()) }; return false; }   // asked before the referee's first message: kept, sent once the match is here

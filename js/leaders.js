@@ -47,3 +47,6 @@ export const LEADERS = [null,
 ];
 export const COUNT = LEADERS.length - 1;
 export const nameOf = n => LEADERS[n]?.name || '';
+// Stage 4A: the short name on the two-leader bump bubble (the first word of the parody name; a few that would not say who it is are spelled out)
+const SHORT = { 14: 'Waddle-ington', 27: 'Kaiser', 31: 'Victoria' };
+export const shortName = n => SHORT[n] || nameOf(n).split(' ')[0];

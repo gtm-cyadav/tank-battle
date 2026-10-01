@@ -81,6 +81,19 @@ export function paintTank(tank, color, wrecked = false) {
   u.bob.wreck = wrecked;
 }
 
+// Stage 4A (the chicken): the hunter's tank wears gold trim for the rest of the round. Only the steel parts (tracks, barrel, hatches,
+// the flag mast) turn gold, so the orange role paint stays as readable as ever. Plain matte colour, nothing glowing.
+// The hider has its own version (the chicken, 2026-10-01): silver trim when its tank drove up to the chicken.
+const STEEL = 0x6a6c68, GOLD = 0xffd45a, SILVER = 0xe4eaee;
+export function setTrim(tank, kind) {   // kind: 'gold' | 'silver' | null
+  const u = tank.userData;
+  if ((u.trim || null) === (kind || null)) return;
+  u.trim = kind || null;
+  u.dark.color.setHex(kind === 'gold' ? GOLD : kind === 'silver' ? SILVER : STEEL);
+  u.dark.metalness = kind ? 0.2 : 0.4;
+  u.dark.roughness = kind === 'gold' ? 0.38 : kind === 'silver' ? 0.3 : 0.85;
+}
+
 // ---- fading on the hunter's screen (Stage 1e, all parts since 2B) ---------------------------------------------
 // The tank turns see-through as one solid shape: a depth-only copy of each part is drawn first (after the walls), so
 // only the tank's front surface shows, never its inner parts (figure, props, turret) through each other.

@@ -45,9 +45,9 @@ function margins() {
 
 // the best spot for a bubble of this size: { x, y, clear } (the first clear one, highest then most central; if none is clear,
 // the one that covers the least)
-function place(w, h, avoid, m) {
+function place(w, h, avoid, m, low = 0.55) {
   const W = innerWidth, H = innerHeight, tail = 8;
-  const top = Math.max(m.t, 0), bottomMax = H * 0.55;
+  const top = Math.max(m.t, 0), bottomMax = H * low;
   let best = null;
   for (let y = top; y + h + tail <= bottomMax; y += 3) {
     for (let k = 0; k < 120; k++) {
@@ -78,6 +78,16 @@ export function showBubble(text) {
     const s = place(r.width, r.height, avoid, m);
     if (s && (!spot || (s.clear && !spot.clear) || (!s.clear && !spot.clear && s.area < spot.area))) { spot = s; size = r; }
     if (spot?.clear) break;
+  }
+  if (!spot?.clear) {   // Stage 4A: the two-leader bump bubble is taller; if nothing near the top clears everything, look further down the screen too
+    for (const maxw of [280, 230, 185]) {
+      el.style.maxWidth = Math.min(maxw, room) + 'px';
+      el.style.left = '0px'; el.style.top = '0px';
+      const r = el.getBoundingClientRect();
+      const s = place(r.width, r.height, avoid, m, 0.85);
+      if (s && (!spot || (s.clear && !spot.clear) || (!s.clear && !spot.clear && s.area < spot.area))) { spot = s; size = r; }
+      if (spot?.clear) break;
+    }
   }
   if (!spot) { el.style.left = m.l + 'px'; el.style.top = m.t + 'px'; spot = { x: m.l, y: m.t, clear: false }; size = el.getBoundingClientRect(); }
   el.style.maxWidth = Math.min(size.width, room) + 'px';   // keep the width it was measured at

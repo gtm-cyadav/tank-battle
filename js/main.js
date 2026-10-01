@@ -1,15 +1,17 @@
 // Tank Battle: game start-up and main loop.
 import * as THREE from '../lib/three.module.js';
 import { buildArena, useRenderer } from './arena.js';
-import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, bobble, shakeHead, waveFlag, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
+import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, setTrim, bobble, shakeHead, waveFlag, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
 import { loadTank, applyTank, setLeader, clearLeader, READY } from './models.js';
 import { initPicker, openPicker, closePicker, pickerOpen, pickerSync, savedChoice } from './picker.js';
-import { nameOf, LEADERS } from './leaders.js';
+import { nameOf, shortName, LEADERS } from './leaders.js';
 import { drawFlag } from './flags.js';
-import { quoteFor, watchLine, tagline } from './lines.js';
+import { quoteFor, watchLine, tagline, bumpPair, pokeLine, CLUCK, SORRY, REMATCH } from './lines.js';
+import { createProps, setSweat } from './props.js';
+import { touristAt, BADGE_NAMES, chickenSpot, HONK_RANGE } from './eggs.js';
 import { showBubble, hideBubble } from './bubble.js';
 import { makeChaseCamera } from './camera.js';
-import { readInput, clearTaps, setInputEnabled } from './input.js';
+import { readInput, clearTaps, setInputEnabled, inputEnabled } from './input.js';
 import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
 import { initMenu, closeMenu, menuFrame } from './menu.js';
 import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
@@ -37,6 +39,8 @@ const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);   // sees to the fa
 // shadows, sharpness and the amount of effects follow the setting straight away.
 const arena = buildArena(scene, settings.graphics);
 const fx = createEffects(scene, camera, settings.graphics);
+// Stage 4A: the chicken, the wall graffiti and the lost tourist (props.js); what they do comes from the shared match
+const props = createProps(scene, settings.graphics);
 
 // Weather (Stage 2A): the round's weather sets the look and how far the hunter sees (vision.js VIEW), the same on both
 // phones (the referee draws it, rules.js). Drive alone: the player picks. ?weather=<name> forces one (testing only).
@@ -111,6 +115,7 @@ onSettings(s => {
   renderer.shadowMap.needsUpdate = true;
   scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });   // shadows on or off needs the shaders rebuilt
   fx.setQuality(quality);
+  props.setQuality(quality);
   resize();
 });
 
@@ -165,7 +170,7 @@ let weatherPick = null;   // drive alone: the weather the player picked
 function startMatch({ mode: m, code, pos, match, role, weather: wx, me: pickMe, other: pickOther }) {
   mode = m;
   weatherPick = wx || null;
-  fx.clear(); wreck = null;
+  fx.clear(); wreck = null; clearEggs();
   soloRole = role || 'hunter';
   const me = mode === 'guest' ? 1 : 0;
   place(player, pos || SPAWNS[me]);
@@ -196,7 +201,7 @@ function endMatch() {
   freshRound();
   delete root.dataset.match;
   roomCode = '';
-  fx.clear(); wreck = null;
+  fx.clear(); wreck = null; clearEggs();
   showRoom();
 }
 function onRemote(m) {
@@ -234,7 +239,9 @@ function sendMine(dt) {
   if (sendClock < SEND_EVERY) return;
   sendClock = 0;
   // the hider: while the hunter can't see it, say so, and never where it is (brief: anti-cheat)
-  if (myRole() === 'hider' && !hunterSees()) { sendState({ t: 's', h: 1 }); return; }
+  const sees = myRole() === 'hider' && hunterSees();
+  if (sees && rules.match?.phase === 'play' && !rules.paused) rules.noteSeen();   // Ghost badge: it was seen, even if only for a moment
+  if (myRole() === 'hider' && !sees) { sendState({ t: 's', h: 1 }); return; }
   const p = player.position, r = v => Math.round(v * 100) / 100;
   const m = { t: 's', k: posKey(), x: r(p.x), z: r(p.z), y: Math.round(player.rotation.y * 1000) / 1000, v: r(player.userData.speed) };
   if (myRole() === 'hunter') { m.cx = r(camera.position.x); m.cz = r(camera.position.z); }   // the hider's phone judges sight from here too
@@ -273,7 +280,7 @@ function dressOther(asHider) {
 
 // ---- the rules: roles, firing, sprint, rounds (Stage 1d) -----------------------------------------------------
 const root = document.documentElement;
-const rules = createRules({ send: sendState, changed: phaseChanged, where: () => ({ x: player.position.x, z: player.position.z }) });
+const rules = createRules({ send: sendState, changed: phaseChanged, eggs: eggsChanged, where: () => ({ x: player.position.x, z: player.position.z }) });
 // shots: flash, smoke, sparks (effects.js) and sounds. Hearing follows sight (Chetan, 2026-09-29): the other player's
 // shot is heard louder when close, but with no left/right direction.
 const shots = createShots(scene, {
@@ -307,6 +314,31 @@ function showRoles(wreckHider = false) {
   paintTank(player, COLORS[me], wreckHider && me === 'hider');
   paintTank(other, COLORS[them], wreckHider && them === 'hider');
   dressOther(me === 'hunter');
+  applyGold();
+}
+// ---- easter eggs (Stage 4A): all of it follows the shared match, nothing is decided on this phone except the poke ----------
+// The gold trim: the hunter's tank, this round, once its shot has stopped against the chicken's block.
+// The hider's trim is silver once its tank has driven up to the chicken (checked by the hider's own phone, see honkCheck).
+function applyGold() {
+  const m = rules.match, on = mode !== 'solo' && !!m, hunterTank = myRole() === 'hunter' ? player : other, hiderTank = hunterTank === player ? other : player;
+  setTrim(hunterTank, on && m.gold ? 'gold' : null); setTrim(hiderTank, on && m.silver ? 'silver' : null);
+}
+function clearEggs() {
+  setTrim(player, null); setTrim(other, null); setSweat(player, false); setSweat(other, false);
+  props.update(null, 0);
+}
+// The referee moved an egg on (gold, a bump, the tourist said sorry). `before` is null on the first call (start, refresh,
+// rejoin): then only the state is shown, never a bubble. A bubble shows only when the counter goes up inside the same round.
+function eggsChanged(m, before) {
+  applyGold();
+  if (!before || before.mid !== m.mid || before.round !== m.round || m.phase !== 'play') return;
+  if (m.gold && !before.gold) { props.cluck(); showBubble(CLUCK); }
+  else if (m.silver && !before.silver) { if (myRole() === 'hider') { props.cluck(); showBubble(CLUCK); } }   // only on the hider's own phone: the hunter must not learn where the hider is
+  else if ((m.sorry | 0) > (before.sorry | 0)) showBubble(SORRY);
+  else if ((m.bump | 0) > (before.bump | 0)) {
+    const pair = bumpPair(m.lead, rules.hunterSide());
+    if (pair) showBubble(pair.map(p => `${shortName(p.who)}: “${p.text}”`).join('\n'));
+  }
 }
 // The referee moved the match on (coin toss, new round, round over, rematch). Runs on both phones.
 function phaseChanged(m, before) {
@@ -326,7 +358,7 @@ function phaseChanged(m, before) {
     place(other, SPAWNS[1 - me]);
     follow.reset();
   }
-  if (fresh) { freshRound(); remote.vis = false; wreck = null; }   // nothing of the other tank until its phone says it's in sight
+  if (fresh) { freshRound(); remote.vis = false; wreck = null; setSweat(player, false); setSweat(other, false); }   // nothing of the other tank until its phone says it's in sight
   if (fresh) useWeather(m.wx);   // the round's weather (between rounds the last round's stays until the next starts)
   // the hider was just hit: explosion where it happened, on both phones, and a shake
   if (before && before.phase === 'play' && (m.phase === 'break' || m.phase === 'over') && m.result?.how === 'hit') {
@@ -362,7 +394,11 @@ function tryFire() {
   fx.kick(0.3);
   play('shot', 0.95, 0.95 + Math.random() * 0.1);
   reload = RULES.reload;
-  if (mode !== 'solo') sendState({ t: 'f', mid: m.mid, r: m.round, e: m.t, id: shot.id, x: shot.x, z: shot.z, y: shot.yaw });
+  if (mode !== 'solo') {
+    const f = { t: 'f', mid: m.mid, r: m.round, e: m.t, id: shot.id, x: shot.x, z: shot.z, y: shot.yaw };
+    sendState(f);
+    rules.noteShot(f);   // the referee looks at every shot for the chicken, the tourist and the Cinematic escape badge
+  }
 }
 // A shot from the hunter's phone. It was fired a moment ago over there, so it starts that far along
 // (at most half a second: after a longer hiccup the shot is shown late rather than jumping far ahead).
@@ -399,7 +435,7 @@ function sprint(inp, dt) {
 const text = (id, v) => { const el = $(id); if (el.textContent !== v) el.textContent = v; };
 const show = (id, on) => { const el = $(id); if (el.hidden !== on) return false; el.hidden = !on; return true; };
 const clock = secs => { const s = Math.max(0, Math.ceil(secs - 1e-6)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-let ringP = -1, btnOff = null;
+let ringP = -1, btnOff = null, shownBadges = '';
 function drawRound() {
   const m = rules.match, me = rules.side, them = me === 'host' ? 'guest' : 'host';
   // the button's ring: reload for FIRE, the sprint meter for SPRINT; greyed out when it can't be used
@@ -415,7 +451,9 @@ function drawRound() {
   const role = myRole(), left = m.phase === 'play' ? RULES.round - m.t : m.result && m.phase !== 'toss' ? m.result.left : RULES.round;
   text('rh-role', role === 'hunter' ? 'Hunter' : 'Hider');
   text('rh-clock', clock(left));
-  $('rh-clock').classList.toggle('low', m.phase === 'play' && left <= 10);
+  const lastTen = m.phase === 'play' && left <= 10 && left > 0;
+  $('rh-clock').classList.toggle('low', lastTen);
+  if (lastTen) $('rh-clock').style.setProperty('--beat', (0.95 - 0.35 * (10 - left) / 10).toFixed(2) + 's');
   text('rh-round', `Round ${m.round}`);
   text('rh-score', `You ${m.score[me]} – ${m.score[them]} Them`);
   // after a hit, a short beat to see the wreck before the card covers it
@@ -483,6 +521,14 @@ function drawRound() {
       text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
       text('rc-wx', '');
     }
+    // Stage 4A: badges the referee wrote into the result (both phones read the same list), and the rematch taunt for the loser
+    const badges = (m.phase !== 'toss' && r?.badges) || [], bkey = badges.join(',');
+    if (show('rc-badges', badges.length > 0) || bkey !== shownBadges) {
+      shownBadges = bkey;
+      $('rc-badges').replaceChildren(...badges.map(b => { const e = document.createElement('span'); e.textContent = BADGE_NAMES[b] || b; return e; }));
+    }
+    const taunt = m.phase === 'over' && r && r.how !== 'gaveup' && !won;
+    if (show('rc-taunt', taunt) || taunt) text('rc-taunt', taunt ? REMATCH : '');
     show('rc-buttons', m.phase === 'over');
     $('rc-again').disabled = !!m.again[me];
   }
@@ -625,6 +671,8 @@ function frame(dt, draw = true, clockDt = dt) {
   else if (hit && myRole() === 'hider') rules.reportHit(rules.match.t, { x: player.position.x, z: player.position.z });   // the hider's phone tells the referee
   if (soloWreck > 0 && (soloWreck -= dt) <= 0) { paintTank(other, COLORS.hider); wreck = null; }
   rules.tick(clockDt);
+  bumpCheck(clockDt);
+  honkCheck();
   settleBarrel(player, dt); settleBarrel(other, dt);
   bobble(player, dt); if (other.visible) bobble(other, dt);
   flagT += dt; waveFlag(player, flagT); if (other.visible) waveFlag(other, flagT);
@@ -641,6 +689,67 @@ function frame(dt, draw = true, clockDt = dt) {
   drawMap();
   drawMinimap();
 }
+// Bump (Stage 4A): the referee phone watches the two tanks. Touching for a quarter of a second counts; rules.js allows one bump line
+// every 20 s of round time and three a round. Both phones then read the bump from the match and show the same two lines.
+// Honk (2026-10-01): the hider's own phone knows exactly where its tank is, so it alone notices when it has driven up to the
+// chicken and tells the referee (rules.noteHonk). Nothing else changes: no sight, speed or hit rule looks at it.
+function honkCheck() {
+  if (mode === 'solo' || myRole() !== 'hider' || rules.match?.phase !== 'play' || rules.paused || rules.match.silver) return;
+  const c = chickenSpot();
+  if (Math.hypot(player.position.x - c.x, player.position.z - c.z) < HONK_RANGE) rules.noteHonk();
+}
+let touchT = 0;
+function bumpCheck(dt) {
+  if (mode === 'solo' || rules.side !== 'host' || rules.match?.phase !== 'play' || rules.paused || !other.visible) { touchT = 0; return; }
+  const d = Math.hypot(other.position.x - player.position.x, other.position.z - player.position.z);
+  touchT = d < TANK_RADIUS * 2 + 0.25 ? touchT + dt : 0;
+  if (touchT >= RULES.bumpHold) rules.noteBump();
+}
+// The last ten seconds (Stage 4A): the hider's head sweats, the hunter's head shakes. Both read the round clock, so both phones agree.
+let shakeT = 0;
+function lastTen(dt, left, play) {
+  const on = mode !== 'solo' && play && left <= 10 && left > 0;
+  const hider = myRole() === 'hider' ? player : other, hunter = myRole() === 'hider' ? other : player;
+  if (!on) { if (hider.userData.sweat) setSweat(hider, false); if (hunter.userData.sweat) setSweat(hunter, false); shakeT = 0; return; }
+  if (settings.graphics === 'high') setSweat(hider, true, clockT);
+  if ((shakeT -= dt) <= 0) { shakeT = 0.55; shakeHead(hunter, 0.3); }
+}
+// Bobblehead poke (Stage 4A): a quick tap right on your own figure gives a random line from your leader (own screen only).
+// A tap is a touch that lasts under 0.3 s and moves under 12 px, so holding or sliding there still drives exactly as before.
+let pokeFrom = null, pokeLast = '', pokeAt = 0;
+function headCircle() {
+  const h = player.userData.head;
+  if (!h) return null;
+  const p = new THREE.Vector3();
+  h.getWorldPosition(p); p.y += 0.28;   // about the middle of the face
+  const c = p.clone().project(camera);
+  if (c.z > 1 || Math.abs(c.x) > 1.2 || Math.abs(c.y) > 1.2) return null;
+  const W = innerWidth, H = innerHeight, cx = (c.x * 0.5 + 0.5) * W, cy = (0.5 - c.y * 0.5) * H;
+  const side = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(0.55);
+  const e = p.clone().add(side).project(camera);
+  return { cx, cy, r: Math.max(28, Math.abs((e.x * 0.5 + 0.5) * W - cx)) };
+}
+const pokeOK = () => mode !== 'solo' && rules.match?.phase === 'play' && !rules.paused && !rules.givingUp && isPlaying() && inputEnabled();
+addEventListener('pointerdown', e => {
+  pokeFrom = null;
+  if (!pokeOK() || e.target.closest?.('button')) return;   // a press on FIRE / SPRINT or a corner button is theirs
+  const c = headCircle();
+  if (c && Math.hypot(e.clientX - c.cx, e.clientY - c.cy) <= c.r) pokeFrom = { id: e.pointerId, t: performance.now(), x: e.clientX, y: e.clientY };
+}, true);
+addEventListener('pointerup', e => {
+  const d = pokeFrom;
+  if (!d || e.pointerId !== d.id) return;
+  pokeFrom = null;
+  if (performance.now() - d.t > 300 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12 || !pokeOK() || performance.now() - pokeAt < 1500) return;
+  const line = pokeLine(rules.leaders()?.me, pokeLast);
+  if (!line) return;
+  pokeAt = performance.now(); pokeLast = line;
+  showBubble(line);
+  shakeHead(player, 0.7);
+  play('tick', 0.5, 0.85);
+}, true);
+addEventListener('pointercancel', () => { pokeFrom = null; }, true);
+
 // Effects and sounds for this frame. Dust behind the other tank, and its engine, only while it shows on this screen.
 let clockT = 0;
 function effects(dt, clockDt) {
@@ -654,6 +763,8 @@ function effects(dt, clockDt) {
   if (wreck) fx.wreckSmoke('wreck', wreck.x, wreck.z, dt);
   fx.update(dt, me.x, me.z);
   const m = rules.match, left = m?.phase === 'play' ? RULES.round - m.t : Infinity;
+  props.update(mode !== 'solo' && m?.phase === 'play' ? touristAt(m.mid, m.round, m.t) : null, dt);
+  lastTen(dt, left, m?.phase === 'play' && !rules.paused);
   const quiet = mode !== 'solo' && m?.phase !== 'play';
   let otherSound = null;
   if (seen && mode !== 'solo') {
@@ -682,7 +793,7 @@ renderer.setAnimationLoop(now => {
   frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { THREE, scene, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+window.__tb = { THREE, scene, props, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },
