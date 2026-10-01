@@ -56,13 +56,13 @@ function makeChicken() {
   return g;
 }
 
-// ---- the arrow under the chicken: faint stencil paint like the graffiti, an arrow pointing up and "Shoot the chicken" -----------------------------
+// ---- the arrow above the chicken: faint stencil paint like the graffiti, an arrow pointing down and "Shoot the chicken" -----------------------------
 function drawArrow(canvas) {
   const g = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
   g.clearRect(0, 0, W, H);
   g.fillStyle = 'rgba(226,232,226,0.62)';
-  g.beginPath(); g.moveTo(H * 0.5, H * 0.06); g.lineTo(H * 0.96, H * 0.58); g.lineTo(H * 0.04, H * 0.58); g.closePath(); g.fill();   // the arrowhead
-  g.fillRect(H * 0.34, H * 0.55, H * 0.32, H * 0.4);                                                                                    // and its shaft
+  g.beginPath(); g.moveTo(H * 0.5, H * 0.94); g.lineTo(H * 0.96, H * 0.42); g.lineTo(H * 0.04, H * 0.42); g.closePath(); g.fill();   // the arrowhead (points down at the chicken)
+  g.fillRect(H * 0.34, H * 0.05, H * 0.32, H * 0.4);                                                                                    // and its shaft
   g.font = `500 ${H * 0.5}px "Plex Mono", ui-monospace, Menlo, Consolas, monospace`;
   g.textAlign = 'left'; g.textBaseline = 'middle';
   g.fillStyle = 'rgba(28,32,30,0.2)'; g.fillText('Shoot the chicken', H + 3, H * 0.5 + 3);

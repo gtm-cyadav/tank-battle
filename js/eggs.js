@@ -15,10 +15,12 @@ import { cellX, cellZ, rayToWall, toRow, toCol, WALL_H } from './world.js';
 export const CHICKEN = { r: 9, c: 18 };
 export const HONK_RANGE = 6;   // m: a hider's tank this close to the chicken makes it cluck (Chetan, 2026-10-01: the hider's way to meet the egg)
 export const chickenSpot = () => ({ x: cellX(CHICKEN.c) + CELL / 2, z: cellZ(CHICKEN.r) + CELL / 2, y: WALL_H });   // the block's centre: the hider's honk is measured to this, unchanged
-// Chetan's fix (2026-10-01): the stone chicken stands on a small ledge on the block's EAST face (the end face towards the plaza), 1.75 m up, in line with the
-// barrel (1.55 m) so a hunter can see what to shoot, and a faint "Shoot the chicken" arrow is painted under it. Pure looks: nothing here is solid and no rule,
+// Chetan's fix (2026-10-01): the stone chicken stands on a small ledge on the block's EAST face (the end face towards the plaza), 0.55 m up (lowered, see LEDGE), so its body is in line with the
+// barrel (1.55 m) so a hunter can see what to shoot, and a faint "Shoot the chicken" arrow is painted above it, pointing down. Pure looks: nothing here is solid and no rule,
 // hit, sight or map check reads it; a shot that stops against ANY face of the block still counts, exactly as before.
-export const LEDGE = { y: 1.75, out: 1.05, arrowY: 1.1, arrowW: 2.9, arrowH: 0.5 };   // m: ledge top above the floor, how far it juts out, the arrow's centre height and size
+// Lowered 2026-10-01 (Chetan could not hit it without the aim assist): the ledge top is 0.55 m, so the chicken's body (1.1 to 2.2 m up) is at the height the bullets fly
+// (1.55 m) and a shot at it visibly hits it. The arrow moved above the chicken and points down at it (a ledge this low leaves no room under it).
+export const LEDGE = { y: 0.55, out: 1.05, arrowY: 3.5, arrowW: 2.9, arrowH: 0.5 };   // m: ledge top above the floor, how far it juts out, the arrow's centre height and size
 export const chickenLedge = () => ({ x: cellX(CHICKEN.c) + CELL, z: cellZ(CHICKEN.r) + CELL / 2, y: LEDGE.y, nx: 1, nz: 0 });   // the middle of the block's east face
 
 // ---- a small seeded generator (mulberry32), so both phones draw the same "random" numbers ----------------------------

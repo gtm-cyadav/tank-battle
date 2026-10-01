@@ -257,7 +257,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=4b-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=aa-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -573,6 +573,10 @@
       <h3>Corner map</h3>
       <div class="set-row"><div class="seg"><button type="button" data-set="map" data-value="on">On</button><button type="button" data-set="map" data-value="off">Off</button></div>
         <p class="note">Shows the walls and your own tank. Never the other player. While a ping is on, it shows even when switched off.</p></div>
+      <h3>Aim assist</h3>
+      <div class="set-row"><div class="seg"><button type="button" data-set="assist" data-value="on">On</button><button type="button" data-set="assist" data-value="off">Off</button></div>
+        <div class="seg" style="margin-top:8px"><button type="button" data-set="assistStrength" data-value="light">Light</button><button type="button" data-set="assistStrength" data-value="medium">Medium</button><button type="button" data-set="assistStrength" data-value="strong">Strong</button></div>
+        <p class="note">Hunter only. If you fire while the hider is on your screen and your aim is close, the shot bends a few degrees towards it, with a small lead if it is moving. It never works on a hider you cannot see. Light is about 3 degrees, Medium 6, Strong 10. Hits are still judged on the hider's phone.</p></div>
       <button id="set-reset" class="btn secondary" type="button">Reset to default</button>
     </div>
   </div>
@@ -687,47 +691,48 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=4b-1",
-  "./js/bubble.js": "./js/bubble.js?v=4b-1",
-  "./js/camera.js": "./js/camera.js?v=4b-1",
-  "./js/cornermap.js": "./js/cornermap.js?v=4b-1",
-  "./js/effects.js": "./js/effects.js?v=4b-1",
-  "./js/eggs.js": "./js/eggs.js?v=4b-1",
-  "./js/flags.js": "./js/flags.js?v=4b-1",
-  "./js/input.js": "./js/input.js?v=4b-1",
-  "./js/lamps.js": "./js/lamps.js?v=4b-1",
-  "./js/leaders.js": "./js/leaders.js?v=4b-1",
-  "./js/lines.js": "./js/lines.js?v=4b-1",
-  "./js/lobby.js": "./js/lobby.js?v=4b-1",
-  "./js/main.js": "./js/main.js?v=4b-1",
-  "./js/map.js": "./js/map.js?v=4b-1",
-  "./js/menu.js": "./js/menu.js?v=4b-1",
-  "./js/models.js": "./js/models.js?v=4b-1",
-  "./js/net.js": "./js/net.js?v=4b-1",
-  "./js/picker.js": "./js/picker.js?v=4b-1",
-  "./js/props.js": "./js/props.js?v=4b-1",
-  "./js/rules.js": "./js/rules.js?v=4b-1",
-  "./js/screen.js": "./js/screen.js?v=4b-1",
-  "./js/secret.js": "./js/secret.js?v=4b-1",
-  "./js/settings.js": "./js/settings.js?v=4b-1",
-  "./js/shots.js": "./js/shots.js?v=4b-1",
-  "./js/sound.js": "./js/sound.js?v=4b-1",
-  "./js/tank.js": "./js/tank.js?v=4b-1",
-  "./js/textures.js": "./js/textures.js?v=4b-1",
-  "./js/theme.js": "./js/theme.js?v=4b-1",
-  "./js/tips.js": "./js/tips.js?v=4b-1",
-  "./js/vision.js": "./js/vision.js?v=4b-1",
-  "./js/weather.js": "./js/weather.js?v=4b-1",
-  "./js/world.js": "./js/world.js?v=4b-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=4b-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=4b-1",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=4b-1",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=4b-1",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=4b-1",
-  "three": "./lib/three.module.js?v=4b-1"
+  "./js/arena.js": "./js/arena.js?v=aa-1",
+  "./js/assist.js": "./js/assist.js?v=aa-1",
+  "./js/bubble.js": "./js/bubble.js?v=aa-1",
+  "./js/camera.js": "./js/camera.js?v=aa-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=aa-1",
+  "./js/effects.js": "./js/effects.js?v=aa-1",
+  "./js/eggs.js": "./js/eggs.js?v=aa-1",
+  "./js/flags.js": "./js/flags.js?v=aa-1",
+  "./js/input.js": "./js/input.js?v=aa-1",
+  "./js/lamps.js": "./js/lamps.js?v=aa-1",
+  "./js/leaders.js": "./js/leaders.js?v=aa-1",
+  "./js/lines.js": "./js/lines.js?v=aa-1",
+  "./js/lobby.js": "./js/lobby.js?v=aa-1",
+  "./js/main.js": "./js/main.js?v=aa-1",
+  "./js/map.js": "./js/map.js?v=aa-1",
+  "./js/menu.js": "./js/menu.js?v=aa-1",
+  "./js/models.js": "./js/models.js?v=aa-1",
+  "./js/net.js": "./js/net.js?v=aa-1",
+  "./js/picker.js": "./js/picker.js?v=aa-1",
+  "./js/props.js": "./js/props.js?v=aa-1",
+  "./js/rules.js": "./js/rules.js?v=aa-1",
+  "./js/screen.js": "./js/screen.js?v=aa-1",
+  "./js/secret.js": "./js/secret.js?v=aa-1",
+  "./js/settings.js": "./js/settings.js?v=aa-1",
+  "./js/shots.js": "./js/shots.js?v=aa-1",
+  "./js/sound.js": "./js/sound.js?v=aa-1",
+  "./js/tank.js": "./js/tank.js?v=aa-1",
+  "./js/textures.js": "./js/textures.js?v=aa-1",
+  "./js/theme.js": "./js/theme.js?v=aa-1",
+  "./js/tips.js": "./js/tips.js?v=aa-1",
+  "./js/vision.js": "./js/vision.js?v=aa-1",
+  "./js/weather.js": "./js/weather.js?v=aa-1",
+  "./js/world.js": "./js/world.js?v=aa-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=aa-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=aa-1",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=aa-1",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=aa-1",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=aa-1",
+  "three": "./lib/three.module.js?v=aa-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=4b-1"></script>
-<script type="module" src="./js/main.js?v=4b-1"></script>
+<script src="lib/peerjs.min.js?v=aa-1"></script>
+<script type="module" src="./js/main.js?v=aa-1"></script>
 </body>
 </html>

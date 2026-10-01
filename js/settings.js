@@ -18,6 +18,8 @@ export const DEFAULTS = {
   map: 'on',            // corner map (walls and your own tank): 'on' | 'off'
   sound: 'on',          // Stage 2A: 'on' | 'off' (mute)
   graphics: 'high',     // Stage 2A: 'high' | 'low' (low: no shadows, lower sharpness, fewer effects, for slow phones)
+  assist: 'on',         // aim assist for the hunter (assist.js): 'on' | 'off'
+  assistStrength: 'medium',   // 'light' | 'medium' | 'strong': the cone, 3 / 6 / 10 degrees
 };
 
 // Slider ranges and labels. Camera height tops out at 3.8 m: with the squeeze rise it still stays under the 4.5 m walls.
@@ -30,7 +32,7 @@ const SLIDERS = {
   camHeight: { min: 1.8, max: 3.8, step: 0.1, show: v => v.toFixed(1) + ' m' },
   camDistance: { min: 4, max: 10, step: 0.5, show: v => v.toFixed(1) + ' m' },
 };
-const CHOICES = { style: ['point', 'sliders', 'tank'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'] };
+const CHOICES = { style: ['point', 'sliders', 'tank'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'] };
 const STYLE_NOTES = {
   point: 'Push the way you want to go. The tank turns to face it, then drives dead straight. Pull back to turn round.',
   sliders: 'One thumb slides up and down for speed, the other slides left and right to steer. The middle of the steering slider is dead straight.',

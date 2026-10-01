@@ -9,6 +9,7 @@ import { drawFlag } from './flags.js';
 import { quoteFor, watchLine, tagline, bumpPair, pokeLine, headlineFor, awardsFor, CLUCK, SORRY, REMATCH, QUACK, DUCK_ROUND } from './lines.js';
 import { createProps, setSweat } from './props.js';
 import { touristAt, BADGE_NAMES, chickenSpot, chickenLedge, HONK_RANGE } from './eggs.js';
+import { assistYaw } from './assist.js';
 import { showBubble, hideBubble } from './bubble.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled, inputEnabled } from './input.js';
@@ -21,7 +22,7 @@ import { initSecretBox, getArmed, disarm, buildHearts, flashAt } from './theme.j
 import { tipOn, tipOff } from './tips.js';
 import { createShots } from './shots.js';
 import { settings, onSettings, initSettings } from './settings.js';
-import { SPAWNS, ROWS, COLS, isWallCell, WIDTH, DEPTH, pushOutOfWalls } from './world.js';
+import { SPAWNS, ROWS, COLS, isWallCell, WIDTH, DEPTH, pushOutOfWalls, rayToWall } from './world.js';
 import { smogAt, inSight, fade, VIEW } from './vision.js';
 import { createCornerMap } from './cornermap.js';
 import { createEffects } from './effects.js';
@@ -342,7 +343,7 @@ function clearEggs() {
 function eggsChanged(m, before) {
   applyGold();
   if (!before || before.mid !== m.mid || before.round !== m.round || m.phase !== 'play') return;
-  if (m.gold && !before.gold) { props.cluck(); const l = chickenLedge(); fx.chickenHit(l.x + 0.08, 1.55, l.z, l.x + 0.5, l.y + 1.6, l.z); showBubble(CLUCK); }   // the cue: a flash on the block and a puff of feathers (both phones)
+  if (m.gold && !before.gold) { props.cluck(); const l = chickenLedge(); fx.chickenHit(l.x + 0.08, 1.55, l.z, l.x + 0.5, l.y + 1.3, l.z); showBubble(CLUCK); }   // the cue: a flash on the block and a puff of feathers (both phones)
   else if (m.silver && !before.silver) { if (myRole() === 'hider') { props.cluck(); showBubble(CLUCK); } }   // only on the hider's own phone: the hunter must not learn where the hider is
   else if ((m.sorry | 0) > (before.sorry | 0)) showBubble(SORRY);
   else if ((m.bump | 0) > (before.bump | 0)) {
@@ -402,11 +403,26 @@ function boom(at, mine) {
   fx.kick(mine ? 1.1 : 0.9 * byDistance(d, 60, 0.15));
   play('explosion', mine ? 1 : byDistance(d, 110, 0.2), 0.95 + Math.random() * 0.1);
 }
+// Aim assist: only what this hunter's own screen shows. The hider counts only while it is drawn solidly (the same test that lets a bullet stop on it, hiderTank);
+// hidden or faded out it is simply not in the list, so a bend can never point at a hider the hunter cannot see. The chicken's ledge is a fixed place (public),
+// counted when there is a clear line to it inside the view distance.
+function assistTargets() {
+  const out = [];
+  if (myRole() === 'hunter' && other.visible && otherFade > 0.5 && !(mode === 'solo' && soloWreck > 0)) {
+    const v = mode === 'solo' ? 0 : remote.paused ? 0 : remote.speed, yaw = other.rotation.y;
+    out.push({ x: other.position.x, z: other.position.z, vx: Math.sin(yaw) * v, vz: Math.cos(yaw) * v });
+  }
+  const c = chickenLedge(), px = player.position.x, pz = player.position.z, d = Math.hypot(c.x - px, c.z - pz);
+  if (d > 1 && d <= VIEW.range && rayToWall(px, pz, c.x + 0.05, c.z) >= Math.hypot(c.x + 0.05 - px, c.z - pz) - 1e-3) out.push({ x: c.x + 0.05, z: c.z, vx: 0, vz: 0 });
+  return out;
+}
 function tryFire() {
   const m = rules.match;
   if (reload > 0 || !inPlay()) return;
   if (mode !== 'solo' && (m.t < RULES.headStart || m.t >= RULES.round)) return;
-  const shot = { id: ++shotId, x: player.position.x, z: player.position.z, yaw: player.rotation.y };
+  // Aim assist (assist.js): the direction that goes into the shot message, so both phones draw the same shot. Off, or no target in the cone = the barrel's own direction.
+  const shot = { id: ++shotId, x: player.position.x, z: player.position.z, yaw: 0 };
+  shot.yaw = assistYaw({ x: shot.x, z: shot.z, yaw: player.rotation.y }, assistTargets(), { on: settings.assist === 'on', strength: settings.assistStrength, speed: RULES.bulletSpeed });
   shots.fire(shot);
   kick(player);
   fx.kick(0.3);
@@ -887,7 +903,7 @@ renderer.setAnimationLoop(now => {
   frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+window.__tb = { assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },
