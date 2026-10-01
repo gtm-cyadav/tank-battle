@@ -306,3 +306,113 @@ export function pokeLine(n, last, rand = Math.random) {
 export const CLUCK = 'Cluck.';
 export const SORRY = 'Sorry!';
 export const REMATCH = 'Best of 3? Make it 5.';
+
+// ---- Stage 4B (Chetan, 2026-10-01): loading tips, newspaper headlines, end-of-match awards -------------------------------------
+// All texts approved by Chetan (brief section 17). Like everything else in this file they are plain functions of what the two
+// phones share; only the loading tips are random, because they carry no game information and each phone shows its own.
+
+// Loading tips (egg 10): shown while a phone connects, waits for the other player or waits for the models to load.
+export const TIPS = [
+  'Convincing the tank to start.', "Sharpening Brutus's knife.", 'Asking Birbal for advice.', 'Inflating the elephants.',
+  'Boiling water for the tea. The war can wait.', 'Turning the map the right way up.', 'Waiting for winter. It is never late.',
+  'Polishing the stone chicken.', 'Finding a hoodie in the right shade of olive.', 'Checking that the table is long enough.',
+  'Hiding the tapes.', 'Waking the robot head. Please stay calm.', 'Unrolling the carpet.', 'Feeding the penguin gunner.',
+  'Asking the AI Council. It has already decided.', 'Looking for the exit. It is not this way.', 'Rehearsing the three-hour speech.',
+  'Counting the shells. Twice.', 'Asking the tourist to stand somewhere else.', 'Dusting off the 1992 trophy.',
+  'Folding the world map. All of it.', 'Asking the elephants to wait outside.', 'Teaching the horse to drive.',
+  'Stirring the honey pot.', 'Looking for Wi-Fi in a mountain fort.', 'Knocking on the other phone. Politely.',
+  'Persuading the internet to cooperate.', "Polishing the penguin's medals.",
+];
+// A shuffled bag of tips: each one shows once before any shows again, and the first of a new bag is never the last of the old one.
+export function tipBag(rand = Math.random) {
+  let bag = [], last = -1;
+  return () => {
+    if (!bag.length) {
+      bag = TIPS.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+      if (bag.length > 1 && bag[bag.length - 1] === last) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+    }
+    last = bag.pop();
+    return TIPS[last];
+  };
+}
+
+// Newspaper names (the funny part of each parody name; the full name where the funny part cannot stand alone), by leader number.
+export const HEAD_NAME = [null,
+  'Hit-and-Miss', 'Churchill-Out', 'Stalling', 'Chinsolini', 'Nix-It', 'Trumpet', "Puttin' Around", 'Zel-Hoodie-sky', 'Hush-Hush-ein',
+  'Kim Jong-Fluff', 'Bone-a-Petite', 'Caesar Salad', 'Must-Launch', 'Waddle-ington', 'Beep-a-Lot', 'Brute-Force', 'Rugs-to-Riches',
+  'Con-Quest', 'Sorry-Ka', 'Modi-Fied', 'Khan-Bowled-Over', 'Jin-Pooh', 'Alexander the Grape', 'Trunk-a-Lot', 'Erik the Red-Handed',
+  'Nobu-Naga-Tea', 'Two-Stache', 'Joan of Arc-ade', 'Hair-Raiser', 'Spear-Ka', 'Victoria Sponge', 'Cigar-stro', 'Sal-a-Doctor',
+  'Attila the Hun-gry', 'Hide-and-Seek-Ji', 'Ask-Birbal',
+];
+// {H} = the hunter's newspaper name, {D} = the hider's, {n} = seconds of hunting time
+export const HEADLINES = {
+  hit: ['{H} Flattens {D}', '{D} Hid Badly. {H} Noticed.', '{H} Finds {D}. Politely Does Not Apologise.', '{H} Wins. {D} Files A Complaint.'],
+  timer: ['{D} Sneaks Past {H}', '{H} Searches For Three Minutes. Finds Nothing.', '{D} Wins Hide And Seek Against {H}', '{H} Runs Out Of Time. And Excuses.'],
+  speedrun: ['{H} Finds {D} In {n} Seconds', '{D} Is Gone In {n} Seconds. {H} Did Not Blink.', '{D} Lasts {n} Seconds. Nobody Is Surprised.'],
+  cinematic: ['{D} Escapes With One Second To Spare', '{H} Misses By A Whisker. {D} Takes A Bow.', '{D} Survives. {H} Demands A Recount.'],
+  ghost: ['{D} Vanishes. {H} Never Saw A Thing.', '{H} Searched Everywhere. {D} Was Never There.', '{D}: Invisible, Unbothered, Undefeated'],
+};
+// a fixed pick from the match number and round (so both phones print the same variant)
+const variant = (len, mid, round, salt = 0) => {
+  let a = (Math.imul(mid | 0, 73856093) ^ Math.imul(round | 0, 19349663) ^ Math.imul(salt | 0, 83492791)) >>> 0;
+  a = Math.imul(a ^ (a >>> 15), 2246822519) >>> 0; a = (a ^ (a >>> 13)) >>> 0;
+  return a % len;
+};
+// Which group of templates a round's result uses. Badges first (Speedrun, then Cinematic escape, then Ghost), then plain hit / timer.
+export function headlineGroup(result) {
+  if (!result || (result.how !== 'hit' && result.how !== 'time')) return null;
+  const b = result.badges || [];
+  if (result.how === 'hit') return b.includes('speedrun') ? 'speedrun' : 'hit';
+  return b.includes('cinematic') ? 'cinematic' : b.includes('ghost') ? 'ghost' : 'timer';
+}
+// The headline for a finished round, or null (a surrender has none). result: the match's { how, badges }, lead: { host, guest } leader
+// numbers, hunter: 'host' | 'guest' (who hunted that round), secs: seconds of hunting time (for Speedrun).
+export function headlineFor(result, lead, hunter, mid, round, secs = 0) {
+  const group = headlineGroup(result);
+  if (!group || !lead || !hunter) return null;
+  const H = HEAD_NAME[lead[hunter]], D = HEAD_NAME[lead[hunter === 'host' ? 'guest' : 'host']];
+  if (!H || !D) return null;
+  const list = HEADLINES[group], t = list[variant(list.length, mid, round, group.length)], n = Math.max(1, Math.round(secs));   // "1 Second", not "1 Seconds"
+  return t.replace(/\{H\}/g, H).replace(/\{D\}/g, D).replace(/\{n\} Seconds/g, n === 1 ? '1 Second' : `${n} Seconds`);
+}
+
+// End-of-match awards: two on the match-over card, one for each player. Each player gets the FIRST award in this list that is true
+// for them (the winner picks first; the two never get the same one). `who`: 'win' (the match winner only), 'lose' (the loser only)
+// or 'any'. The tests read the match's round log, entries { h: who hunted, w: who won, how, l: clock left, b: bump lines, g: gold
+// (chicken shot), s: silver (hider drove up to the chicken), so: tourist said sorry, sn: seen, sh: shots, bd: badges }.
+const hunted = (log, p) => log.filter(r => r.h === p), hid = (log, p) => log.filter(r => r.h !== p);
+export const AWARDS = [
+  { name: 'Biggest Ego on the Battlefield', who: 'win', ok: (c, p) => c.log.length === 2 && c.log.every(r => r.w === p) },
+  { name: 'Comeback of the Century', who: 'win', ok: (c, p) => c.log[0]?.w !== p },
+  { name: 'Best Heart Rate Under Pressure', who: 'any', ok: (c, p) => hid(c.log, p).some(r => r.bd?.includes('cinematic')) },
+  { name: 'Best Impression of a Wall', who: 'any', ok: (c, p) => hid(c.log, p).some(r => r.bd?.includes('ghost')) },
+  { name: 'Most Dramatic Retreat', who: 'lose', ok: (c, p) => hid(c.log, p).some(r => r.how === 'hit' && r.l <= 30) },
+  { name: "Chicken's Worst Nightmare", who: 'win', ok: (c, p) => hunted(c.log, p).some(r => r.g) },
+  { name: 'Chicken Whisperer', who: 'any', ok: (c, p) => hid(c.log, p).some(r => r.s) },
+  { name: 'One Shot Wonder', who: 'win', ok: (c, p) => hunted(c.log, p).some(r => r.how === 'hit' && r.sh === 1) },
+  { name: 'Blink And You Missed It', who: 'win', ok: (c, p) => hunted(c.log, p).some(r => r.bd?.includes('speedrun')) },
+  { name: 'Tourist Safety Officer', who: 'any', ok: (c, p) => hunted(c.log, p).some(r => r.so) },
+  { name: 'Hide-and-Seek Champion', who: 'win', ok: (c, p) => hid(c.log, p).some(r => r.how === 'time' && r.w === p) },
+  { name: 'Pacifist of the Year', who: 'lose', ok: (c, p) => hunted(c.log, p).some(r => r.how === 'time' && r.sh === 0) },
+  { name: 'Most Shots, Fewest Results', who: 'lose', ok: (c, p) => hunted(c.log, p).reduce((a, r) => a + r.sh, 0) >= 4 },
+  { name: 'Most Hugs Per Minute', who: 'any', ok: c => c.log.reduce((a, r) => a + r.b, 0) >= 2 },
+  { name: 'Winner, Allegedly', who: 'win', ok: () => true },
+  { name: 'Participation Trophy, Gold Edition', who: 'lose', ok: () => true },
+];
+// The two awards for a finished match (the match both phones share): [{ side, who (leader number), name, win }] winner first, or
+// null when there are none: not over yet, a surrender, no round log, or an unknown leader. Both phones get the same answer.
+export function awardsFor(m) {
+  if (!m || m.phase !== 'over' || !m.result || (m.result.how !== 'hit' && m.result.how !== 'time') || !m.lead || !m.log?.length) return null;
+  const win = m.result.win, lose = win === 'host' ? 'guest' : 'host', c = { log: m.log }, taken = new Set(), out = [];
+  for (const [p, role] of [[win, 'win'], [lose, 'lose']]) {
+    const a = AWARDS.find(x => !taken.has(x.name) && (x.who === 'any' || x.who === role) && x.ok(c, p));
+    if (!a || !m.lead[p]) return null;
+    taken.add(a.name);
+    out.push({ side: p, who: m.lead[p], name: a.name, win: role === 'win' });
+  }
+  return out;
+}
+export const SECRET_LABEL = 'Secret';
+export const QUACK = 'Quack. Ducks next round.';
+export const DUCK_ROUND = 'Rubber duck round.';

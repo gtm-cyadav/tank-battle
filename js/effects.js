@@ -127,6 +127,15 @@ export function createEffects(scene, camera, quality = 'high') {
       vx: nx * R(0.5, 2.5) + R(-0.5, 0.5), vy: R(0.1, 0.8), vz: nz * R(0.5, 2.5) + R(-0.5, 0.5), drag: 1.5,
       life: R(1, 1.8), s0: 0.6, s1: R(2.2, 3.4), a: R(0.35, 0.5), c0: dustCol.value });
   }
+  // Chetan's fix (2026-10-01): a shot landed on the chicken's block. A bright flash on the block's face at barrel height (x, y, z) and a puff of pale
+  // feathers from the chicken (fx, fy, fz) that drift down slowly. Looks only.
+  function chickenHit(x, y, z, fx, fy, fz) {
+    glow.add({ x, y, z, vx: 0, vy: 0, vz: 0, life: 0.2, s0: 3.4, s1: 5.2, a: 1.6, c0: [1, 0.93, 0.7], fadeIn: 0.01 });
+    for (let i = 0; i < (hi ? 6 : 3); i++) glow.add({ x, y, z, vx: R(2, 6), vy: R(-1, 3), vz: R(-3, 3), grav: 8, drag: 1.2, life: R(0.2, 0.45), s0: 0.14, s1: 0.08, a: 1.1, c0: [1, 0.85, 0.55], c1: [1, 0.5, 0.15], fadeIn: 0.01 });
+    for (let i = 0; i < (hi ? 16 : 8); i++) smoke.add({ x: fx + R(-0.4, 0.4), y: fy + R(-0.5, 0.6), z: fz + R(-0.5, 0.5),
+      vx: R(0.5, 3.2), vy: R(1, 4), vz: R(-2.5, 2.5), grav: 1.3, drag: 1.1,
+      life: R(1.8, 3.2), s0: R(0.45, 0.65), s1: R(0.4, 0.55), a: 0.95, c0: hex(0xece6d6), c1: hex(0xcfc8b6), fadeIn: 0.02 });
+  }
   // the hider's tank blowing up (x, z on the ground)
   function explosion(x, z) {
     glow.add({ x, y: 1.4, z, vx: 0, vy: 0, vz: 0, life: 0.18, s0: 6, s1: 10, a: 1.5, c0: [1, 0.92, 0.7], fadeIn: 0.01 });
@@ -203,7 +212,7 @@ export function createEffects(scene, camera, quality = 'high') {
     return (lastCount = glow.update(dt) + smoke.update(dt, driftSprites()));
   }
   return {
-    muzzle, wallHit, explosion, dust, wreckSmoke, kick, applyShake, update,
+    muzzle, wallHit, chickenHit, explosion, dust, wreckSmoke, kick, applyShake, update,
     get lastCount() { return lastCount; },   // particles drawn last frame (testing)
     setScale(px) { scaleU.value = px; },
     clear() { glow.clear(); smoke.clear(); shake = 0; },

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-state="start">
+<html lang="en" data-state="start" data-loading>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -82,6 +82,9 @@
   #cmap { position: fixed; z-index: 6; left: max(12px, var(--sl)); top: max(10px, var(--st)); width: var(--map-w); height: var(--map-h);
     border: 1px solid var(--line); border-radius: 4px; pointer-events: none; }
   #cmap.pinged { border-color: #b9d2ff; }
+  /* Stage 4B: the box where five quick taps ask for a rubber-duck round (Chetan, 2026-10-01). Invisible, same place and size as the map, there even when the map is off. */
+  #cmap-box { position: fixed; z-index: 6; left: max(12px, var(--sl)); top: max(10px, var(--st)); width: var(--map-w); height: var(--map-h); visibility: hidden; pointer-events: none; }
+  html:not([data-state="playing"]) #cmap-box { display: none; }
   [data-map] #hud { top: calc(max(10px, var(--st)) + var(--map-h) + 6px); }
   html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #rh, html:not([data-state="playing"]) #gear, html:not([data-state="playing"]) #menu-btn,
   html:not([data-state="playing"]) #cmap, html:not([data-state="playing"]) #alarm { display: none; }
@@ -219,12 +222,15 @@
   #link .card p:not(.count) + .row { margin-top: 20px; }
 
   /* round result / coin toss / match over: see-through, so the arena (and a wrecked tank) shows round it */
-  #round { z-index: 12; background: rgba(12, 15, 14, 0.3); pointer-events: none; }
+  #round { z-index: 12; background: rgba(12, 15, 14, 0.3); pointer-events: none; padding-top: max(54px, calc(var(--st) + 44px)); }
+  [data-map] #round { padding-left: calc(max(12px, var(--sl)) + var(--map-w) + 12px); }
   #round .card { pointer-events: auto; min-width: 280px; max-width: 480px; padding: 16px 24px; background: rgba(20, 24, 22, 0.94); }
   #round .over { margin: 0 0 8px; }
   #round .card p { margin: 0 0 5px; }
   #round #rc-wx { margin-top: 10px; color: var(--text); font-size: 12px; }
   #round #rc-wx:empty { display: none; }
+  #round #rc-duck { margin: 4px 0 0; font-size: 12px; color: var(--hunter); }
+  #round #rc-duck:empty { display: none; }
   #round #rc-wx::before { content: 'Weather '; color: var(--muted); }
   #round #rc-score, #round #rc-who { color: var(--text); }
   #round #rc-who:empty { display: none; }
@@ -251,7 +257,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=4a-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=4b-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -277,14 +283,14 @@
   /* Stage 3B: the quote on the result card (who said it, then the line), the intro card (both leaders before each round) and
      the "watching" speech bubble */
   #round #rc-q { margin: 8px 0 8px; }
-  #round #rq-by { display: block; margin-bottom: 4px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  #round #rq-by { display: block; margin-bottom: 4px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
   #round #rq-t { display: block; font-size: 14px; line-height: 1.4; color: var(--text); }
   /* Stage 4A: badges the referee wrote into the round result, and the rematch taunt on the loser's match-over card */
   #round #rc-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 8px; }
   #round #rc-badges span { padding: 5px 10px; border: 1px solid #e9b43a; border-radius: 999px; font: 700 10px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase; color: #e9b43a; }
   #round #rc-taunt { margin: 10px 0 0; font-size: 13px; color: var(--text); }
   #round #rc-taunt:empty { display: none; }
-  #round .card.intro #rc-badges, #round .card.intro #rc-taunt { display: none; }
+  #round .card.intro #rc-badges, #round .card.intro #rc-taunt, #round .card.intro #rc-extra { display: none; }
   #rc-vs { display: none; }
   #round .card.intro { width: min(540px, 100%); box-sizing: border-box; max-width: none; }
   #round .card.intro #rc-t, #round .card.intro #rc-p, #round .card.intro #rc-who, #round .card.intro #rc-score, #round .card.intro #rc-q,
@@ -316,6 +322,92 @@
     #round #rc-taunt { margin-top: 6px; }
   }
 
+  /* ---- Stage 4B ---------------------------------------------------------------------------------------------------------------- */
+  /* loading tips (egg 10): one quiet line under the status text while a phone connects, waits for the other player or waits for the models */
+  .tip { margin: 0 0 12px; max-width: 300px; font-size: 12px; line-height: 1.5; color: rgba(152, 163, 156, 0.85); font-style: italic; transition: opacity 0.35s; }
+  .tip:empty { display: none; }
+  .tip.swap { opacity: 0; }
+  #home-tip { display: none; margin: 8px 0 0; max-width: none; white-space: nowrap; }
+  html[data-loading] #p-home:not([hidden]) ~ #home-tip { display: block; animation: tipIn 0.4s 0.7s backwards; }
+  @keyframes tipIn { from { opacity: 0; } }
+  #pk-tip { margin: 0 0 8px; font-size: 11px; line-height: 1.35; color: var(--muted); font-style: italic; transition: opacity 0.35s; }
+  #pk-tip:empty { display: none; }
+  #pk-tip.swap { opacity: 0; }
+
+  /* the Secret box: tiny, top right beside the gear, no hint of what it does. It sits at the top so a phone's keyboard never covers it. */
+  .secret { position: absolute; z-index: 2; top: max(10px, var(--st)); right: calc(max(12px, var(--sr)) + 52px); height: 40px; display: flex; align-items: center; gap: 8px; }
+  .secret label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(152, 163, 156, 0.7); }
+  .secret input { box-sizing: border-box; width: 112px; padding: 6px 4px; font: 500 16px/1.2 var(--font); color: var(--text); background: transparent;
+    border: 0; border-bottom: 1px solid var(--line); border-radius: 0; outline: none; -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+  .secret input:focus { border-bottom-color: var(--hunter); }
+  #start:not([data-panel="home"]) .secret { display: none; }
+
+  /* the love and hate themes: one layer over the picture, under the controls (z 3); on the start screen it sits over it (z 11) so a phrase that worked shows.
+     Everything here only paints; it never touches input. Love is strong, hate is subtle (Chetan, 2026-10-01). */
+  #fx-theme { position: fixed; inset: 0; z-index: 3; pointer-events: none; display: none; overflow: hidden; }
+  html[data-theme] #fx-theme { display: block; }
+  html[data-state="start"] #fx-theme { z-index: 11; }
+  #fx-theme .th-tint, #fx-theme .th-flash, #fx-theme .th-cracks { position: absolute; inset: 0; width: 100%; height: 100%; }
+  html[data-theme="love"] .th-tint { background: radial-gradient(ellipse at center, rgba(255, 140, 170, 0.08) 38%, rgba(255, 70, 135, 0.36) 100%), rgba(255, 150, 120, 0.14); }
+  html[data-theme="hate"] .th-tint { background: radial-gradient(ellipse at center, rgba(130, 0, 0, 0) 50%, rgba(120, 0, 0, 0.3) 100%), rgba(255, 50, 35, 0.05); }
+  #fx-theme .th-cracks { display: none; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: 0.6; }
+  html[data-theme="hate"] #fx-theme .th-cracks { display: block; }
+  .th-cracks path { stroke: #1a0505; stroke-width: 3; }
+  .th-cracks path + path { stroke: #ff6a5a; stroke-width: 0.9; }
+  #fx-theme .th-flash { display: none; background: #ff3223; opacity: calc(var(--flash, 0) * 0.2); }
+  html[data-theme="hate"][data-state="playing"] #fx-theme .th-flash { display: block; }
+  #th-hearts { position: absolute; inset: 0; display: none; }
+  html[data-theme="love"] #th-hearts:not([data-off]) { display: block; }
+  #th-hearts i { position: absolute; bottom: -48px; width: var(--s); height: var(--s); opacity: 0; animation: thUp var(--d) linear var(--w) infinite; will-change: transform, opacity;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path d='M12 21C3 14 1 9 1 6a5.5 5.5 0 0 1 11-1.5A5.5 5.5 0 0 1 23 6c0 3-2 8-11 15z' fill='%23ff7fa8' fill-opacity='.9' stroke='white' stroke-opacity='.75' stroke-width='1.2'/></svg>") center / contain no-repeat; }
+  @keyframes thUp { 0% { transform: translate(0, 0) scale(0.8); opacity: 0; } 12% { opacity: 0.95; } 55% { transform: translate(calc(var(--x) * 0.5), -60vh) scale(1); } 100% { transform: translate(var(--x), -118vh) scale(1.15); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { #th-hearts i { animation: none; opacity: 0.5; bottom: 20%; } }
+
+  /* the themed start bubble and the themed end message on the match-over card */
+  #bubble[data-theme="love"] { background: rgba(255, 232, 240, 0.97); color: #4a1226; box-shadow: 0 0 0 2px rgba(255, 111, 160, 0.85); }
+  #bubble[data-theme="love"]::after { border-top-color: rgba(255, 232, 240, 0.97); }
+  #bubble[data-theme="hate"] { background: rgba(38, 8, 8, 0.96); color: #ffd9d4; box-shadow: 0 0 0 1px rgba(255, 90, 70, 0.75); }
+  #bubble[data-theme="hate"]::after { border-top-color: rgba(38, 8, 8, 0.96); }
+  #round #rc-theme { margin: 8px 0 0; font-size: 13px; line-height: 1.4; white-space: pre-line; }
+  html[data-theme="love"] #round #rc-theme { color: #ffb8cf; }
+  html[data-theme="hate"] #round #rc-theme { color: #ff9f92; }
+  #round #rc-theme:empty { display: none; }
+
+  /* the round's newspaper headline (egg 11) and the end-of-match awards (egg 12) */
+  #round #rc-news { margin: 6px 0; padding: 6px 4px; border-top: 1px solid var(--muted); border-bottom: 1px solid var(--muted); font: 700 12.5px/1.35 var(--font); letter-spacing: 0.01em; color: var(--text); }
+  #round #rc-news:empty { display: none; }
+  #round #rc-awards { margin: 4px 0 6px; }
+  #round #rc-awards p { margin: 0 0 4px; font-size: 10.5px; line-height: 1.3; color: var(--muted); }
+  #round #rc-awards b { display: block; color: #e9b43a; font: 700 11px/1.3 var(--font); letter-spacing: 0; }
+  /* a match-over card with extras (quote, headline, awards, taunt) uses two columns so it stays short: the result, the themed message and the
+     buttons on the left, the story (badges, quote, headline, awards, taunt) on the right. The "A vs B" line gives its room away: the awards and
+     the quote name the leaders. */
+  #round .card.wide { display: grid; grid-template-columns: minmax(0, 48%) minmax(0, 48%); column-gap: 4%; grid-template-rows: auto 1fr; grid-template-areas: "top extra" "bot extra";
+    width: min(600px, 100%); box-sizing: border-box; max-width: none; text-align: left; }
+  #rc-top { grid-area: top; } #rc-extra { grid-area: extra; } #rc-bot { grid-area: bot; }
+  #round .card.wide #rc-who { display: none; }
+  #round .card.wide #rc-extra > * { text-align: left; }
+  #round .card.wide #rc-badges { justify-content: flex-start; }
+  #round .card.wide #rc-q { margin-top: 0; }
+  #round .card.wide #rc-buttons { margin-top: 10px; justify-content: flex-start; gap: 8px; }
+  #round .card.wide #rc-buttons .btn { flex: 1; min-width: 0; padding: 11px 6px; font-size: 13px; white-space: nowrap; }
+  #round .card.wide #rc-theme { font-size: 12px; line-height: 1.35; }
+  #round .card.wide #rc-p, #round .card.wide #rc-count { font-size: 11px; }
+  /* a narrow phone (667 wide) leaves the cards only about 480 px between the corner map and the right edge: the two-column match-over card drops the "Round 2: ..." line (the quote and the headline say how the round ended) */
+  @media (max-width: 720px) {
+    #round .card.wide { padding: 10px 14px; }
+    #round .card.wide #rc-p { display: none; }
+    #round .card.wide #rq-by { font-size: 9px; letter-spacing: 0.02em; margin-bottom: 2px; }
+    #round .card.wide #rq-t { font-size: 12px; line-height: 1.3; }
+    #round .card.wide #rc-news { font-size: 11.5px; margin: 5px 0; padding: 5px 3px; }
+    #round .card.wide #rc-awards b { font-size: 10px; }
+    #round .card.wide #rc-awards p { font-size: 10px; margin-bottom: 3px; }
+    #round .card.wide #rc-theme { font-size: 11.5px; margin-top: 6px; }
+    #round .card.wide #rc-count { font-size: 10.5px; margin-top: 6px; }
+    #round .card.wide #rc-badges span { padding: 4px 8px; font-size: 9.5px; }
+    #round .card.wide #rc-taunt { font-size: 12px; margin-top: 4px; }
+  }
+
   #rotate { z-index: 30; background: var(--ink); text-align: center; }
   #rotate svg { display: block; margin: 0 auto 22px; animation: turn 2.4s ease-in-out infinite; }
   @keyframes turn { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
@@ -342,7 +434,7 @@
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 4A &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 4B &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bubble" aria-live="off" hidden></div>
 <div id="rh" hidden>
@@ -356,7 +448,19 @@
 <button id="menu-btn" class="corner" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
 <canvas id="minimap" hidden></canvas>
 <canvas id="cmap" hidden aria-hidden="true"></canvas>
+<div id="cmap-box" aria-hidden="true"></div>
 <div id="alarm" aria-hidden="true"></div>
+<div id="fx-theme" aria-hidden="true">
+  <div class="th-tint"></div>
+  <svg class="th-cracks" viewBox="0 0 812 375" preserveAspectRatio="none">
+    <path d="M0 0L46 38L70 92L110 118L118 170M46 38L92 34L118 52"/><path d="M0 0L46 38L70 92L110 118L118 170M46 38L92 34L118 52"/>
+    <path d="M812 0L760 34L742 88L690 104L676 150M742 88L784 110"/><path d="M812 0L760 34L742 88L690 104L676 150M742 88L784 110"/>
+    <path d="M0 375L52 330L96 318L130 270M96 318L120 350"/><path d="M0 375L52 330L96 318L130 270M96 318L120 350"/>
+    <path d="M812 375L766 336L726 322L700 274L640 262M726 322L760 296"/><path d="M812 375L766 336L726 322L700 274L640 262M726 322L760 296"/>
+  </svg>
+  <div class="th-flash"></div>
+  <div id="th-hearts"></div>
+</div>
 
 <div id="controls">
   <div id="stick-zone" class="zone"></div>
@@ -370,7 +474,7 @@
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 4A &middot; easter eggs</p>
+      <p class="over">Stage 4B &middot; easter eggs</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
       <p class="tag">Two phones. One hunter. Three minutes.</p>
@@ -379,6 +483,7 @@
         <button id="join" class="btn secondary" type="button">Join game</button>
         <button id="solo" class="textlink" type="button">Drive alone</button>
       </div>
+      <p id="home-tip" class="tip" aria-live="off"></p>
       <div id="p-solo" class="lobby" hidden>
         <p class="lbl">Drive alone as</p>
         <p class="say">Practice only. No clock, no score.</p>
@@ -395,12 +500,14 @@
         <p id="room-code" class="code"></p>
         <p id="create-text" class="say"></p>
         <p id="create-note" class="say error"></p>
+        <p id="create-tip" class="tip" aria-live="off"></p>
         <button id="create-cancel" class="btn secondary small" type="button">Cancel</button>
       </div>
       <div id="p-join" class="lobby" hidden>
         <label class="lbl" for="code-in">Room code</label>
         <input id="code-in" class="code-in" type="text" maxlength="4" placeholder="ABCD" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
         <p id="join-msg" class="say" role="alert"></p>
+        <p id="join-tip" class="tip" aria-live="off"></p>
         <div class="row">
           <button id="join-go" class="btn small" type="button">Join</button>
           <button id="join-back" class="btn secondary small" type="button">Back</button>
@@ -409,6 +516,7 @@
       <div id="p-busy" class="lobby" hidden>
         <p id="busy-text" class="say big"></p>
         <p id="busy-count" class="say"></p>
+        <p id="busy-tip" class="tip" aria-live="off"></p>
         <button id="busy-leave" class="btn secondary small" type="button">Leave</button>
         <button id="busy-back" class="btn small" type="button">Back to start</button>
       </div>
@@ -432,6 +540,7 @@
     </div>
   </div>
   <p id="spec" class="spec"></p>
+  <div class="secret"><label for="secret-in">Secret</label><input id="secret-in" type="text" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go"></div>
 </div>
 
 <div id="settings" class="overlay" hidden>
@@ -512,6 +621,7 @@
     <h2 id="pk-name"></h2>
     <p id="pk-place"></p>
     <p id="pk-status"></p>
+    <p id="pk-tip" aria-live="off"></p>
     <div class="pk-btns">
       <button id="pk-go" class="btn" type="button">Ready</button>
       <button id="pk-leave" class="btn secondary" type="button">Leave</button>
@@ -522,23 +632,33 @@
 
 <div id="round" class="overlay" hidden>
   <div class="card" role="status" aria-labelledby="rc-t">
-    <p id="rc-over" class="over"></p>
-    <h2 id="rc-t"></h2>
-    <p id="rc-p"></p>
-    <div id="rc-badges" hidden></div>
-    <p id="rc-q" hidden><span id="rq-by"></span><span id="rq-t"></span></p>
+    <div id="rc-top">
+      <p id="rc-over" class="over"></p>
+      <h2 id="rc-t"></h2>
+      <p id="rc-p"></p>
+    </div>
+    <div id="rc-extra">
+      <div id="rc-badges" hidden></div>
+      <p id="rc-q" hidden><span id="rq-by"></span><span id="rq-t"></span></p>
+      <p id="rc-news" hidden></p>
+      <div id="rc-awards" hidden></div>
+      <p id="rc-taunt" hidden></p>
+    </div>
+    <div id="rc-bot">
     <div id="rc-vs" aria-hidden="true">
       <div class="vs"><span class="vs-who">You</span><canvas id="vs-f0" width="120" height="80"></canvas><b id="vs-n0"></b><span id="vs-p0" class="vs-place"></span><span id="vs-t0" class="vs-tag"></span></div>
       <div class="vs"><span class="vs-who">Them</span><canvas id="vs-f1" width="120" height="80"></canvas><b id="vs-n1"></b><span id="vs-p1" class="vs-place"></span><span id="vs-t1" class="vs-tag"></span></div>
     </div>
     <p id="rc-who"></p>
     <p id="rc-score"></p>
+    <p id="rc-theme" hidden></p>
     <p id="rc-count"></p>
     <p id="rc-wx"></p>
-    <p id="rc-taunt" hidden></p>
+    <p id="rc-duck" hidden></p>
     <div id="rc-buttons" class="row">
       <button id="rc-again" class="btn" type="button">Play again</button>
       <button id="rc-leave" class="btn secondary" type="button">Leave</button>
+    </div>
     </div>
   </div>
 </div>
@@ -567,44 +687,47 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=4a-1",
-  "./js/bubble.js": "./js/bubble.js?v=4a-1",
-  "./js/camera.js": "./js/camera.js?v=4a-1",
-  "./js/cornermap.js": "./js/cornermap.js?v=4a-1",
-  "./js/effects.js": "./js/effects.js?v=4a-1",
-  "./js/eggs.js": "./js/eggs.js?v=4a-1",
-  "./js/flags.js": "./js/flags.js?v=4a-1",
-  "./js/input.js": "./js/input.js?v=4a-1",
-  "./js/lamps.js": "./js/lamps.js?v=4a-1",
-  "./js/leaders.js": "./js/leaders.js?v=4a-1",
-  "./js/lines.js": "./js/lines.js?v=4a-1",
-  "./js/lobby.js": "./js/lobby.js?v=4a-1",
-  "./js/main.js": "./js/main.js?v=4a-1",
-  "./js/map.js": "./js/map.js?v=4a-1",
-  "./js/menu.js": "./js/menu.js?v=4a-1",
-  "./js/models.js": "./js/models.js?v=4a-1",
-  "./js/net.js": "./js/net.js?v=4a-1",
-  "./js/picker.js": "./js/picker.js?v=4a-1",
-  "./js/props.js": "./js/props.js?v=4a-1",
-  "./js/rules.js": "./js/rules.js?v=4a-1",
-  "./js/screen.js": "./js/screen.js?v=4a-1",
-  "./js/settings.js": "./js/settings.js?v=4a-1",
-  "./js/shots.js": "./js/shots.js?v=4a-1",
-  "./js/sound.js": "./js/sound.js?v=4a-1",
-  "./js/tank.js": "./js/tank.js?v=4a-1",
-  "./js/textures.js": "./js/textures.js?v=4a-1",
-  "./js/vision.js": "./js/vision.js?v=4a-1",
-  "./js/weather.js": "./js/weather.js?v=4a-1",
-  "./js/world.js": "./js/world.js?v=4a-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=4a-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=4a-1",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=4a-1",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=4a-1",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=4a-1",
-  "three": "./lib/three.module.js?v=4a-1"
+  "./js/arena.js": "./js/arena.js?v=4b-1",
+  "./js/bubble.js": "./js/bubble.js?v=4b-1",
+  "./js/camera.js": "./js/camera.js?v=4b-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=4b-1",
+  "./js/effects.js": "./js/effects.js?v=4b-1",
+  "./js/eggs.js": "./js/eggs.js?v=4b-1",
+  "./js/flags.js": "./js/flags.js?v=4b-1",
+  "./js/input.js": "./js/input.js?v=4b-1",
+  "./js/lamps.js": "./js/lamps.js?v=4b-1",
+  "./js/leaders.js": "./js/leaders.js?v=4b-1",
+  "./js/lines.js": "./js/lines.js?v=4b-1",
+  "./js/lobby.js": "./js/lobby.js?v=4b-1",
+  "./js/main.js": "./js/main.js?v=4b-1",
+  "./js/map.js": "./js/map.js?v=4b-1",
+  "./js/menu.js": "./js/menu.js?v=4b-1",
+  "./js/models.js": "./js/models.js?v=4b-1",
+  "./js/net.js": "./js/net.js?v=4b-1",
+  "./js/picker.js": "./js/picker.js?v=4b-1",
+  "./js/props.js": "./js/props.js?v=4b-1",
+  "./js/rules.js": "./js/rules.js?v=4b-1",
+  "./js/screen.js": "./js/screen.js?v=4b-1",
+  "./js/secret.js": "./js/secret.js?v=4b-1",
+  "./js/settings.js": "./js/settings.js?v=4b-1",
+  "./js/shots.js": "./js/shots.js?v=4b-1",
+  "./js/sound.js": "./js/sound.js?v=4b-1",
+  "./js/tank.js": "./js/tank.js?v=4b-1",
+  "./js/textures.js": "./js/textures.js?v=4b-1",
+  "./js/theme.js": "./js/theme.js?v=4b-1",
+  "./js/tips.js": "./js/tips.js?v=4b-1",
+  "./js/vision.js": "./js/vision.js?v=4b-1",
+  "./js/weather.js": "./js/weather.js?v=4b-1",
+  "./js/world.js": "./js/world.js?v=4b-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=4b-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=4b-1",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=4b-1",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=4b-1",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=4b-1",
+  "three": "./lib/three.module.js?v=4b-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=4a-1"></script>
-<script type="module" src="./js/main.js?v=4a-1"></script>
+<script src="lib/peerjs.min.js?v=4b-1"></script>
+<script type="module" src="./js/main.js?v=4b-1"></script>
 </body>
 </html>

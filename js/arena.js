@@ -159,7 +159,16 @@ export function buildArena(scene, quality = 'high') {
   rain.visible = false;
   scene.add(rain);
 
-  let current = null;
+  let current = null, curWeather = null, tone = null;
+  // Stage 4B (love / hate): the lights take a tint, warm pink for love (strong), a faint red for hate (subtle). Only the colour of the lights changes
+  // (the sky, the smog and every distance stay as the weather made them, so nothing about who can see whom changes); it costs nothing to draw.
+  const TONES = { love: { c: 0xff9fb8, k: 0.15 }, hate: { c: 0xff5a4a, k: 0.12 } };
+  const lit = (hex, t) => { const c = new THREE.Color(hex); if (t) c.lerp(new THREE.Color(t.c), t.k); return c; };
+  function applyLights() {
+    const w = curWeather, t = tone && TONES[tone];
+    if (!w) return;
+    skyLight.color.copy(lit(w.sky.col, t)); skyLight.groundColor.copy(lit(w.sky.ground, t)); sun.color.copy(lit(w.sun.col, t));
+  }
   // Switch the whole look to a weather: smog, sky, lights, lamp strength, wet floor, rain.
   function setWeather(name) {
     const w = WEATHERS[name] || WEATHERS[DEFAULT_WEATHER];
@@ -169,8 +178,9 @@ export function buildArena(scene, quality = 'high') {
     u.sunDir.value.set(...w.sunDir).normalize();
     u.sunDisc.value = w.sunDisc;
     u.sunTint.value.setRGB(...(w.sunTint || [1, 0.93, 0.78]));
-    skyLight.color.setHex(w.sky.col); skyLight.groundColor.setHex(w.sky.ground); skyLight.intensity = w.sky.i;
-    sun.color.setHex(w.sun.col); sun.intensity = w.sun.i; sun.shadow.radius = w.sun.soft;
+    curWeather = w; applyLights();
+    skyLight.intensity = w.sky.i;
+    sun.intensity = w.sun.i; sun.shadow.radius = w.sun.soft;
     sun.position.set(...w.lightDir).normalize().multiplyScalar(110);
     // wet: darker, smoother floor and walls (rain, and a little in fog)
     floorCol = w.floor; wet = w.wet;
@@ -185,6 +195,7 @@ export function buildArena(scene, quality = 'high') {
   }
   return {
     sky: sky.material, sun, lamps, setWeather,
+    setTone(kind) { kind = kind in TONES ? kind : null; if (kind === tone) return; tone = kind; applyLights(); },
     ready,   // resolves when every surface is drawn (testing)
     get weather() { return current; },
     update(t, dt) { rain.material.uniforms.uTime.value = t; lamps.update(dt); },

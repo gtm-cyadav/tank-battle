@@ -63,11 +63,13 @@ function place(w, h, avoid, m, low = 0.55) {
   return best && { ...best, clear: false };
 }
 
-export function showBubble(text) {
+// opt (Stage 4B): { ms: how long it stays, theme: 'love' | 'hate' for the themed start message }
+export function showBubble(text, opt = {}) {
   const el = $('bubble');
   if (!el || !text) return;
   clearTimeout(timer);
   el.textContent = text;
+  if (opt.theme) el.dataset.theme = opt.theme; else delete el.dataset.theme;
   el.hidden = false; el.classList.remove('show');   // laid out (and see-through) so it can be measured
   const m = margins(), avoid = obstacles(), room = innerWidth - m.l - m.r;
   let spot = null, size = null;
@@ -97,7 +99,7 @@ export function showBubble(text) {
   el.hidden = false;
   void el.offsetWidth;
   el.classList.add('show');
-  timer = setTimeout(hideBubble, SHOW);
+  timer = setTimeout(hideBubble, opt.ms || SHOW);
 }
 export function hideBubble() {
   clearTimeout(timer);

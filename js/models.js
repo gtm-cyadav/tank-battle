@@ -64,7 +64,54 @@ export function applyTank(tank) {
   u.model = true;
   if (u.leaderScene) attachLeader(tank, u.leader, u.leaderScene);
   u.changed = true;
+  syncDuck(tank);   // a duck round that began before the tank had loaded
   return true;
+}
+
+// ---- the rubber duck (Stage 4B, Chetan 2026-10-01): models/duck.glb, built by tools/blender/build_duck.py -----------------------
+// A duck round draws every tank as this duck instead of the tank body. Nothing else changes: the collision circle, the outline the sight
+// rule and the bullets use, and the barrel's pivot and tip are the tank's (the duck's bill IS the barrel: it takes the barrel's place, so
+// the recoil, the muzzle flash and the shots come from the same spot). The duck's body wears the tank's paint (orange hunter, blue hider),
+// its wheels the steel (so gold and silver trim still show), its eyes and bill the figure material; all of them are the tank's own materials,
+// so the fade, the smog and the wreck work as for any tank. The flag moves to the duck's back so the mast does not float beside it.
+let duckModel = null, duckPromise = null;
+export function loadDuck() {
+  return duckPromise ||= loader.loadAsync(url('duck')).then(g => (duckModel = g.scene)).catch(e => { duckPromise = null; throw e; });
+}
+const DUCK_FLAG = { dx: -0.8, dz: 0.27 };   // the flag's mast and cloth on the duck's back (moved from the tank's rear corner)
+function moveFlag(u, on) {
+  if (!u.mast || !u.cloth) return;
+  const k = on ? 1 : 0;
+  u.mast.position.set(FLAG.mastX + k * DUCK_FLAG.dx, (FLAG.mastBase + FLAG.mastTop) / 2, FLAG.mastZ + k * DUCK_FLAG.dz);
+  u.cloth.position.set(FLAG.mastX - 0.03 + k * DUCK_FLAG.dx, FLAG.mastTop - 0.05 - FLAG.h, FLAG.mastZ + k * DUCK_FLAG.dz);
+}
+// Ask for this tank to be a duck (on) or a tank (off). Safe to call at any time: it takes effect as soon as both models are loaded.
+export function setDuck(tank, on) {
+  const u = tank.userData;
+  u.wantDuck = !!on;
+  if (on && !duckModel) loadDuck().then(() => syncDuck(tank)).catch(e => console.warn('duck model', e));
+  syncDuck(tank);
+}
+function syncDuck(tank) {
+  const u = tank.userData, want = !!u.wantDuck && !!duckModel && !!u.model;
+  if (want === !!u.duck) return;
+  const [body, barrel] = u.boxes.slice(0, 2);
+  if (want) {
+    const duck = dress(u, duckModel.getObjectByName('duck_body'));
+    const bill = duckModel.getObjectByName('duck_bill');
+    tank.add(duck);
+    body.visible = false;
+    u.tankBarrelGeo = barrel.geometry; u.tankBarrelMat = barrel.material;
+    barrel.geometry = bill.geometry; barrel.material = u.fig;   // the bill takes the barrel's place: same pivot, same recoil
+    u.duck = duck;
+  } else {
+    tank.remove(u.duck);
+    body.visible = true;
+    barrel.geometry = u.tankBarrelGeo; barrel.material = u.tankBarrelMat;
+    u.duck = null;
+  }
+  moveFlag(u, want);
+  u.changed = true;   // the fade's depth-only copies are made again for the new parts
 }
 
 const FACE_YOU = Math.PI;   // the figure turned round in the hatch, facing back along the tank (towards its own camera)
@@ -103,7 +150,7 @@ function flagTexture(n) {
 }
 function dropFlag(u) {
   if (u.clothMat) { u.mats = u.mats.filter(m => m !== u.clothMat); u.clothMat.dispose(); }
-  u.cloth = u.clothMat = u.clothBase = null;
+  u.cloth = u.clothMat = u.clothBase = u.mast = null;
 }
 function attachFlag(tank, n) {
   const u = tank.userData, F = FLAG;
@@ -121,8 +168,9 @@ function attachFlag(tank, n) {
   cloth.position.set(F.mastX - 0.03, F.mastTop - 0.05 - F.h, F.mastZ);
   cloth.rotation.y = Math.PI;      // faces backwards; the cloth then flies towards the middle of the tank
   cloth.frustumCulled = false;
-  u.cloth = cloth; u.clothW = F.w; u.clothBase = geo.attributes.position.array.slice();
+  u.cloth = cloth; u.mast = mast; u.clothW = F.w; u.clothBase = geo.attributes.position.array.slice();
   tank.add(mast, cloth); u.figure.push(mast, cloth);
+  if (u.duck) moveFlag(u, true);
   if (u.fade < 1) { u.clothMat.transparent = true; u.clothMat.opacity = u.fade; }
   if (u.wrecked) u.clothMat.color.setHex(0x4a4744);
 }

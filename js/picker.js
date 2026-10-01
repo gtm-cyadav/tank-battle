@@ -7,6 +7,7 @@
 // The last choice is remembered on the phone. What the choice means for the match is rules.js (referee draws Random).
 import { LEADERS, GROUPS, COUNT } from './leaders.js';
 import { drawFlag } from './flags.js';
+import { tipOn, tipOff } from './tips.js';
 
 const $ = id => document.getElementById(id);
 const KEY = 'tank-battle.pick';
@@ -97,6 +98,7 @@ function render() {
   go.textContent = solo ? 'Start' : locked ? 'Change' : 'Ready';
   go.classList.toggle('secondary', !solo && locked);
   $('pk-status').textContent = solo ? '' : locked ? (theirs ? 'Both ready.' : 'Waiting for the other player.') : theirs ? 'The other player is ready.' : '';
+  (!solo && locked && !theirs ? tipOn : tipOff)($('pk-tip'));   // Stage 4B: a loading tip while waiting for the other player
   for (const t of $('pk-tabs').querySelectorAll('button')) t.setAttribute('aria-pressed', t.dataset.who === who);
 }
 
@@ -123,6 +125,7 @@ export function openPicker(opts = {}) {
 }
 export function closePicker() {
   if ($('pick').hidden) return;
+  tipOff($('pk-tip'));
   $('pick').hidden = true;
   hooks.changed?.();
 }

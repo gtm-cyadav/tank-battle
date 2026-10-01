@@ -9,7 +9,7 @@
 // cap, faint stencil writing a shade lighter than the wall.
 import * as THREE from '../lib/three.module.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
-import { chickenSpot, GRAFFITI, GRAFFITI_SIZE, graffitiSpot } from './eggs.js';
+import { chickenLedge, LEDGE, GRAFFITI, GRAFFITI_SIZE, graffitiSpot } from './eggs.js';
 
 // one coloured piece: a geometry moved into place and painted in one colour (vertex colours, so all pieces share a material)
 function piece(geo, color, { x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0 } = {}) {
@@ -43,16 +43,45 @@ function makeChicken() {
     piece(SPHERE(0.06), COMB, { y: 1.34, z: 0.56 }),                                                    // wattle
     piece(SPHERE(0.032), EYE, { x: 0.2, y: 1.55, z: 0.5 }), piece(SPHERE(0.032), EYE, { x: -0.2, y: 1.55, z: 0.5 }),
     piece(CYL(0.045, 0.4, 6), DARK, { x: 0.17, y: 0.38, z: 0.1 }), piece(CYL(0.045, 0.4, 6), DARK, { x: -0.17, y: 0.38, z: 0.1 }),                      // legs
+    piece(BOX(1.4, 0.23, 1.04), DARK, { y: -0.115, z: -0.058 }),                                        // the ledge it stands on (juts 1.05 m out of the wall, 0.3 m thick)
   ];
   const mesh = new THREE.Mesh(merged(parts), stone());
   mesh.receiveShadow = false;
   const g = new THREE.Group();
   g.add(mesh);
-  const at = chickenSpot();
-  g.position.set(at.x, at.y, at.z);
-  g.rotation.y = Math.PI / 4;   // looks out over the plaza, towards the middle of the yard
+  const at = chickenLedge();
+  g.position.set(at.x + 0.45, at.y, at.z);   // on the ledge: 0.45 m out from the east face of its block
+  g.rotation.y = Math.PI / 2;                // looks straight out over the plaza (east), the way a hunter comes at it
   g.scale.setScalar(1.3);
   return g;
+}
+
+// ---- the arrow under the chicken: faint stencil paint like the graffiti, an arrow pointing up and "Shoot the chicken" -----------------------------
+function drawArrow(canvas) {
+  const g = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = 'rgba(226,232,226,0.62)';
+  g.beginPath(); g.moveTo(H * 0.5, H * 0.06); g.lineTo(H * 0.96, H * 0.58); g.lineTo(H * 0.04, H * 0.58); g.closePath(); g.fill();   // the arrowhead
+  g.fillRect(H * 0.34, H * 0.55, H * 0.32, H * 0.4);                                                                                    // and its shaft
+  g.font = `500 ${H * 0.5}px "Plex Mono", ui-monospace, Menlo, Consolas, monospace`;
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(28,32,30,0.2)'; g.fillText('Shoot the chicken', H + 3, H * 0.5 + 3);
+  g.fillStyle = 'rgba(226,232,226,0.62)'; g.fillText('Shoot the chicken', H + 0, H * 0.5);
+}
+function makeArrow(quality) {
+  const k = quality === 'high' ? 1 : 0.5, canvas = document.createElement('canvas');
+  canvas.width = 1024 * k; canvas.height = (1024 * LEDGE.arrowH / LEDGE.arrowW) * k;
+  drawArrow(canvas);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  document.fonts?.load('500 40px "Plex Mono"').then(() => { drawArrow(canvas); tex.needsUpdate = true; }).catch(() => {});
+  const at = chickenLedge();
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(LEDGE.arrowW, LEDGE.arrowH),
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  mesh.position.set(at.x + 0.03, LEDGE.arrowY, at.z);
+  mesh.rotation.y = Math.PI / 2;   // faces east, out of the wall
+  mesh.renderOrder = 1;
+  return mesh;
 }
 
 // ---- the graffiti -------------------------------------------------------------------------------------------------
@@ -138,11 +167,11 @@ function makeTourist(quality) {
 
 // ---- all of it ----------------------------------------------------------------------------------------------------
 export function createProps(scene, quality = 'high') {
-  const chicken = makeChicken(), graffiti = makeGraffiti(quality), tourist = makeTourist(quality);
-  scene.add(chicken, graffiti, tourist);
+  const chicken = makeChicken(), graffiti = makeGraffiti(quality), tourist = makeTourist(quality), arrow = makeArrow(quality);
+  scene.add(chicken, graffiti, tourist, arrow);
   let hop = -1;   // seconds into the chicken's hop (cluck), or -1
   return {
-    chicken, graffiti, tourist,
+    chicken, graffiti, tourist, arrow,
     // the chicken clucks: a short hop and a ruffle
     cluck() { hop = 0; },
     // call every frame. pose: touristAt(...) for the round clock, or null. dt: seconds.

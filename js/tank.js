@@ -73,6 +73,7 @@ export function paintTank(tank, color, wrecked = false) {
   u.paint.color.setHex(wrecked ? WRECK : PAINT[color] ?? color);
   u.paint.roughness = wrecked ? 0.95 : 0.72;
   u.wrecked = wrecked;
+  u.paint.emissiveIntensity = wrecked ? 0 : u.glowI || 0;   // the love / hate glow goes out with the paint
   u.clothMat?.color.setHex(wrecked ? 0x4a4744 : 0xffffff);
   u.fig.color.setHex(wrecked ? 0x4a4744 : 0xffffff);
   u.figMetal.color.setHex(wrecked ? 0x4a4744 : 0xffffff);
@@ -121,11 +122,54 @@ export function setFade(tank, f) {
   for (const m of u.mats) { m.opacity = f; if (m.transparent !== see) { m.transparent = see; m.needsUpdate = true; } }
   for (const g of u.ghosts) g.visible = see;
   u.blob.material.opacity = 0.35 * f;
+  if (u.aura) u.aura.material.opacity = u.auraBase * f;
 }
 // smog on: this tank fades into the smog like the rest of the world (off: the hunter's tank on the hider's screen)
 export function setFog(tank, on) {
   const u = tank.userData;
-  for (const m of [...u.mats, u.blob.material]) if (m.fog !== on) { m.fog = on; m.needsUpdate = true; }
+  for (const m of [...u.mats, u.blob.material, ...(u.aura ? [u.aura.material] : [])]) if (m.fog !== on) { m.fog = on; m.needsUpdate = true; }
+}
+
+// ---- Stage 4B (Chetan, 2026-10-01): the love / hate glow ---------------------------------------------------------------------
+// love: a warm pink glow, hate: a faint angry red. Two parts, both inside the tank's own outline plus a margin well within the half metre the
+// sight rule adds (vision.js), so it can never show a tank the hunter should not see: a tint of the tank's own paint, and a soft glowing pad on
+// the floor under it (3.7 x 5.35 m, 0.2 m beyond the outline each side). The pad is one flat quad that fades with the tank, takes the smog,
+// is hidden with the tank and is hidden by walls like the floor it lies on. kind: 'love' | 'hate' | null.
+const AURA = { love: { tint: 0xff4f93, k: 0.05, pad: 0xff5fa0, a: 0.85 }, hate: { tint: 0xb00a0a, k: 0.1, pad: 0xff2a1c, a: 0.32 } };
+let padTex = null, padGeo = null;
+function padTexture() {
+  if (padTex) return padTex;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 88;
+  const g = c.getContext('2d');
+  // brightest at the edge of the tank's footprint, fading to nothing at the pad's own edge (a soft ring, so the tank itself stays clear)
+  const r = g.createRadialGradient(32, 44, 4, 32, 44, 46);
+  r.addColorStop(0, 'rgba(255,255,255,0.25)'); r.addColorStop(0.55, 'rgba(255,255,255,0.8)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 88);
+  padTex = new THREE.CanvasTexture(c);
+  return padTex;
+}
+export function setAura(tank, kind) {
+  const u = tank.userData, a = kind ? AURA[kind] : null;
+  if ((u.auraKind || null) === (kind || null)) return;
+  u.auraKind = kind || null;
+  u.glowI = a ? a.k : 0;
+  if (a) u.paint.emissive.setHex(a.tint);
+  u.paint.emissiveIntensity = u.wrecked ? 0 : u.glowI;
+  if (a && !u.aura) {
+    padGeo ||= new THREE.PlaneGeometry(3.7, 5.35);
+    const m = new THREE.MeshBasicMaterial({ map: padTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: true });
+    const pad = new THREE.Mesh(padGeo, m);
+    pad.rotation.x = -Math.PI / 2; pad.position.set(0, 0.035, 0.425);   // centred on the outline (1.95 behind the centre, 2.8 in front)
+    pad.userData.noGhost = true; pad.renderOrder = 2;
+    tank.add(pad);
+    u.aura = pad;
+    if (u.blob.material.fog === false) m.fog = false;   // the hunter's own tank on the hider's screen takes no smog
+    u.changed = true;
+  }
+  if (u.aura) {
+    u.aura.visible = !!a;
+    if (a) { u.aura.material.color.setHex(a.pad); u.auraBase = a.a; u.aura.material.opacity = a.a * u.fade; }
+  }
 }
 
 // ---- the bobblehead: wobbles when driving, a big shake when hit, a tiny bob at rest ---------------------------

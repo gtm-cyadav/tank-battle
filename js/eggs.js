@@ -11,10 +11,15 @@ import { cellX, cellZ, rayToWall, toRow, toCol, WALL_H } from './world.js';
 
 // ---- the chicken ----------------------------------------------------------------------------------------------------
 // One end block of the wall at the mouth of the plaza (row 9, column 18). It stands on top of it, 4.5 m up. A bullet that
-// stops against that block (any of its faces) is "a shot at the chicken": bullets fly at barrel height, the chicken is above.
+// stops against that block (any of its faces) is "a shot at the chicken" (the chicken now stands on a ledge on the east face, see LEDGE).
 export const CHICKEN = { r: 9, c: 18 };
 export const HONK_RANGE = 6;   // m: a hider's tank this close to the chicken makes it cluck (Chetan, 2026-10-01: the hider's way to meet the egg)
-export const chickenSpot = () => ({ x: cellX(CHICKEN.c) + CELL / 2, z: cellZ(CHICKEN.r) + CELL / 2, y: WALL_H });
+export const chickenSpot = () => ({ x: cellX(CHICKEN.c) + CELL / 2, z: cellZ(CHICKEN.r) + CELL / 2, y: WALL_H });   // the block's centre: the hider's honk is measured to this, unchanged
+// Chetan's fix (2026-10-01): the stone chicken stands on a small ledge on the block's EAST face (the end face towards the plaza), 1.75 m up, in line with the
+// barrel (1.55 m) so a hunter can see what to shoot, and a faint "Shoot the chicken" arrow is painted under it. Pure looks: nothing here is solid and no rule,
+// hit, sight or map check reads it; a shot that stops against ANY face of the block still counts, exactly as before.
+export const LEDGE = { y: 1.75, out: 1.05, arrowY: 1.1, arrowW: 2.9, arrowH: 0.5 };   // m: ledge top above the floor, how far it juts out, the arrow's centre height and size
+export const chickenLedge = () => ({ x: cellX(CHICKEN.c) + CELL, z: cellZ(CHICKEN.r) + CELL / 2, y: LEDGE.y, nx: 1, nz: 0 });   // the middle of the block's east face
 
 // ---- a small seeded generator (mulberry32), so both phones draw the same "random" numbers ----------------------------
 export function seeded(mid, round, salt = 0) {

@@ -21,6 +21,14 @@
 //   - the other phone sends its choice { t: 'c', mid, s, n, ok } and resends it every 0.5 s until the referee's match
 //     shows the same Ready state; s (a rising number) puts old messages in order;
 //   - the referee's match shows only who is Ready, never who chose what.
+// Stage 4B (Chetan, 2026-10-01): three more things the match carries, all decided by the referee and read by both phones:
+//   - `log`: one short record per finished round (who hunted, who won and how, the clock, bumps, chicken, tourist, whether the hider was
+//     seen, shots fired, badges). The end-of-match awards are a fixed function of it (lines.js awardsFor), so both phones print the same ones;
+//   - `ducks`: a bit per round (bit 0 = round 1) that is a rubber-duck round. Five taps in the corner map box on either phone ask for the NEXT
+//     round (message `dk`, resent until the match shows it); a tap that comes after that round has started is ignored;
+//   - `theme`: null, or the love / hate theme { k, s, w, l, x } (kind and the four messages, already decrypted on the phone that typed the
+//     phrase). It is put in the match at the start (the referee's own phone, or the other phone's message `th`) and then kept through
+//     Play again until somebody leaves. The phrase and the encrypted texts never reach this file.
 // Hunter ping (Stage 1e): every 45 s of round time the hunter's corner map shows, for 4 s, a rough circle the hider is
 // somewhere inside; the hider gets a 3-second countdown first and sees the same circle.
 //   - When: the round clock, which the referee owns (so never in the head start, between rounds or while paused).
@@ -50,6 +58,7 @@ export const RULES = {
   pingWarn: 3,       // s of countdown the hider gets first
   pingSize: 25,      // m across
   leaders: 36,       // leaders to pick from (Stage 3A); choice 0 = Random
+  rounds: 3,         // rounds in a match at most (best of 3)
   speedrun: 20,      // s of hunting time (after the head start) a hit must come inside to earn the Speedrun badge (Stage 4A)
   bumpHold: 0.25,    // s the two tanks must stay touching before it counts as a bump (Stage 4A)
   bumpGap: 20,       // s of round time between two bump lines
@@ -64,7 +73,8 @@ export const RULES = {
 //   sorry     1 once a shot has passed the tourist this round
 //   seen      the hider's phone said, at some moment of this round, that the hunter may have seen it (for the Ghost badge)
 //   lastShot  round clock when the hunter's last shot left the gun (-1 = none; for the Cinematic escape badge)
-const EGG0 = { gold: false, silver: false, bump: 0, bumpAt: -99, sorry: 0, seen: false, lastShot: -1 };
+//   shots     how many shots the hunter has fired this round (for the awards)
+const EGG0 = { gold: false, silver: false, bump: 0, bumpAt: -99, sorry: 0, seen: false, lastShot: -1, shots: 0 };
 const eggKey = m => m ? `${m.mid}/${m.round}/${m.gold ? 1 : 0}${m.silver ? 1 : 0}/${m.bump | 0}/${m.sorry | 0}` : '';
 
 // Ping number n happens this many seconds into the round, or null if there is no such ping (after the round ends,
@@ -75,6 +85,18 @@ export function pingTime(n) {
 }
 
 const other = side => side === 'host' ? 'guest' : 'host';
+
+// Stage 4B: the theme in the match must be exactly this shape (the texts are plain strings; nothing else is let through)
+export function cleanTheme(p) {
+  if (!p || (p.k !== 'love' && p.k !== 'hate')) return null;
+  const t = v => typeof v === 'string' ? v.slice(0, 240) : '';
+  return { k: p.k, s: t(p.s), w: t(p.w), l: t(p.l), x: t(p.x) };
+}
+// The round a tap on the duck code would change: the next one (round 1 during the coin toss, round + 1 in a round or its break),
+// or 0 when there is none (the last round, the match over, the leader picker).
+export const nextRoundOf = m => !m ? 0 : m.phase === 'toss' ? 1 : (m.phase === 'play' || m.phase === 'break') && m.round < RULES.rounds ? m.round + 1 : 0;
+// Is round r (default: the match's current one) a rubber-duck round?
+export const isDuckRound = (m, r = m?.round) => !!m && r >= 1 && (((m.ducks | 0) >> (r - 1)) & 1) === 1;
 
 // match (the referee's copy is the real one; the other phone holds a copy):
 //   mid: match number (goes up with each Play again), round: 1-3, first: who hunted round 1 ('host' | 'guest'),
@@ -104,6 +126,8 @@ export function createRules(hooks) {
   let due = [];                       // referee: eggs waiting for a bullet to arrive { at (round clock), k: 'gold' | 'sorry' }
   let honkSent = null;                // hider's phone (not the referee): told the referee it drove up to the chicken { mid, r, clock }
   let seenSent = null;                // hider's phone (not the referee): told the referee the hunter may have seen it { mid, r, clock }
+  let armed = null, themeClock = 0;   // other phone: the theme its player typed (decrypted), sent to the referee until the match shows one
+  let duckSent = null;                // other phone: asked the referee for a duck round { mid, n, clock } (asked again until the match shows it)
 
   const referee = () => side === 'host';
   const key = m => m ? `${m.mid}/${m.round}/${m.phase}` : '';
@@ -126,7 +150,8 @@ export function createRules(hooks) {
     theirs = null; want = { n: want.n, ok: false, s: want.s };
     set({ mid, round: 1, first: Math.random() < 0.5 ? 'host' : 'guest', score: { host: 0, guest: 0 },
       phase: 'pick', t: 0, result: null, again: { host: false, guest: false }, ping: null, wx: randomWeather(), next: null,
-      ready: { host: false, guest: false }, lead: null, ...EGG0 });
+      ready: { host: false, guest: false }, lead: null, ...EGG0,
+      log: [], ducks: 0, theme: match?.theme || cleanTheme(hooks.theme?.()) });
     due = [];
     broadcast();
   }
@@ -150,7 +175,10 @@ export function createRules(hooks) {
     const badges = badgesOf(how, result.left, !!match.seen, match.lastShot ?? -1, RULES);   // written once, here, so both phones read the same
     if (badges.length) result.badges = badges;
     due = [];
-    set({ ...match, score, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather() });
+    // one short record of the round for the end-of-match awards (Stage 4B)
+    const log = [...(match.log || []), { h: hunterSide(), w: win, how, l: Math.round(result.left * 10) / 10, b: match.bump | 0, g: match.gold ? 1 : 0, s: match.silver ? 1 : 0,
+      so: match.sorry | 0, sn: match.seen ? 1 : 0, sh: match.shots | 0, bd: badges }];
+    set({ ...match, score, log, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather() });
     broadcast();
   }
   // `who` gives up: the other player wins the match at once; the score stays as it was (Chetan's choice, 1f)
@@ -175,6 +203,7 @@ export function createRules(hooks) {
     if (!match || match.phase !== 'play' || paused || f.mid !== match.mid || f.r !== match.round) return;
     if (![f.x, f.z, f.y, f.e].every(Number.isFinite) || !(f.e >= RULES.headStart && f.e < RULES.round)) return;
     match.lastShot = Math.max(match.lastShot ?? -1, f.e);
+    match.shots = (match.shots | 0) + 1;
     const fx = shotEffects({ x: f.x, z: f.z, yaw: f.y }, f.e, match.mid, match.round, RULES.bulletSpeed);
     if (fx.chicken && !match.gold && !due.some(d => d.k === 'gold')) due.push({ at: Math.max(fx.arrive, match.t), k: 'gold' });
     if (fx.sorry !== null && !match.sorry && !due.some(d => d.k === 'sorry')) due.push({ at: Math.max(fx.sorry, match.t), k: 'sorry' });
@@ -208,6 +237,20 @@ export function createRules(hooks) {
     if (!match || match.phase !== 'play' || paused || hunterSide() === side || match.silver) return;
     if (referee()) { set({ ...match, silver: true }); broadcast(); }
     else if (!honkSent || honkSent.mid !== match.mid || honkSent.r !== match.round) { honkSent = { mid: match.mid, r: match.round, clock: 0 }; hooks.send({ t: 'hn', mid: match.mid, r: match.round }); }
+  }
+
+  // ---- Stage 4B: duck rounds and the theme (referee) ---------------------------------------------------------
+  function setDuck(n) {
+    if (!match || n !== nextRoundOf(match)) return false;
+    if (!isDuckRound(match, n)) { set({ ...match, ducks: (match.ducks | 0) | (1 << (n - 1)) }); broadcast(); }
+    return true;
+  }
+  function setTheme(p) {
+    const th = cleanTheme(p);
+    if (!match || match.theme || !th || match.phase === 'over') return false;
+    set({ ...match, theme: th });
+    broadcast();
+    return true;
   }
 
   // ---- both phones ------------------------------------------------------------------------------------------
@@ -273,6 +316,12 @@ export function createRules(hooks) {
       if (honkSent && !match.silver && match.phase === 'play' && honkSent.mid === match.mid && honkSent.r === match.round && (honkSent.clock += dt) > 0.5) { honkSent.clock = 0; hooks.send({ t: 'hn', mid: honkSent.mid, r: honkSent.r }); }
       if (seenSent && !match.seen && match.phase === 'play' && seenSent.mid === match.mid && seenSent.r === match.round && (seenSent.clock += dt) > 0.5) { seenSent.clock = 0; hooks.send({ t: 'sn', mid: seenSent.mid, r: seenSent.r }); }
       if (match.phase === 'pick' && match.ready.guest !== want.ok && (wantClock += dt) > 0.5) sendChoice();   // resent until the referee shows it
+      if (armed && match.theme) armed = null;                                                            // the match has its theme (ours or the referee's)
+      else if (armed && match.phase !== 'over' && heard < 1.5 && (themeClock += dt) > 0.5) { themeClock = 0; hooks.send({ t: 'th', mid: match.mid, p: armed }); }
+      if (duckSent) {   // asked for a duck round: asked again until the match shows it, dropped when that round is no longer the next one
+        if (duckSent.mid !== match.mid || nextRoundOf(match) !== duckSent.n || isDuckRound(match, duckSent.n)) duckSent = null;
+        else if ((duckSent.clock += dt) > 0.5) { duckSent.clock = 0; hooks.send({ t: 'dk', mid: duckSent.mid, n: duckSent.n }); }
+      }
       return;
     }
     if (paused) return;
@@ -309,6 +358,8 @@ export function createRules(hooks) {
     if (m.t === 'pc') { if (referee()) takeCircle(m); return true; }
     if (m.t === 'hn') { if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.silver && !paused) { set({ ...match, silver: true }); broadcast(); } return true; }
     if (m.t === 'sn') { if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.seen) { set({ ...match, seen: true }); broadcast(); } return true; }
+    if (m.t === 'th') { if (referee()) setTheme(m.p); return true; }
+    if (m.t === 'dk') { if (referee() && match && m.mid === match.mid && Number.isInteger(m.n) && !paused) setDuck(m.n); return true; }
     if (m.t === 'f') { if (referee() && match && hunterSide() !== 'host') noteShot(m); return false; }   // the hunter's shot: the referee looks at it, main.js draws it
     if (m.t === 'm' && !referee()) {
       heard = 0;
@@ -337,14 +388,14 @@ export function createRules(hooks) {
     // side: 'host' | 'guest'; saved: the match to carry on with after a refresh (or null for a new one)
     start(s, saved) {
       side = s; paused = false; pendingHit = null; againMid = 0; quitMid = 0; delay = 0.05; heard = 0; match = null; mine = null;
-      want = { n: 0, ok: false, s: 0 }; wantClock = 0; theirs = null; due = []; seenSent = null; honkSent = null;
+      want = { n: 0, ok: false, s: 0 }; wantClock = 0; theirs = null; due = []; seenSent = null; honkSent = null; armed = null; duckSent = null;
       if (saved) set(copy(saved));
       if (referee()) {
         if (match?.phase === 'pick') match.ready.guest = false;   // its private choice was lost: it sends it again
         if (!match) newMatch(1); else broadcast();
       }
     },
-    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; theirs = null; due = []; seenSent = null; honkSent = null; },
+    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; theirs = null; due = []; seenSent = null; honkSent = null; armed = null; duckSent = null; },
     pause(on) { paused = on; if (!on) broadcast(); },
     tick,
     onMessage,
@@ -363,6 +414,19 @@ export function createRules(hooks) {
     noteBump() { return referee() && noteBump(); },
     noteSeen,
     noteHonk,
+    // Stage 4B. The other phone's player typed the secret phrase: its (decrypted) theme goes to the referee until the match shows one.
+    armTheme(p) { if (!referee()) { armed = cleanTheme(p); themeClock = 1; } },
+    // This phone's player finished the five taps: ask for the next round to be a duck round. Returns that round's number, or 0 if there is none.
+    noteDuck() {
+      if (!match || paused || quitMid === match.mid) return 0;
+      const n = nextRoundOf(match);
+      if (!n) return 0;
+      if (referee()) return setDuck(n) ? n : 0;
+      duckSent = { mid: match.mid, n, clock: 0 };
+      hooks.send({ t: 'dk', mid: match.mid, n });
+      return n;
+    },
+    get theme() { return match?.theme || null; },
     // this phone's choice of leader (n: 1-36, or 0 = Random) and whether it is Ready. Only in the pick phase.
     choose(n, ok) {
       if (!match && !referee()) { want = { n, ok: !!ok, s: Math.max(want.s + 1, Date.now()) }; return false; }   // asked before the referee's first message: kept, sent once the match is here

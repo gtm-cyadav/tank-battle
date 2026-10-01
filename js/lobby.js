@@ -4,6 +4,7 @@
 import { createLink, randomToken } from './net.js';
 import { startPlaying, showStart, leaveToStart, enterFullscreen, refreshScreen, device } from './screen.js';
 import { randomWeather } from './weather.js';
+import { tipOn, tipOff } from './tips.js';
 
 const $ = id => document.getElementById(id);
 const WAIT = 60;                         // seconds a dropped player gets to come back
@@ -58,6 +59,7 @@ const link = createLink({
       const back = stage === 'rejoining';
       room.phase = 'playing';
       stage = 'playing';
+      tips('');
       stopCountdown();
       game.start({ mode: room.role, code: room.code, pos: back ? room.pos : null, match: back ? room.match : null });
       startPlaying(false);
@@ -124,6 +126,13 @@ const PANELS = ['home', 'solo', 'create', 'join', 'busy'];
 function panel(name) {
   for (const p of PANELS) $('p-' + p).hidden = p !== name;
   $('start').dataset.panel = name;   // the install / keyboard hints only show next to the first panel
+  tips(name);
+}
+// Stage 4B (loading tips): a silly line under the status while a phone is connecting or waiting (opening a room, waiting for the other player,
+// looking for a room, rejoining). Not on the idle forms, not on an error.
+function tips(name, waiting = true) {
+  const on = (p, ok = true) => (name === p && ok ? tipOn : tipOff)($(p + '-tip'));
+  on('create'); on('join', stage === 'joining'); on('busy', waiting);
 }
 const wantFullscreen = () => device.touch && device.canFullscreen && !device.homeScreen;
 
@@ -153,6 +162,7 @@ function showBusy(text, withCountdown, button) {
   $('busy-count').textContent = '';
   $('busy-leave').hidden = button !== 'leave';
   $('busy-back').hidden = button !== 'back';
+  tips('busy', button === 'leave');
   if (withCountdown) startCountdown($('busy-count'), WAIT, withCountdown);
 }
 
