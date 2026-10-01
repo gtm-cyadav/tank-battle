@@ -33,8 +33,10 @@ import { randomWeather } from './weather.js';
 export const RULES = {
   round: 180,        // s on the clock (was 120; raised with the 1.3x bigger map, Chetan, 2026-09-29)
   headStart: 20,     // s before the hunter can fire (was 15; same reason)
-  toss: 4,           // s the coin-toss card shows before round 1
-  next: 6,           // s the round result shows before the next round
+  toss: 7,           // s from the coin toss to round 1: the toss card, then the intro card (Stage 3B; was 4)
+  next: 10,          // s from a round's result to the next round: the result card, then the intro card (Stage 3B; was 6)
+  tossCard: 3,       // s the coin-toss card shows before the intro card takes over (Stage 3B)
+  resultCard: 5.5,   // s into the break the result card shows before the intro card takes over (Stage 3B)
   grace: 0.8,        // s the referee waits after 0:00 for a hit from the other phone that landed just in time
   wins: 2,           // round wins that take the match
   bulletSpeed: 40,   // m/s

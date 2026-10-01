@@ -4,7 +4,10 @@ import { buildArena, useRenderer } from './arena.js';
 import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, bobble, shakeHead, waveFlag, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
 import { loadTank, applyTank, setLeader, clearLeader, READY } from './models.js';
 import { initPicker, openPicker, closePicker, pickerOpen, pickerSync, savedChoice } from './picker.js';
-import { nameOf } from './leaders.js';
+import { nameOf, LEADERS } from './leaders.js';
+import { drawFlag } from './flags.js';
+import { quoteFor, watchLine, tagline } from './lines.js';
+import { showBubble, hideBubble } from './bubble.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled } from './input.js';
 import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
@@ -179,6 +182,8 @@ function startMatch({ mode: m, code, pos, match, role, weather: wx, me: pickMe, 
   myLeader = otherLeader = -1;
   if (mode === 'solo') dressLeaders(pickMe || randomLeader(), pickOther || randomLeader());
   else dressLeaders(0, 0);
+  hideBubble();
+  if (mode === 'solo') { const n = myLeader, role = soloRole; setTimeout(() => { if (mode === 'solo' && myLeader === n && soloRole === role) showBubble(watchLine(n, role)); }, 500); }   // a preview of the line (Drive alone has no rounds)
   sendClock = 0;
   if (mode === 'solo') { rules.stop(); delete root.dataset.match; }
   else { root.dataset.match = ''; restoring = !!pos; rules.start(mode, match || null); }
@@ -306,7 +311,7 @@ function showRoles(wreckHider = false) {
 // The referee moved the match on (coin toss, new round, round over, rematch). Runs on both phones.
 function phaseChanged(m, before) {
   if (!m) return;
-  if (m.phase !== 'play') closeMenu();   // a card is coming (coin toss, round result, match over): it replaces the menu
+  if (m.phase !== 'play') { closeMenu(); hideBubble(); }   // a card is coming (coin toss, round result, match over): it replaces the menu
   if (m.phase === 'pick') {   // Stage 3A: choose a leader before the coin toss (a refresh mid-pick keeps a Ready already given)
     const ready = !!m.ready?.[rules.side];
     openPicker({ ready });
@@ -330,7 +335,12 @@ function phaseChanged(m, before) {
     if (at) boom(at, hider);
   }
   showRoles(!fresh && m.result?.how === 'hit');
-  if (before && m.phase === 'play' && before.phase !== 'play') toast(`Round ${m.round}. You are the ${myRole()}.`);
+  if (before && m.phase === 'play' && before.phase !== 'play') {
+    toast(`Round ${m.round}. You are the ${myRole()}.`);
+    // Stage 3B: the leader on your tank says why it is watching you, once, on your screen only. Only at the start of the round
+    // (a phone that comes back late into a round, or refreshes, never replays it).
+    if (m.t < 2) showBubble(watchLine(rules.leaders()?.me, myRole()));
+  }
 }
 
 // The hider's tank blowing up at `at` { x, z }. mine: it's this phone's own tank.
@@ -422,6 +432,20 @@ function drawRound() {
   if (blockChanged) { if (card) root.dataset.card = ''; else delete root.dataset.card; }
   if (card) {
     const r = m.result, won = r && r.win === me, iHunted = rules.hunterSide() === me;
+    // Stage 3B: before every round the intro card (both leaders, flags, taglines) follows the toss card / the result card
+    const intro = m.phase === 'toss' ? m.t >= RULES.tossCard : m.phase === 'break' && m.t >= RULES.resultCard;
+    $('round').querySelector('.card').classList.toggle('intro', intro);
+    const quote = m.phase !== 'toss' && r?.how !== 'gaveup' ? quoteFor(r, m.lead) : null;   // who said it comes from the match, so both phones read the same
+    if (show('rc-q', !!quote) || quote) { text('rq-by', quote ? `${quote.tag} · ${nameOf(quote.who)}` : ''); text('rq-t', quote ? `“${quote.text}”` : ''); }
+    if (intro) {
+      const nextRound = m.phase === 'toss' ? 1 : m.round + 1, hunts = m.phase === 'toss' ? iHunted : !iHunted, L = rules.leaders();
+      text('rc-over', `Round ${nextRound}`);
+      introSide(0, L?.me); introSide(1, L?.them);
+      text('rc-count', `Round ${nextRound} starts in ${Math.max(1, Math.ceil((m.phase === 'toss' ? RULES.toss : RULES.next) - m.t))} s. You ${hunts ? 'hunt' : 'hide'}.`);
+      text('rc-wx', m.phase === 'toss' ? weatherLine(m.wx) : m.next ? weatherLine(m.next) : '');
+      if (blockChanged) refreshScreen();
+      return;
+    }
     const how = !r ? '' : r.how === 'hit'
       ? (iHunted ? `Direct hit with ${clock(r.left)} left.` : `You were hit with ${clock(r.left)} left.`)
       : (iHunted ? 'Time ran out. No hit.' : `You stayed hidden for the full ${clock(RULES.round)}.`);
@@ -441,7 +465,7 @@ function drawRound() {
       text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
       text('rc-score', score);
       text('rc-count', `Round ${m.round + 1} starts in ${Math.max(1, Math.ceil(RULES.next - m.t))} s. You ${iHunted ? 'hide' : 'hunt'}.`);
-      text('rc-wx', m.next ? weatherLine(m.next) : '');
+      text('rc-wx', '');   // the weather comes with the intro card
     } else if (r?.how === 'gaveup') {   // a surrender (1f): the other player won the whole match, score as it stood
       text('rc-over', 'Match over');
       text('rc-t', r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.');
@@ -465,6 +489,15 @@ function drawRound() {
   if (blockChanged) refreshScreen();   // the card stops the controls while it shows
 }
 $('rc-again').addEventListener('click', () => rules.playAgain());
+
+// The intro card's two columns (0 = you, 1 = the other player): flag, parody name, country / era as is, tagline (lines.js)
+const introShown = [0, 0];
+function introSide(i, n) {
+  if (!n || introShown[i] === n) return;
+  introShown[i] = n;
+  drawFlag($(`vs-f${i}`), n);
+  text(`vs-n${i}`, nameOf(n)); text(`vs-p${i}`, LEADERS[n].place); text(`vs-t${i}`, `“${tagline(n)}”`);
+}
 
 // Corner map: walls and your own tank only (never the other player), plus the ping circle while a ping shows.
 // Switched off in Settings, it still appears for a ping.
@@ -649,7 +682,7 @@ renderer.setAnimationLoop(now => {
   frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { THREE, scene, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+window.__tb = { THREE, scene, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },

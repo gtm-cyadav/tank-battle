@@ -36,7 +36,7 @@
   [hidden] { display: none !important; }
   canvas#c { display: block; width: 100%; height: 100%; }
   #safe { position: fixed; visibility: hidden; pointer-events: none;
-    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+    padding: var(--st) var(--sr) var(--sb) var(--sl); }   /* the same four insets as :root, so tests that set --st/--sr/--sb/--sl are seen too */
 
   /* ---- in-game corner bits ---- */
   #hud { position: fixed; z-index: 6; left: max(12px, var(--sl)); top: max(10px, var(--st)); font-size: 11px; letter-spacing: 0.02em;
@@ -217,9 +217,9 @@
 
   /* round result / coin toss / match over: see-through, so the arena (and a wrecked tank) shows round it */
   #round { z-index: 12; background: rgba(12, 15, 14, 0.3); pointer-events: none; }
-  #round .card { pointer-events: auto; min-width: 280px; max-width: 380px; padding: 20px 28px; background: rgba(20, 24, 22, 0.94); }
+  #round .card { pointer-events: auto; min-width: 280px; max-width: 480px; padding: 16px 24px; background: rgba(20, 24, 22, 0.94); }
   #round .over { margin: 0 0 8px; }
-  #round .card p { margin: 0 0 6px; }
+  #round .card p { margin: 0 0 5px; }
   #round #rc-wx { margin-top: 10px; color: var(--text); font-size: 12px; }
   #round #rc-wx:empty { display: none; }
   #round #rc-wx::before { content: 'Weather '; color: var(--muted); }
@@ -248,7 +248,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=3a-2) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=3b-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -270,6 +270,32 @@
   .pk-card span { display: block; margin-top: 2px; font: 400 10px/1.25 var(--font); color: var(--muted); }
   .pk-card.on { border-color: var(--text); background: #2a332f; box-shadow: 0 0 0 1px var(--text); }
   #pk-list.locked .pk-card:not(.on) { opacity: 0.45; }
+
+  /* Stage 3B: the quote on the result card (who said it, then the line), the intro card (both leaders before each round) and
+     the "watching" speech bubble */
+  #round #rc-q { margin: 8px 0 8px; }
+  #round #rq-by { display: block; margin-bottom: 4px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  #round #rq-t { display: block; font-size: 14px; line-height: 1.4; color: var(--text); }
+  #rc-vs { display: none; }
+  #round .card.intro { width: min(540px, 100%); box-sizing: border-box; max-width: none; }
+  #round .card.intro #rc-t, #round .card.intro #rc-p, #round .card.intro #rc-who, #round .card.intro #rc-score, #round .card.intro #rc-q,
+  #round .card.intro #rc-buttons { display: none; }
+  #round .card.intro #rc-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 4px 0 4px; }
+  #rc-vs .vs { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  #rc-vs .vs-who { margin-bottom: 6px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  #rc-vs canvas { width: 60px; height: 40px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+  #rc-vs b { margin-top: 8px; font: 700 13px/1.25 var(--font); }
+  #rc-vs .vs-place { margin-top: 2px; font-size: 11px; line-height: 1.3; color: var(--muted); }
+  #rc-vs .vs-tag { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--text); }
+  #round .card.intro #rc-count { margin-top: 10px; }
+  #round .card.intro #rc-wx { margin-top: 4px; }
+  #bubble { position: fixed; z-index: 9; left: 0; top: 0; width: max-content; box-sizing: border-box; padding: 8px 12px; border-radius: 10px;
+    background: rgba(236, 240, 237, 0.95); color: #141816; font: 500 12px/1.35 var(--font); text-align: center; pointer-events: none;
+    opacity: 0; transition: opacity 0.25s; --tx: 50%; }
+  #bubble.show { opacity: 1; }
+  #bubble::after { content: ''; position: absolute; left: var(--tx); bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0;
+    border-top-color: rgba(236, 240, 237, 0.95); }
+  html:not([data-state="playing"]) #bubble { display: none; }
 
   #rotate { z-index: 30; background: var(--ink); text-align: center; }
   #rotate svg { display: block; margin: 0 auto 22px; animation: turn 2.4s ease-in-out infinite; }
@@ -297,8 +323,9 @@
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 3A &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 3B &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="bubble" aria-live="off" hidden></div>
 <div id="rh" hidden>
   <div class="chip"><span id="rh-role">Hunter</span><span id="rh-clock">3:00</span><span id="rh-round">Round 1</span><span id="rh-score">You 0 &ndash; 0 Them</span></div>
   <p id="rh-note"></p>
@@ -324,7 +351,7 @@
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 3A &middot; tanks and leaders</p>
+      <p class="over">Stage 3B &middot; leaders and lines</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
       <p class="tag">Two phones. One hunter. Three minutes.</p>
@@ -479,6 +506,11 @@
     <p id="rc-over" class="over"></p>
     <h2 id="rc-t"></h2>
     <p id="rc-p"></p>
+    <p id="rc-q" hidden><span id="rq-by"></span><span id="rq-t"></span></p>
+    <div id="rc-vs" aria-hidden="true">
+      <div class="vs"><span class="vs-who">You</span><canvas id="vs-f0" width="120" height="80"></canvas><b id="vs-n0"></b><span id="vs-p0" class="vs-place"></span><span id="vs-t0" class="vs-tag"></span></div>
+      <div class="vs"><span class="vs-who">Them</span><canvas id="vs-f1" width="120" height="80"></canvas><b id="vs-n1"></b><span id="vs-p1" class="vs-place"></span><span id="vs-t1" class="vs-tag"></span></div>
+    </div>
     <p id="rc-who"></p>
     <p id="rc-score"></p>
     <p id="rc-count"></p>
@@ -514,40 +546,42 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=3a-2",
-  "./js/camera.js": "./js/camera.js?v=3a-2",
-  "./js/cornermap.js": "./js/cornermap.js?v=3a-2",
-  "./js/effects.js": "./js/effects.js?v=3a-2",
-  "./js/flags.js": "./js/flags.js?v=3a-2",
-  "./js/input.js": "./js/input.js?v=3a-2",
-  "./js/lamps.js": "./js/lamps.js?v=3a-2",
-  "./js/leaders.js": "./js/leaders.js?v=3a-2",
-  "./js/lobby.js": "./js/lobby.js?v=3a-2",
-  "./js/main.js": "./js/main.js?v=3a-2",
-  "./js/map.js": "./js/map.js?v=3a-2",
-  "./js/menu.js": "./js/menu.js?v=3a-2",
-  "./js/models.js": "./js/models.js?v=3a-2",
-  "./js/net.js": "./js/net.js?v=3a-2",
-  "./js/picker.js": "./js/picker.js?v=3a-2",
-  "./js/rules.js": "./js/rules.js?v=3a-2",
-  "./js/screen.js": "./js/screen.js?v=3a-2",
-  "./js/settings.js": "./js/settings.js?v=3a-2",
-  "./js/shots.js": "./js/shots.js?v=3a-2",
-  "./js/sound.js": "./js/sound.js?v=3a-2",
-  "./js/tank.js": "./js/tank.js?v=3a-2",
-  "./js/textures.js": "./js/textures.js?v=3a-2",
-  "./js/vision.js": "./js/vision.js?v=3a-2",
-  "./js/weather.js": "./js/weather.js?v=3a-2",
-  "./js/world.js": "./js/world.js?v=3a-2",
-  "./lib/three.module.js": "./lib/three.module.js?v=3a-2",
-  "./lib/three.core.js": "./lib/three.core.js?v=3a-2",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=3a-2",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=3a-2",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=3a-2",
-  "three": "./lib/three.module.js?v=3a-2"
+  "./js/arena.js": "./js/arena.js?v=3b-1",
+  "./js/bubble.js": "./js/bubble.js?v=3b-1",
+  "./js/camera.js": "./js/camera.js?v=3b-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=3b-1",
+  "./js/effects.js": "./js/effects.js?v=3b-1",
+  "./js/flags.js": "./js/flags.js?v=3b-1",
+  "./js/input.js": "./js/input.js?v=3b-1",
+  "./js/lamps.js": "./js/lamps.js?v=3b-1",
+  "./js/leaders.js": "./js/leaders.js?v=3b-1",
+  "./js/lines.js": "./js/lines.js?v=3b-1",
+  "./js/lobby.js": "./js/lobby.js?v=3b-1",
+  "./js/main.js": "./js/main.js?v=3b-1",
+  "./js/map.js": "./js/map.js?v=3b-1",
+  "./js/menu.js": "./js/menu.js?v=3b-1",
+  "./js/models.js": "./js/models.js?v=3b-1",
+  "./js/net.js": "./js/net.js?v=3b-1",
+  "./js/picker.js": "./js/picker.js?v=3b-1",
+  "./js/rules.js": "./js/rules.js?v=3b-1",
+  "./js/screen.js": "./js/screen.js?v=3b-1",
+  "./js/settings.js": "./js/settings.js?v=3b-1",
+  "./js/shots.js": "./js/shots.js?v=3b-1",
+  "./js/sound.js": "./js/sound.js?v=3b-1",
+  "./js/tank.js": "./js/tank.js?v=3b-1",
+  "./js/textures.js": "./js/textures.js?v=3b-1",
+  "./js/vision.js": "./js/vision.js?v=3b-1",
+  "./js/weather.js": "./js/weather.js?v=3b-1",
+  "./js/world.js": "./js/world.js?v=3b-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=3b-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=3b-1",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=3b-1",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=3b-1",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=3b-1",
+  "three": "./lib/three.module.js?v=3b-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=3a-2"></script>
-<script type="module" src="./js/main.js?v=3a-2"></script>
+<script src="lib/peerjs.min.js?v=3b-1"></script>
+<script type="module" src="./js/main.js?v=3b-1"></script>
 </body>
 </html>
