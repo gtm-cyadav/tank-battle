@@ -90,7 +90,8 @@ export function clearLeader(tank) {
 // reads it). Everything stays inside the tank's outline that bullets and the sight rule use (x within +-1.525 m, not
 // further than 1.95 m behind the centre), waves included, so the flag can never show through a wall. The cloth is one of
 // the tank's own materials, so it fades and takes the smog with the rest of the tank.
-export const FLAG = { mastX: 1.42, mastZ: -1.72, mastBase: 0.95, mastTop: 2.62, w: 1.0, h: 0.667, cols: 8, rows: 3, amp: 0.12 };
+// (3a-2, Chetan: the first size, 1.0 x 0.67 m, took away from the game: now about 70% of it)
+export const FLAG = { mastX: 1.42, mastZ: -1.72, mastBase: 0.95, mastTop: 2.36, w: 0.7, h: 0.467, cols: 8, rows: 3, amp: 0.085 };
 const flagTex = new Map();
 function flagTexture(n) {
   if (!flagTex.has(n)) {
@@ -117,10 +118,10 @@ function attachFlag(tank, n) {
   u.mats.push(u.clothMat);
   const cloth = new THREE.Mesh(geo, u.clothMat);
   cloth.userData.noGhost = true;   // a single sheet: no depth-only copy (it would fill in a pennant's notch)
-  cloth.position.set(F.mastX - 0.03, F.mastTop - 0.07 - F.h, F.mastZ);
+  cloth.position.set(F.mastX - 0.03, F.mastTop - 0.05 - F.h, F.mastZ);
   cloth.rotation.y = Math.PI;      // faces backwards; the cloth then flies towards the middle of the tank
   cloth.frustumCulled = false;
-  u.cloth = cloth; u.clothBase = geo.attributes.position.array.slice();
+  u.cloth = cloth; u.clothW = F.w; u.clothBase = geo.attributes.position.array.slice();
   tank.add(mast, cloth); u.figure.push(mast, cloth);
   if (u.fade < 1) { u.clothMat.transparent = true; u.clothMat.opacity = u.fade; }
   if (u.wrecked) u.clothMat.color.setHex(0x4a4744);

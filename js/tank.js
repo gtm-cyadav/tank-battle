@@ -166,11 +166,11 @@ export function bobble(tank, dt) {
 export function waveFlag(tank, t, dt) {
   const u = tank.userData, c = u.cloth;
   if (!c) return;
-  const pos = c.geometry.attributes.position, base = u.clothBase, W = 1.0, amp = 0.05 + 0.07 * Math.min(1, Math.abs(u.speed) / 9);
+  const pos = c.geometry.attributes.position, base = u.clothBase, W = u.clothW, amp = (0.05 + 0.07 * Math.min(1, Math.abs(u.speed) / 9)) * W;   // the wave scales with the cloth
   for (let i = 0; i < pos.count; i++) {
     const x = base[i * 3], y = base[i * 3 + 1], k = x / W;
-    pos.setZ(i, amp * k * (Math.sin(x * 7 - t * 7 + y * 2.5) * 0.75 + Math.sin(x * 13 - t * 11) * 0.25));
-    pos.setY(i, y - 0.05 * k * k);
+    pos.setZ(i, amp * k * (Math.sin(x * 10 - t * 7 + y * 3.5) * 0.75 + Math.sin(x * 18 - t * 11) * 0.25));
+    pos.setY(i, y - 0.035 * k * k);
   }
   pos.needsUpdate = true;
   c.geometry.computeVertexNormals();
