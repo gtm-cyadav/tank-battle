@@ -13,7 +13,7 @@ const SODIUM = [1.0, 0.68, 0.34], TUBE = [0.78, 0.88, 1.0];
 function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 
 // Where the lamps go: the middle of a wall face next to open floor, no two closer than SPACING. Same on every phone.
-function placeLamps() {
+export function placeLamps() {
   const cand = [], r = rng(5);
   for (let i = 0; i < ROWS; i++) for (let j = 0; j < COLS; j++) {
     if (isWallCell(i, j)) continue;

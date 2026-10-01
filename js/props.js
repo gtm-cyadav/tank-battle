@@ -1,6 +1,6 @@
 // Stage 4A (Chetan, 2026-10-01): the things the easter eggs put in the yard, drawn in code (no downloads, no models).
 //   - the stone chicken on top of one wall block (a single merged mesh: one draw call),
-//   - the wall graffiti: faint writing on a few wall faces (one merged mesh and one small texture: one draw call),
+//   - the wall art: graffiti and fake posters on every wall face (wallart.js, wallart_draw.js; one mesh, one atlas texture, one draw call),
 //   - the lost tourist (three meshes while he is on screen, one on Low graphics; hidden when he is not in the round),
 //   - the sweat drops on the hider's bobblehead in the last ten seconds.
 // None of it is solid, none of it is known to the sight rule, the hits or the map checker, and each draws exactly what the
@@ -9,7 +9,10 @@
 // cap, faint stencil writing a shade lighter than the wall.
 import * as THREE from '../lib/three.module.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
-import { chickenLedge, LEDGE, GRAFFITI, GRAFFITI_SIZE, graffitiSpot } from './eggs.js';
+import { chickenLedge, LEDGE } from './eggs.js';
+import { layoutWallArt } from './wallart.js';
+import { makeWallArt } from './wallart_draw.js';
+import { placeLamps } from './lamps.js';
 
 // one coloured piece: a geometry moved into place and painted in one colour (vertex colours, so all pieces share a material)
 function piece(geo, color, { x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0 } = {}) {
@@ -84,63 +87,7 @@ function makeArrow(quality) {
   return mesh;
 }
 
-// ---- the graffiti -------------------------------------------------------------------------------------------------
-// One small atlas of the writing (faint paint, lighter than the wall), and one mesh of quads standing 3 cm off the wall.
-function drawGraffiti(canvas, scale) {
-  const g = canvas.getContext('2d'), CW = 512 * scale, CH = 128 * scale, cols = 2;
-  g.clearRect(0, 0, canvas.width, canvas.height);
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  GRAFFITI.forEach((item, i) => {
-    const x0 = (i % cols) * CW, y0 = Math.floor(i / cols) * CH;
-    const words = item.text.split(' '), lines = [item.text];
-    if (item.text.length > 17) {   // two lines, split as evenly as the words allow
-      let best = 1e9;
-      for (let k = 1; k < words.length; k++) { const a = words.slice(0, k).join(' '), b = words.slice(k).join(' '), d = Math.abs(a.length - b.length); if (d < best) { best = d; lines.splice(0, 2, a, b); } }
-    }
-    const longest = Math.max(...lines.map(l => l.length)), size = Math.min(0.3 * CH, (0.9 * CW) / (longest * 0.62));
-    g.font = `500 ${size}px "Plex Mono", ui-monospace, Menlo, Consolas, monospace`;
-    const cx = x0 + CW / 2, lh = size * 1.12, top = y0 + CH / 2 - (lines.length - 1) * lh / 2;
-    lines.forEach((l, k) => {
-      g.fillStyle = 'rgba(28,32,30,0.20)'; g.fillText(l, cx + 1.5 * scale, top + k * lh + 1.5 * scale);   // a hint of depth
-      g.fillStyle = 'rgba(226,232,226,0.48)'; g.fillText(l, cx, top + k * lh);
-    });
-    // a few thin runs of paint under the writing
-    let seed = (i + 1) * 7919;
-    const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-    g.fillStyle = 'rgba(224,230,224,0.24)';
-    for (let d = 0; d < 3; d++) g.fillRect(cx + (r() - 0.5) * longest * size * 0.55, top + (lines.length - 0.5) * lh, Math.max(1, scale * 1.6), (6 + r() * 14) * scale);
-  });
-}
-function makeGraffiti(quality) {
-  const scale = quality === 'high' ? 1 : 0.5, cols = 2, rows = Math.ceil(GRAFFITI.length / cols);
-  const canvas = document.createElement('canvas'); canvas.width = 512 * scale * cols; canvas.height = 128 * scale * rows;
-  drawGraffiti(canvas, scale);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  document.fonts?.load('500 40px "Plex Mono"').then(() => { drawGraffiti(canvas, scale); tex.needsUpdate = true; }).catch(() => {});
-  const pos = [], uv = [], nrm = [], idx = [];
-  const { w, h, y } = GRAFFITI_SIZE;
-  GRAFFITI.forEach((item, i) => {
-    const s = graffitiSpot(item), rx = s.nz, rz = -s.nx, base = pos.length / 3;
-    const cx = s.x + s.nx * 0.03, cz = s.z + s.nz * 0.03;
-    const u0 = (i % cols) / cols, u1 = u0 + 1 / cols, v1 = 1 - Math.floor(i / cols) / rows, v0 = v1 - 1 / rows;
-    for (const [k, vy] of [[-1, y - h / 2], [1, y - h / 2], [1, y + h / 2], [-1, y + h / 2]]) {
-      pos.push(cx + rx * k * w / 2, vy, cz + rz * k * w / 2); nrm.push(s.nx, 0, s.nz);
-    }
-    uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
-    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  });
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  geo.setIndex(idx);
-  const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.renderOrder = 1;
-  mesh.frustumCulled = false;
-  return mesh;
-}
+// (the graffiti and the posters live in wallart.js and wallart_draw.js since the wall-art follow-up)
 
 // ---- the tourist --------------------------------------------------------------------------------------------------
 function makeTourist(quality) {
@@ -167,11 +114,11 @@ function makeTourist(quality) {
 
 // ---- all of it ----------------------------------------------------------------------------------------------------
 export function createProps(scene, quality = 'high') {
-  const chicken = makeChicken(), graffiti = makeGraffiti(quality), tourist = makeTourist(quality), arrow = makeArrow(quality);
+  const wallArt = layoutWallArt(placeLamps()), chicken = makeChicken(), graffiti = makeWallArt(wallArt, quality), tourist = makeTourist(quality), arrow = makeArrow(quality);
   scene.add(chicken, graffiti, tourist, arrow);
   let hop = -1;   // seconds into the chicken's hop (cluck), or -1
   return {
-    chicken, graffiti, tourist, arrow,
+    chicken, graffiti, tourist, arrow, wallArt,
     // the chicken clucks: a short hop and a ruffle
     cluck() { hop = 0; },
     // call every frame. pose: touristAt(...) for the round clock, or null. dt: seconds.

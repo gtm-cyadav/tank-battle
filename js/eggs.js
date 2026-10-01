@@ -157,7 +157,7 @@ export const GRAFFITI = [
   { text: 'Tea is at four. The war can wait.', face: 'N', r: 25, c: 16, along: 3 },
   { text: 'Birbal was here. He explained everything.', face: 'S', r: 25, c: 15, along: 3.5 },
   { text: 'Elephants: please do not feed.', face: 'N', r: 6, c: 26, along: 3.5 },
-  { text: 'Mountain forts. Zero Wi-Fi.', face: 'W', r: 12, c: 3, along: 4 },
+  { text: 'Mountain forts. Zero Wi-Fi.', face: 'W', r: 12, c: 3, along: 3.6 },   // moved 1.3 m along its face (was 4) in the wall-art follow-up: the writing used to run over a lamp
   { text: 'Wet paint. Possibly since 44 BC.', face: 'E', r: 12, c: 44, along: 4 },
   { text: 'Free carpet. Roll it yourself.', face: 'N', r: 28, c: 21, along: 3 },
   { text: 'Look up. No, higher.', face: 'S', r: 9, c: 16, along: 1.5 },
