@@ -1,23 +1,23 @@
-// Player input. Three control styles, picked in settings (js/settings.js):
-//   point   (default): floating joystick; push the way you want to go. Gives an aim angle + strength.
-//   sliders:           speed slider under one thumb (up/down), steering slider under the other (left/right).
-//   tank    (original): floating joystick; up = forward, down = reverse, sideways = turn on the spot.
-// Plus one action button (FIRE for the hunter, SPRINT for the hider), and the keyboard for desktop testing:
-// arrows or WASD drive tank-style in every mode, Space is the action button.
+// Player input: two fixed sliders (speed, steering) and one action button (FIRE for the hunter, SPRINT for the hider),
+// plus the keyboard for desktop testing (arrows or WASD drive, Space is the action button).
+// The sliders never move. A touch starts a slider only on that slider's own ring (and a thumb's width of grab room round it);
+// the corner map, the figure's poke circle, every button and all the free space in the middle take no slider touches.
+// Controls changed 2026-10-02 (Chetan): point-to-drive and the original tank style are gone; fixed sliders only.
 import { settings, onSettings } from './settings.js';
 
 const $ = id => document.getElementById(id);
 const root = document.documentElement;
-const DEAD = 0.14;          // ignore tiny thumb wobbles (fraction of full push)
-const STEER_DEAD = 0.18;    // steering slider / tank-style sideways: a wider middle band counts as dead straight
-const EDGE = 14;            // keep controls this far inside the screen
+const DEAD = 0.14;          // speed slider: ignore tiny thumb wobbles (fraction of full push)
+const STEER_DEAD = 0.18;    // steering slider: a wider middle band counts as dead straight
+const TRAVEL = { speed: 48, steer: 56 };   // px of knob travel to full speed / full steering at 100% size (was 64 / 76)
 
-// aim: point style only, { angle (radians, 0 = up, + = right), strength 0..1 } or null when the stick is centred.
-// aimNew: true on the frame a fresh push starts (thumb down, or back out of the centre), so the game can take
-// "up" to mean the way the camera faces right now.
-export const input = { throttle: 0, turn: 0, aim: null, aimNew: false, action: false, actionTaps: 0 };
+export const input = { throttle: 0, turn: 0, action: false, actionTaps: 0 };
 
 let enabled = false;
+
+// main.js lists the screen spots that must never start a slider (the poke circle, the corner-map box): (x, y) => true when blocked
+let blocked = () => false;
+export const setSliderBlocker = fn => { blocked = fn; };
 
 // ---- keyboard -------------------------------------------------------------------------------------------------
 const keys = new Set();
@@ -30,55 +30,43 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => keys.delete(e.code));
 
-// ---- floating pads (joystick, speed slider, steering slider) --------------------------------------------------
-// notch / rounded-corner margins, measured from a hidden element padded with env(safe-area-inset-*)
-const inset = side => parseFloat(getComputedStyle($('safe'))['padding-' + side]) || 0;
 // keep receiving a finger's moves even when it slides off the element (can refuse, e.g. for simulated test touches)
 const capture = (el, id) => { try { el.setPointerCapture(id); } catch (e) { /* carry on without capture */ } };
 
-// A pad appears under the thumb inside its zone. axis: 'both' (joystick), 'y' (speed slider), 'x' (steering slider).
-function makePad(zone, ring, knob) {
-  const pad = { id: null, ox: 0, oy: 0, x: 0, y: 0, axis: 'both', travel: 56, fresh: false };
+// ---- the sliders ----------------------------------------------------------------------------------------------
+// ring: the fixed track (its CSS box, plus a grab margin that CSS adds as ::before, is the touch area). axis: 'y' speed, 'x' steering.
+// The knob follows the thumb along the track, measured from the ring's own centre; it stops at the travel limit (= full push).
+function makeSlider(ring, knob, axis) {
+  const pad = { id: null, x: 0, y: 0, axis, travel: TRAVEL[axis === 'y' ? 'speed' : 'steer'] };
 
-  function place(cx, cy) {
-    const hw = ring.offsetWidth / 2 + EDGE, hh = ring.offsetHeight / 2 + EDGE;
-    const z = zone.getBoundingClientRect();
-    pad.ox = Math.max(Math.max(z.left, inset('left')) + hw, Math.min(Math.min(z.right, innerWidth - inset('right')) - hw, cx));
-    pad.oy = Math.max(hh, Math.min(innerHeight - inset('bottom') - hh, cy));
-    ring.style.transform = `translate(${pad.ox}px, ${pad.oy}px)`;
-  }
   function move(px, py) {
-    // the pad stays where the thumb first landed; past the edge the knob just stops (= full push).
-    // (It used to slide along behind the thumb; Chetan found that had no limit, 2026-09-29.)
-    const dx = pad.axis === 'y' ? 0 : px - pad.ox, dy = pad.axis === 'x' ? 0 : py - pad.oy, R = pad.travel;
-    const len = Math.min(1, Math.hypot(dx, dy) / R) || 0, ang = Math.atan2(dy, dx);
-    pad.x = Math.cos(ang) * len; pad.y = Math.sin(ang) * len;
+    const r = ring.getBoundingClientRect(), R = pad.travel;   // measured every time, so a screen that resizes under a held thumb can't skew it
+    const v = Math.max(-1, Math.min(1, ((axis === 'y' ? py - (r.top + r.height / 2) : px - (r.left + r.width / 2)) / R) || 0));
+    pad.x = axis === 'x' ? v : 0; pad.y = axis === 'y' ? v : 0;
     knob.style.transform = `translate(${pad.x * R}px, ${pad.y * R}px)`;
   }
   pad.release = () => {
     pad.id = null; pad.x = pad.y = 0;
     knob.style.transform = '';
     ring.classList.remove('active');
-    ring.style.transform = '';   // back to its resting spot (set in CSS)
   };
-  zone.addEventListener('pointerdown', e => {
-    if (!enabled || pad.id !== null) return;
-    pad.id = e.pointerId; pad.fresh = true;
-    capture(zone, e.pointerId);
+  ring.addEventListener('pointerdown', e => {
+    if (!enabled || pad.id !== null || blocked(e.clientX, e.clientY)) return;
+    pad.id = e.pointerId;
+    capture(ring, e.pointerId);
     ring.classList.add('active');
-    place(e.clientX, e.clientY);
     move(e.clientX, e.clientY);
   });
-  zone.addEventListener('pointermove', e => { if (e.pointerId === pad.id) move(e.clientX, e.clientY); });
+  ring.addEventListener('pointermove', e => { if (e.pointerId === pad.id) move(e.clientX, e.clientY); });
   for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-    zone.addEventListener(t, e => { if (e.pointerId === pad.id) pad.release(); });
+    ring.addEventListener(t, e => { if (e.pointerId === pad.id) pad.release(); });
   }
   return pad;
 }
 
-const stick = makePad($('stick-zone'), $('stick'), $('knob'));      // joystick, or the speed slider in sliders style
-const steer = makePad($('steer-zone'), $('steer'), $('steer-knob'));   // steering slider (sliders style only)
-steer.axis = 'x';
+const speed = makeSlider($('stick'), $('knob'), 'y');       // speed slider: up = forward, down = reverse, middle = stopped
+const steer = makeSlider($('steer'), $('steer-knob'), 'x');   // steering slider: right = turn right, middle band = straight
+const releaseAll = () => { if (speed.id !== null) speed.release(); if (steer.id !== null) steer.release(); };
 
 // ---- action button (FIRE / SPRINT) ----------------------------------------------------------------------------
 const btn = $('action');
@@ -93,20 +81,17 @@ for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) {
   btn.addEventListener(t, e => { if (e.pointerId === btnId) btnId = null; });
 }
 
-// ---- settings: style, sizes, sides, button spot ---------------------------------------------------------------
+// ---- settings: sizes, side, button spot -----------------------------------------------------------------------
 onSettings(s => {
-  if (stick.id !== null) stick.release();
-  if (steer.id !== null) steer.release();
-  root.dataset.style = s.style;
+  releaseAll();
   root.dataset.side = s.stickSide;
   const k = s.stickSize / 100;
   root.style.setProperty('--stick-scale', k);
   root.style.setProperty('--btn-scale', s.btnSize / 100);
   root.style.setProperty('--btn-height', s.btnHeight + 'px');
   root.style.setProperty('--btn-edge', s.btnEdge + 'px');
-  stick.axis = s.style === 'sliders' ? 'y' : 'both';
-  stick.travel = (s.style === 'sliders' ? 64 : 56) * k;
-  steer.travel = 76 * k;
+  speed.travel = TRAVEL.speed * k;
+  steer.travel = TRAVEL.steer * k;
 });
 
 // ---- shared ---------------------------------------------------------------------------------------------------
@@ -115,36 +100,19 @@ export function setInputEnabled(on) {
   enabled = on;
   if (on) return;
   keys.clear();
-  if (stick.id !== null) stick.release();
-  if (steer.id !== null) steer.release();
+  releaseAll();
   btnId = null;
   input.actionTaps = 0;
 }
-addEventListener('blur', () => { keys.clear(); if (stick.id !== null) stick.release(); if (steer.id !== null) steer.release(); btnId = null; });
+addEventListener('blur', () => { keys.clear(); releaseAll(); btnId = null; });
 
 const deadzone = (v, dz = DEAD) => Math.abs(v) < dz ? 0 : Math.sign(v) * (Math.abs(v) - dz) / (1 - dz);
 const clamp = v => Math.max(-1, Math.min(1, v));
 
 export function readInput() {
   const k = c => keys.has(c) ? 1 : 0;
-  let throttle = Math.max(k('ArrowUp'), k('KeyW')) - Math.max(k('ArrowDown'), k('KeyS'));
-  let turn = Math.max(k('ArrowRight'), k('KeyD')) - Math.max(k('ArrowLeft'), k('KeyA'));
-  const style = settings.style;
-  const hadAim = input.aim !== null;
-  input.aim = null;
-
-  if (style === 'point') {
-    const strength = deadzone(Math.hypot(stick.x, stick.y));
-    if (strength > 0) input.aim = { angle: Math.atan2(stick.x, -stick.y), strength };
-  } else if (style === 'sliders') {
-    throttle += deadzone(-stick.y);
-    turn += deadzone(steer.x, STEER_DEAD);
-  } else {   // tank
-    throttle += deadzone(-stick.y);
-    turn += deadzone(stick.x, STEER_DEAD);
-  }
-  input.aimNew = input.aim !== null && (!hadAim || stick.fresh);
-  stick.fresh = false;
+  const throttle = Math.max(k('ArrowUp'), k('KeyW')) - Math.max(k('ArrowDown'), k('KeyS')) + deadzone(-speed.y);
+  const turn = Math.max(k('ArrowRight'), k('KeyD')) - Math.max(k('ArrowLeft'), k('KeyA')) + deadzone(steer.x, STEER_DEAD);
   input.throttle = clamp(throttle);
   input.turn = clamp(turn);
   input.action = enabled && (keys.has('Space') || btnId !== null);

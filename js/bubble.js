@@ -1,14 +1,14 @@
 // Stage 3B (Chetan, 2026-10-01): the "watching" speech bubble. Once at the start of a round, on your own screen only, a small
 // bubble near the top for 4 seconds, then gone. It never takes touches. It is placed where it covers nothing: it looks for
 // the highest spot (then the most central) that clears the round chip and its ping-text slot, the corner map, the room
-// label, the top-right buttons, a notice, the action button and the joystick / sliders where they rest, and stays inside the
-// notch margins. If a very cramped layout leaves no clear spot (the biggest button and stick at once on a small phone), it
+// label, the top-right buttons, a notice, the action button and the two sliders, and stays inside the
+// notch margins. If a very cramped layout leaves no clear spot (the biggest button and sliders at once on a small phone), it
 // takes the least bad one and says so in data-clear="no" (testing only).
 const $ = id => document.getElementById(id);
 const SHOW = 4000, GAP = 6;   // ms on screen; px of air kept round every other thing
-// How much it matters to cover each thing: HARD things (the clock, ping text, corner map, buttons, the action button, fixed sliders) are
-// never covered if any spot avoids them; SOFT things (the room label, a notice, the faint resting ring of the floating joystick) are only
-// covered when no spot clears everything, which happens only with the biggest button and joystick pushed well into the screen.
+// How much it matters to cover each thing: HARD things (the clock, ping text, corner map, buttons, the action button, the two fixed sliders) are
+// never covered if any spot avoids them; SOFT things (the room label, a notice) are only
+// covered when no spot clears everything, which happens only with the biggest button and sliders pushed well into the screen.
 export const HARD = 100, SOFT = 1;
 
 let timer = 0;
@@ -30,11 +30,9 @@ export function obstacles() {
     }
   }
   add('cmap'); add('menu-btn'); add('gear'); add('fs-again'); add('action');
-  add('steer');
-  const sliders = document.documentElement.dataset.style === 'sliders';
+  add('steer'); add('stick');   // both sliders are fixed controls
   const soft = (id, ok = true) => { const el = $(id); if (ok && visible(el)) { const b = box(el, SOFT); if (b) out.push(b); } };
   soft('hud'); soft('toast', $('toast').classList.contains('show'));
-  if (sliders) add('stick'); else soft('stick');   // the speed slider is a fixed control; the joystick floats to wherever the thumb lands
   return out;
 }
 
@@ -95,7 +93,7 @@ export function showBubble(text, opt = {}) {
   el.style.maxWidth = Math.min(size.width, room) + 'px';   // keep the width it was measured at
   el.style.left = spot.x + 'px'; el.style.top = spot.y + 'px';
   el.style.setProperty('--tx', Math.max(14, Math.min(size.width - 14, innerWidth / 2 - spot.x)) + 'px');   // the tail points at the middle of the screen
-  el.dataset.clear = spot.clear ? 'yes' : spot.hard ? 'no' : 'soft';   // 'soft': only the room label, a notice or the resting joystick ring are under it
+  el.dataset.clear = spot.clear ? 'yes' : spot.hard ? 'no' : 'soft';   // 'soft': only the room label or a notice is under it
   el.hidden = false;
   void el.offsetWidth;
   el.classList.add('show');

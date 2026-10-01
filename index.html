@@ -65,8 +65,8 @@
     background: radial-gradient(ellipse at center, rgba(255, 40, 28, 0) 42%, rgba(255, 40, 28, 0.42) 78%, rgba(210, 18, 12, 0.88) 100%);
     box-shadow: inset 0 0 0 3px rgba(255, 64, 48, 0.9); }
   #alarm::after { content: ''; position: absolute; inset: 0; background: rgba(255, 36, 24, 0.32); opacity: var(--flash); }
-  #rh-note.alarm { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; color: #ff6a5a; background: rgba(40, 8, 6, 0.72);
-    border: 1px solid rgba(255, 70, 55, 0.6); padding: 6px 12px; }
+  #rh-note.alarm { font-size: 14px; font-weight: 700; letter-spacing: 0.01em; color: #ff6a5a; background: rgba(40, 8, 6, 0.72);
+    border: 1px solid rgba(255, 70, 55, 0.6); padding: 6px 8px; }   /* 12 -> 8 px a side (2026-10-02): the longest ping text no longer touches the back-to-full-screen button on a 667 px phone with a cut-out */
   #cmap.alarm { border-color: #ff4a3a; box-shadow: 0 0 0 1px #ff4a3a, 0 0 14px rgba(255, 50, 35, 0.55); }
   .corner { position: fixed; z-index: 7; top: max(10px, var(--st)); width: 40px; height: 40px; display: grid; place-items: center;
     padding: 0; background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
@@ -90,41 +90,39 @@
   html:not([data-state="playing"]) #cmap, html:not([data-state="playing"]) #alarm { display: none; }
   [data-match] #hud .brand, [data-match] #hud .keys { display: none; }
 
-  /* ---- phone controls (sizes, sides and style come from the settings panel) ----
-     point / tank style: floating joystick on one half, action button on the other.
-     sliders style: speed slider on one half, steering slider on the other with the action button above it. */
+  /* ---- phone controls (sizes and sides come from the settings panel) ----
+     Two FIXED sliders and one action button, 2026-10-02 (Chetan). The speed slider sits on one edge, the steering slider in the bottom corner of the other
+     side with the action button above it; the middle and the top of the screen are left free for taps. Nothing here moves while you play.
+     A slider starts only from a touch on its own ring or the 24 px of grab room round it (the ::before); the corner map, the poke circle and every button
+     are kept out of that by input.js and by the buttons sitting on top. */
   #controls { display: none; --s: var(--stick-scale, 1); --bs: var(--btn-scale, 1); }
   .touch[data-state="playing"] #controls, [data-settings] #controls { display: block; }
-  .zone { position: fixed; z-index: 5; top: 0; bottom: 0; width: 50%; touch-action: none; }
-  #stick-zone, [data-side="right"] #steer-zone { left: 0; }
-  #steer-zone, [data-side="right"] #stick-zone { left: 50%; }
-  #steer-zone, #steer { display: none; }
-  [data-style="sliders"] #steer-zone, [data-style="sliders"] #steer { display: block; }
   .pad { position: fixed; z-index: 5; left: 0; top: 0; width: var(--w); height: var(--h);
-    margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); pointer-events: none;
+    margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); pointer-events: none; touch-action: none;
     border-radius: 999px; border: 1.5px solid rgba(223, 229, 225, 0.5); background: rgba(16, 20, 18, 0.22); opacity: 0.45;
-    /* resting spot: the pad's centre, tucked into the bottom corner of its half */
-    --x: calc(var(--sl) + var(--w) / 2 + 38px); --y: calc(100dvh - var(--sb) - var(--h) / 2 - 32px);
-    transform: translate(var(--x), var(--y)); transition: transform 0.18s ease-out, opacity 0.18s; }
+    --x: calc(var(--sl) + var(--w) / 2 + 26px); --y: calc(100dvh - var(--sb) - var(--h) / 2 - 26px);
+    transform: translate(var(--x), var(--y)); transition: opacity 0.18s; }
+  .pad::before { content: ''; position: absolute; inset: -24px; pointer-events: auto; }
   .pad.active { opacity: 0.95; transition: none; }
-  #stick { --w: calc(160px * var(--s)); --h: var(--w); --k: calc(56px * var(--s)); }
-  /* speed slider: never taller than leaves its resting top clear of the top-right buttons (1f: at 140% on a notched iPhone it reached 2 px into them) */
-  [data-style="sliders"] #stick { --w: calc(76px * var(--s)); --h: min(196px * var(--s), 100dvh - var(--sb) - 90px); --k: calc(60px * var(--s)); }
-  #steer { --w: min(228px * var(--s), 50vw - 40px); --h: calc(76px * var(--s)); --k: calc(60px * var(--s)); }
-  [data-side="right"] #stick, #steer { --x: calc(100vw - var(--sr) - var(--w) / 2 - 38px); }
+  /* speed slider: never taller than leaves its top clear of what sits above it: the top-right buttons, or on the left the corner map and the room label under it (when the map is on) */
+  #stick { --top-clear: calc(max(10px, var(--st)) + 48px); --w: calc(76px * var(--s)); --h: min(196px * var(--s), 100dvh - var(--sb) - 26px - var(--top-clear)); --k: calc(60px * var(--s)); }
+  [data-map]:not([data-side="right"]) #stick { --top-clear: calc(max(10px, var(--st)) + var(--map-h) + 44px); }
+  #steer { --w: min(228px * var(--s), 50vw - 40px); --h: calc(70px * var(--s)); --k: calc(60px * var(--s));
+    --x: calc(100vw - var(--sr) - var(--w) / 2 - 38px); }
+  [data-side="right"] #stick { --x: calc(100vw - var(--sr) - var(--w) / 2 - 26px); }
   [data-side="right"] #steer { --x: calc(var(--sl) + var(--w) / 2 + 38px); }
   .knob { position: absolute; left: 50%; top: 50%; width: var(--k); height: var(--k); margin: calc(var(--k) / -2) 0 0 calc(var(--k) / -2);
     border-radius: 50%; background: rgba(223, 229, 225, 0.82); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
-  .pad:not(.active) .knob { transition: transform 0.12s ease-out; }
+  .pad:not(.active) .knob { transition: transform 0.08s ease-out; }   /* firm return to the middle */
   /* the button never rises into the top-corner buttons (gear, full screen), whatever the size and height settings */
-  #action { --top-limit: calc(100dvh - var(--sb) - 58px - 128px * var(--bs));
+  #action { --top-limit: calc(100dvh - max(10px, var(--st)) - 48px - 128px * var(--bs));
     position: fixed; z-index: 5; right: calc(var(--sr) + var(--btn-edge, 26px)); bottom: min(calc(var(--sb) + var(--btn-height, 26px)), var(--top-limit));
     width: calc(128px * var(--bs)); height: calc(128px * var(--bs)); padding: 0; border: 0; background: none; touch-action: none;
     display: grid; place-items: center; --c: var(--hunter); }
   [data-side="right"] #action { right: auto; left: calc(var(--sl) + var(--btn-edge, 26px)); }
-  [data-style="sliders"] #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px) + 112px * var(--s)), var(--top-limit)); }   /* above the steering slider */
+  #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px) + 96px * var(--s)), var(--top-limit)); }   /* above the steering slider */
   /* button on the left, under the corner map: never rises into the map or the room label under it */
-  [data-map][data-side="right"] #action { --top-limit: calc(100dvh - var(--sb) - max(10px, var(--st)) - var(--map-h) - 40px - 128px * var(--bs)); }
+  [data-map][data-side="right"] #action { --top-limit: calc(100dvh - max(10px, var(--st)) - var(--map-h) - 36px - 110px * var(--bs)); }   /* 110 = the box less its 18 px of empty margin, which may reach up into the (touch-proof) room label's line */
   [data-role="hider"] #action { --c: var(--hider); }
   #action span { width: calc(92px * var(--bs)); height: calc(92px * var(--bs)); border-radius: 50%; display: grid; place-items: center;
     font: 700 calc(13px * var(--bs))/1 var(--font); letter-spacing: 0.1em; color: #fff;
@@ -257,7 +255,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=wa-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=ctl-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -463,8 +461,6 @@
 </div>
 
 <div id="controls">
-  <div id="stick-zone" class="zone"></div>
-  <div id="steer-zone" class="zone"></div>
   <div id="stick" class="pad"><div id="knob" class="knob"></div></div>
   <div id="steer" class="pad"><div id="steer-knob" class="knob"></div></div>
   <button id="action" type="button"><i class="ring"></i><span>FIRE</span></button>
@@ -548,13 +544,10 @@
     <div class="set-head"><h2 id="set-title">Settings</h2><button id="set-done" class="btn" type="button">Done</button></div>
     <div class="set-body">
       <h3>Driving</h3>
-      <div class="set-row"><div class="lbl"><span>Control style</span></div>
-        <div class="seg"><button type="button" data-set="style" data-value="point">Point to drive</button><button type="button" data-set="style" data-value="sliders">Two sliders</button><button type="button" data-set="style" data-value="tank">Tank</button></div>
-        <p id="style-note" class="note"></p></div>
       <div class="set-row"><div class="lbl"><span>Turning speed</span><span id="val-turnSpeed"></span></div><input id="set-turnSpeed" type="range" aria-label="Turning speed"></div>
-      <h3 id="stick-title">Joystick</h3>
+      <h3>Sliders</h3>
       <div class="set-row"><div class="lbl"><span>Size</span><span id="val-stickSize"></span></div><input id="set-stickSize" type="range" aria-label="Size"></div>
-      <div class="set-row"><div class="lbl"><span id="stick-side-label">Side</span></div>
+      <div class="set-row"><div class="lbl"><span>Speed slider side</span></div>
         <div class="seg"><button type="button" data-set="stickSide" data-value="left">Left</button><button type="button" data-set="stickSide" data-value="right">Right</button></div></div>
       <h3>Fire / sprint button</h3>
       <div class="set-row"><div class="lbl"><span>Size</span><span id="val-btnSize"></span></div><input id="set-btnSize" type="range" aria-label="Size"></div>
@@ -691,50 +684,50 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=wa-1",
-  "./js/assist.js": "./js/assist.js?v=wa-1",
-  "./js/bubble.js": "./js/bubble.js?v=wa-1",
-  "./js/camera.js": "./js/camera.js?v=wa-1",
-  "./js/cornermap.js": "./js/cornermap.js?v=wa-1",
-  "./js/effects.js": "./js/effects.js?v=wa-1",
-  "./js/eggs.js": "./js/eggs.js?v=wa-1",
-  "./js/flags.js": "./js/flags.js?v=wa-1",
-  "./js/input.js": "./js/input.js?v=wa-1",
-  "./js/lamps.js": "./js/lamps.js?v=wa-1",
-  "./js/leaders.js": "./js/leaders.js?v=wa-1",
-  "./js/lines.js": "./js/lines.js?v=wa-1",
-  "./js/lobby.js": "./js/lobby.js?v=wa-1",
-  "./js/main.js": "./js/main.js?v=wa-1",
-  "./js/map.js": "./js/map.js?v=wa-1",
-  "./js/menu.js": "./js/menu.js?v=wa-1",
-  "./js/models.js": "./js/models.js?v=wa-1",
-  "./js/net.js": "./js/net.js?v=wa-1",
-  "./js/picker.js": "./js/picker.js?v=wa-1",
-  "./js/props.js": "./js/props.js?v=wa-1",
-  "./js/rules.js": "./js/rules.js?v=wa-1",
-  "./js/screen.js": "./js/screen.js?v=wa-1",
-  "./js/secret.js": "./js/secret.js?v=wa-1",
-  "./js/settings.js": "./js/settings.js?v=wa-1",
-  "./js/shots.js": "./js/shots.js?v=wa-1",
-  "./js/sound.js": "./js/sound.js?v=wa-1",
-  "./js/tank.js": "./js/tank.js?v=wa-1",
-  "./js/textures.js": "./js/textures.js?v=wa-1",
-  "./js/theme.js": "./js/theme.js?v=wa-1",
-  "./js/tips.js": "./js/tips.js?v=wa-1",
-  "./js/vision.js": "./js/vision.js?v=wa-1",
-  "./js/wallart.js": "./js/wallart.js?v=wa-1",
-  "./js/wallart_draw.js": "./js/wallart_draw.js?v=wa-1",
-  "./js/weather.js": "./js/weather.js?v=wa-1",
-  "./js/world.js": "./js/world.js?v=wa-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=wa-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=wa-1",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=wa-1",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=wa-1",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=wa-1",
-  "three": "./lib/three.module.js?v=wa-1"
+  "./js/arena.js": "./js/arena.js?v=ctl-1",
+  "./js/assist.js": "./js/assist.js?v=ctl-1",
+  "./js/bubble.js": "./js/bubble.js?v=ctl-1",
+  "./js/camera.js": "./js/camera.js?v=ctl-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=ctl-1",
+  "./js/effects.js": "./js/effects.js?v=ctl-1",
+  "./js/eggs.js": "./js/eggs.js?v=ctl-1",
+  "./js/flags.js": "./js/flags.js?v=ctl-1",
+  "./js/input.js": "./js/input.js?v=ctl-1",
+  "./js/lamps.js": "./js/lamps.js?v=ctl-1",
+  "./js/leaders.js": "./js/leaders.js?v=ctl-1",
+  "./js/lines.js": "./js/lines.js?v=ctl-1",
+  "./js/lobby.js": "./js/lobby.js?v=ctl-1",
+  "./js/main.js": "./js/main.js?v=ctl-1",
+  "./js/map.js": "./js/map.js?v=ctl-1",
+  "./js/menu.js": "./js/menu.js?v=ctl-1",
+  "./js/models.js": "./js/models.js?v=ctl-1",
+  "./js/net.js": "./js/net.js?v=ctl-1",
+  "./js/picker.js": "./js/picker.js?v=ctl-1",
+  "./js/props.js": "./js/props.js?v=ctl-1",
+  "./js/rules.js": "./js/rules.js?v=ctl-1",
+  "./js/screen.js": "./js/screen.js?v=ctl-1",
+  "./js/secret.js": "./js/secret.js?v=ctl-1",
+  "./js/settings.js": "./js/settings.js?v=ctl-1",
+  "./js/shots.js": "./js/shots.js?v=ctl-1",
+  "./js/sound.js": "./js/sound.js?v=ctl-1",
+  "./js/tank.js": "./js/tank.js?v=ctl-1",
+  "./js/textures.js": "./js/textures.js?v=ctl-1",
+  "./js/theme.js": "./js/theme.js?v=ctl-1",
+  "./js/tips.js": "./js/tips.js?v=ctl-1",
+  "./js/vision.js": "./js/vision.js?v=ctl-1",
+  "./js/wallart.js": "./js/wallart.js?v=ctl-1",
+  "./js/wallart_draw.js": "./js/wallart_draw.js?v=ctl-1",
+  "./js/weather.js": "./js/weather.js?v=ctl-1",
+  "./js/world.js": "./js/world.js?v=ctl-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=ctl-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=ctl-1",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=ctl-1",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=ctl-1",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=ctl-1",
+  "three": "./lib/three.module.js?v=ctl-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=wa-1"></script>
-<script type="module" src="./js/main.js?v=wa-1"></script>
+<script src="lib/peerjs.min.js?v=ctl-1"></script>
+<script type="module" src="./js/main.js?v=ctl-1"></script>
 </body>
 </html>

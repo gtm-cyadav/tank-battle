@@ -1,7 +1,7 @@
 // Tank Battle: game start-up and main loop.
 import * as THREE from '../lib/three.module.js';
 import { buildArena, useRenderer } from './arena.js';
-import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, setTrim, setAura, bobble, shakeHead, waveFlag, COLORS, DRIVE, TANK_RADIUS } from './tank.js';
+import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, setTrim, setAura, bobble, shakeHead, waveFlag, COLORS, TANK_RADIUS } from './tank.js';
 import { loadTank, applyTank, setLeader, clearLeader, setDuck, READY } from './models.js';
 import { initPicker, openPicker, closePicker, pickerOpen, pickerSync, savedChoice } from './picker.js';
 import { nameOf, shortName, LEADERS } from './leaders.js';
@@ -12,7 +12,7 @@ import { touristAt, BADGE_NAMES, chickenSpot, chickenLedge, HONK_RANGE } from '.
 import { assistYaw } from './assist.js';
 import { showBubble, hideBubble } from './bubble.js';
 import { makeChaseCamera } from './camera.js';
-import { readInput, clearTaps, setInputEnabled, inputEnabled } from './input.js';
+import { readInput, clearTaps, setInputEnabled, inputEnabled, setSliderBlocker } from './input.js';
 import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
 import { initMenu, closeMenu, menuFrame } from './menu.js';
 import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
@@ -677,30 +677,11 @@ initLobby({
   },
 });
 
-// Turn the player's input into throttle and turn for the tank.
-// Point-to-drive: "up" means the way the camera faced when this push began (thumb down, or back out of the
-// centre); the tank turns to the pushed direction and then holds it exactly, so it drives dead straight.
-const SNAP = 0.21;   // pushes within about 12 degrees of straight up count as straight up
-const HOLD = 0.06;   // thumb wobbles smaller than about 3 degrees don't change the heading
+// Turn the player's input into throttle and turn for the tank (speed slider = throttle, steering slider = turn, scaled by the turning speed setting).
 const drive = { throttle: 0, turn: 0 };
-let aimRef = 0, aimLast = 0;
-function steer(inp, dt) {
-  const turnMul = settings.turnSpeed / 100;
-  if (!inp.aim || dt <= 0) {
-    drive.throttle = inp.throttle;
-    drive.turn = inp.turn * turnMul;
-    return drive;
-  }
-  let a = Math.abs(inp.aim.angle) < SNAP ? 0 : inp.aim.angle;
-  if (inp.aimNew) aimRef = follow.yaw() ?? player.rotation.y;
-  else if (Math.abs(a - aimLast) < HOLD) a = aimLast;
-  aimLast = a;
-  const target = aimRef - a;   // stick right = heading to the right = smaller yaw
-  const diff = Math.atan2(Math.sin(target - player.rotation.y), Math.cos(target - player.rotation.y));
-  // exactly the turn needed to land on the target this frame, but never faster than the turning speed setting
-  drive.turn = Math.max(-turnMul, Math.min(turnMul, -diff / (DRIVE.turn * dt)));
-  // slow down for sharp turns (turns on the spot when facing away, e.g. pulling the stick down = turn round)
-  drive.throttle = inp.aim.strength * Math.max(0, Math.cos(diff));
+function steer(inp) {
+  drive.throttle = inp.throttle;
+  drive.turn = inp.turn * (settings.turnSpeed / 100);
   return drive;
 }
 
@@ -713,7 +694,7 @@ function frame(dt, draw = true, clockDt = dt) {
   if (inp.actionTaps > 0 && myRole() === 'hunter') tryFire();
   clearTaps();
   const before = { x: player.position.x, z: player.position.z };
-  const d = steer(inp, dt);
+  const d = steer(inp);
   if (mode !== 'solo' && (rules.match?.phase !== 'play' || rules.givingUp)) { d.throttle = 0; d.turn = 0; }   // tanks wait between rounds (and after giving up)
   d.boost = sprint(inp, dt);
   driveTank(player, d, dt);
@@ -840,6 +821,14 @@ function headCircle() {
   return { cx, cy, r: Math.max(28, Math.abs((e.x * 0.5 + 0.5) * W - cx)) };
 }
 const pokeOK = () => mode !== 'solo' && rules.match?.phase === 'play' && !rules.paused && !rules.givingUp && isPlaying() && inputEnabled();
+// Where a slider must never start (controller changes, 2026-10-02): the poke circle on your own figure (two-player matches) and the corner-map box
+// (where the five duck taps go, there even when the map is off). The buttons need no entry: they sit on top of the sliders and take the touch themselves.
+setSliderBlocker((x, y) => {
+  const c = mode !== 'solo' ? headCircle() : null;
+  if (c && Math.hypot(x - c.cx, y - c.cy) <= c.r) return true;
+  const r = $('cmap-box').getBoundingClientRect();
+  return r.width > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+});
 addEventListener('pointerdown', e => {
   pokeFrom = null;
   if (!pokeOK() || e.target.closest?.('button')) return;   // a press on FIRE / SPRINT or a corner button is theirs

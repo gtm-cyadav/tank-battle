@@ -1,16 +1,18 @@
-// Player settings (gear icon): control style, turning speed, joystick size and side, action button size and
+// Player settings (gear icon): turning speed, slider size and side, action button size and
 // position, camera height and distance, corner map on or off (1e), sound on or off and graphics high or low (2A). Saved on the phone, so they survive closing the game.
-// Requested after the first real-device test (2026-09-29): driving straight was hard and
-// "up = forward" felt wrong, so point-to-drive is the default style.
+// Controls (2026-10-02, Chetan): the two fixed sliders are the only style. The old 'style' value that earlier versions saved
+// (point-to-drive or tank) is simply never read, so a phone that saved either one loads with two sliders and no error.
 const $ = id => document.getElementById(id);
 const KEY = 'tank-battle.settings.v1';
 
+// An iPad-sized touch screen (shorter side 600 px or more) starts with the sliders and the button at 125%: they were drawn for a phone.
+const TABLET = (() => { try { return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) >= 600; } catch (e) { return false; } })();
+
 export const DEFAULTS = {
-  style: 'point',       // 'point' (push where you want to go) | 'sliders' (speed + steering sliders) | 'tank' (original)
   turnSpeed: 100,       // % of the normal turning speed
-  stickSize: 100,       // % of the normal joystick size
-  stickSide: 'left',    // which side the joystick (or speed slider) goes; the action button takes the other side
-  btnSize: 100,         // % of the normal action button size
+  stickSize: TABLET ? 125 : 100,   // % of the normal slider size
+  stickSide: 'left',    // which side the speed slider goes; the steering slider and the action button take the other side
+  btnSize: TABLET ? 125 : 100,     // % of the normal action button size
   btnHeight: 26,        // px up from the bottom edge
   btnEdge: 26,          // px in from the side edge
   camHeight: 3.0,       // m; the camera code still keeps it under the wall tops (fairness)
@@ -32,12 +34,7 @@ const SLIDERS = {
   camHeight: { min: 1.8, max: 3.8, step: 0.1, show: v => v.toFixed(1) + ' m' },
   camDistance: { min: 4, max: 10, step: 0.5, show: v => v.toFixed(1) + ' m' },
 };
-const CHOICES = { style: ['point', 'sliders', 'tank'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'] };
-const STYLE_NOTES = {
-  point: 'Push the way you want to go. The tank turns to face it, then drives dead straight. Pull back to turn round.',
-  sliders: 'One thumb slides up and down for speed, the other slides left and right to steer. The middle of the steering slider is dead straight.',
-  tank: 'Up drives forward, down reverses, left and right turn on the spot.',
-};
+const CHOICES = { stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'] };
 
 function load() {
   let saved = {};
@@ -71,10 +68,6 @@ function render() {
   for (const k in CHOICES) {
     for (const b of document.querySelectorAll(`[data-set="${k}"]`)) b.setAttribute('aria-pressed', b.dataset.value === settings[k]);
   }
-  $('style-note').textContent = STYLE_NOTES[settings.style];
-  // wording follows the style: "Joystick" or "Speed slider"
-  $('stick-title').textContent = settings.style === 'sliders' ? 'Sliders' : 'Joystick';
-  $('stick-side-label').textContent = settings.style === 'sliders' ? 'Speed slider side' : 'Side';
 }
 
 let openPanel = () => {};
