@@ -6,7 +6,7 @@ import { loadTank, applyTank, setLeader, clearLeader, setDuck, READY } from './m
 import { initPicker, openPicker, closePicker, pickerOpen, pickerSync, savedChoice } from './picker.js';
 import { nameOf, shortName, LEADERS } from './leaders.js';
 import { drawFlag } from './flags.js';
-import { quoteFor, watchLine, tagline, bumpPair, pokeLine, headlineFor, awardsFor, CLUCK, SORRY, REMATCH, QUACK, DUCK_ROUND } from './lines.js';
+import { quoteFor, watchLine, tagline, bumpPair, pokeLine, headlineFor, awardsFor, nudgeLine, CLUCK, SORRY, REMATCH, QUACK, DUCK_ROUND } from './lines.js';
 import { createProps, setSweat } from './props.js';
 import { touristAt, BADGE_NAMES, chickenSpot, chickenLedge, HONK_RANGE } from './eggs.js';
 import { assistYaw } from './assist.js';
@@ -17,7 +17,7 @@ import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
 import { initMenu, closeMenu, menuFrame } from './menu.js';
 import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
 import { VERSION } from './net.js';
-import { createRules, RULES, isDuckRound, nextRoundOf } from './rules.js';
+import { createRules, RULES, isDuckRound, nextRoundOf, cardView, stallLeft } from './rules.js';
 import { initSecretBox, getArmed, disarm, buildHearts, flashAt } from './theme.js';
 import { tipOn, tipOff } from './tips.js';
 import { createShots } from './shots.js';
@@ -125,6 +125,7 @@ onSettings(s => {
   scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });   // shadows on or off needs the shaders rebuilt
   fx.setQuality(quality);
   props.setQuality(quality);
+  arena.setQuality(quality);   // Part B: the extra lamps and the turning fans are High only
   resize();
 });
 
@@ -291,7 +292,7 @@ function dressOther(asHider) {
 
 // ---- the rules: roles, firing, sprint, rounds (Stage 1d) -----------------------------------------------------
 const root = document.documentElement;
-const rules = createRules({ send: sendState, changed: phaseChanged, eggs: eggsChanged, where: () => ({ x: player.position.x, z: player.position.z }), theme: () => getArmed() });
+const rules = createRules({ send: sendState, changed: phaseChanged, eggs: eggsChanged, nudged, where: () => ({ x: player.position.x, z: player.position.z }), theme: () => getArmed() });
 // shots: flash, smoke, sparks (effects.js) and sounds. Hearing follows sight (Chetan, 2026-09-29): the other player's
 // shot is heard louder when close, but with no left/right direction.
 const shots = createShots(scene, {
@@ -469,9 +470,10 @@ function sprint(inp, dt) {
 const text = (id, v) => { const el = $(id); if (el.textContent !== v) el.textContent = v; };
 const show = (id, on) => { const el = $(id); if (el.hidden !== on) return false; el.hidden = !on; return true; };
 const clock = secs => { const s = Math.max(0, Math.ceil(secs - 1e-6)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-let ringP = -1, btnOff = null, shownBadges = '', shownAwards = '';
+let ringP = -1, btnOff = null, shownAwards = '';
+const otherSide = s => s === 'host' ? 'guest' : 'host';
 function drawRound() {
-  const m = rules.match, me = rules.side, them = me === 'host' ? 'guest' : 'host';
+  const m = rules.match, me = rules.side;
   // the button's ring: reload for FIRE, the sprint meter for SPRINT; greyed out when it can't be used
   const hunter = myRole() === 'hunter';
   const p = hunter ? 1 - reload / RULES.reload : meter;
@@ -479,9 +481,9 @@ function drawRound() {
   if (Math.abs(p - ringP) > 0.004) { ringP = p; $('action').querySelector('.ring').style.setProperty('--p', p.toFixed(3)); }
   if (off !== btnOff) { btnOff = off; $('action').classList.toggle('off', off); }
 
-  let blockChanged = false;
   show('rh', !!m);
   if (!m) { if (show('round', false)) { delete root.dataset.card; refreshScreen(); } return; }
+  const them = otherSide(me);
   const role = myRole(), left = m.phase === 'play' ? RULES.round - m.t : m.result && m.phase !== 'toss' ? m.result.left : RULES.round;
   text('rh-role', role === 'hunter' ? 'Hunter' : 'Hider');
   text('rh-clock', clock(left));
@@ -490,8 +492,9 @@ function drawRound() {
   if (lastTen) $('rh-clock').style.setProperty('--beat', (0.95 - 0.35 * (10 - left) / 10).toFixed(2) + 's');
   text('rh-round', `Round ${m.round}`);
   text('rh-score', `You ${m.score[me]} – ${m.score[them]} Them`);
-  // after a hit, a short beat to see the wreck before the card covers it
-  const beat = (m.phase === 'break' || m.phase === 'over') && m.result?.how === 'hit' && m.t < 1.2;
+  // Round-end flow (2026-10-02): which screen shows comes from the match's clock (rules.js cardView), so both phones show the same one.
+  // After a hit, a short beat to see the wreck before the score screen covers it.
+  const view = cardView(m), beat = view === 'beat';
   const wait = Math.ceil(RULES.headStart - m.t - 1e-6);
   const pv = rules.pingView();   // hunter ping: the hider's countdown, then the circle on both maps
   const ping = !pv ? '' : pv.warn ? `Ping in ${pv.warn}.` : role === 'hider' ? 'Pinged. The hunter sees this circle.'
@@ -499,96 +502,146 @@ function drawRound() {
   text('rh-note', m.phase === 'play' && wait > 0 ? (role === 'hunter' ? `You can fire in ${wait} s.` : `The hunter can fire in ${wait} s.`)
     : beat ? (role === 'hunter' ? 'Direct hit.' : 'You were hit.') : ping);
 
-  const card = m.phase !== 'play' && m.phase !== 'pick' && !beat;
-  blockChanged = show('round', card);
+  const card = !!view && !beat;
+  const blockChanged = show('round', card);
   if (blockChanged) { if (card) root.dataset.card = ''; else delete root.dataset.card; }
-  if (card) {
-    const r = m.result, won = r && r.win === me, iHunted = rules.hunterSide() === me;
-    // Stage 3B: before every round the intro card (both leaders, flags, taglines) follows the toss card / the result card
-    const intro = m.phase === 'toss' ? m.t >= RULES.tossCard : m.phase === 'break' && m.t >= RULES.resultCard;
-    $('round').querySelector('.card').classList.toggle('intro', intro);
-    const quote = m.phase !== 'toss' && r?.how !== 'gaveup' ? quoteFor(r, m.lead) : null;   // who said it comes from the match, so both phones read the same
-    if (show('rc-q', !!quote) || quote) { text('rq-by', quote ? `${quote.tag} · ${nameOf(quote.who)}` : ''); text('rq-t', quote ? `“${quote.text}”` : ''); }
-    if (intro) {
-      const nextRound = m.phase === 'toss' ? 1 : m.round + 1, hunts = m.phase === 'toss' ? iHunted : !iHunted, L = rules.leaders();
-      text('rc-over', `Round ${nextRound}`);
-      introSide(0, L?.me); introSide(1, L?.them);
-      text('rc-count', `Round ${nextRound} starts in ${Math.max(1, Math.ceil((m.phase === 'toss' ? RULES.toss : RULES.next) - m.t))} s. You ${hunts ? 'hunt' : 'hide'}.`);
-      text('rc-wx', m.phase === 'toss' ? weatherLine(m.wx) : m.next ? weatherLine(m.next) : '');
-      const duck = isDuckRound(m, nextRound);   // Stage 4B: ducks next round (both phones read it from the match)
-      show('rc-duck', duck); text('rc-duck', duck ? DUCK_ROUND : '');
-      $('round').querySelector('.card').classList.remove('wide');
-      if (blockChanged) refreshScreen();
-      return;
-    }
-    show('rc-duck', false); text('rc-duck', '');
-    const how = !r ? '' : r.how === 'hit'
-      ? (iHunted ? `Direct hit with ${clock(r.left)} left.` : `You were hit with ${clock(r.left)} left.`)
-      : (iHunted ? 'Time ran out. No hit.' : `You stayed hidden for the full ${clock(RULES.round)}.`);
-    const score = `Score: you ${m.score[me]}, them ${m.score[them]}.`;
-    if (m.phase === 'toss') {
-      text('rc-over', 'Coin toss');
-      text('rc-t', iHunted ? 'You hunt first.' : 'You hide first.');
-      text('rc-p', iHunted ? `The other player hides. They get a ${RULES.headStart}-second head start.` : `The other player hunts. You get a ${RULES.headStart}-second head start.`);
-      text('rc-who', `You are ${nameOf(myLeader)}. The other player is ${nameOf(otherLeader)}.`);
-      text('rc-score', 'Best of 3. Roles swap every round.');
-      text('rc-count', `Round 1 starts in ${Math.max(1, Math.ceil(RULES.toss - m.t))} s.`);
-      text('rc-wx', weatherLine(m.wx));
-    } else if (m.phase === 'break') {
-      text('rc-over', `Round ${m.round}`);
-      text('rc-t', won ? 'You win the round.' : 'They win the round.');
-      text('rc-p', how);
-      text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
-      text('rc-score', score);
-      text('rc-count', `Round ${m.round + 1} starts in ${Math.max(1, Math.ceil(RULES.next - m.t))} s. You ${iHunted ? 'hide' : 'hunt'}.`);
-      text('rc-wx', '');   // the weather comes with the intro card
-    } else if (r?.how === 'gaveup') {   // a surrender (1f): the other player won the whole match, score as it stood
-      text('rc-over', 'Match over');
-      text('rc-t', r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.');
-      text('rc-p', '');
-      text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
-      text('rc-score', score);
-      text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
-      text('rc-wx', '');
-    } else {
-      text('rc-over', 'Match over');
-      text('rc-t', won ? 'You win the match.' : 'They win the match.');
-      text('rc-p', `Round ${m.round}: ${how.charAt(0).toLowerCase()}${how.slice(1)}`);
-      text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
-      text('rc-score', score);
-      text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
-      text('rc-wx', '');
-    }
-    // Stage 4A: badges the referee wrote into the result (both phones read the same list), and the rematch taunt for the loser
-    const badges = (m.phase !== 'toss' && r?.badges) || [], bkey = badges.join(',');
-    if (show('rc-badges', badges.length > 0) || bkey !== shownBadges) {
-      shownBadges = bkey;
-      $('rc-badges').replaceChildren(...badges.map(b => { const e = document.createElement('span'); e.textContent = BADGE_NAMES[b] || b; return e; }));
-    }
-    const taunt = m.phase === 'over' && r && r.how !== 'gaveup' && !won;
-    if (show('rc-taunt', taunt) || taunt) text('rc-taunt', taunt ? REMATCH : '');
-    // Stage 4B: the round's newspaper headline (result cards and the match-over card), the end-of-match awards (match-over, none after a surrender)
-    // and the secret theme's end message. All of them are fixed functions of the match both phones share, so both phones print the same.
-    const news = m.phase !== 'toss' && r ? headlineFor(r, m.lead, rules.hunterSide(), m.mid, m.round, RULES.round - r.left - RULES.headStart) : null;
-    show('rc-news', !!news); text('rc-news', news || '');
-    if (news) text('rc-who', '');   // the headline and the quote already name both leaders: the "A vs B" line gives its room to them
-    const aw = m.phase === 'over' ? awardsFor(m) : null, akey = aw ? aw.map(a => `${a.side}${a.who}${a.name}`).join('|') : '';
-    show('rc-awards', !!aw);
-    if (akey !== shownAwards) {
-      shownAwards = akey;
-      $('rc-awards').replaceChildren(...(aw || []).map(a => { const p = document.createElement('p'), b = document.createElement('b'); b.textContent = a.name; p.append(b, nameOf(a.who)); return p; }));
-    }
-    const th = m.phase === 'over' ? m.theme : null, msg = th ? [won ? th.w : th.l, th.x].filter(Boolean).join('\n') : '';
-    show('rc-theme', !!msg); text('rc-theme', msg);
-    // a match-over card with extras uses two columns (result on the left, extras on the right) so it stays short
-    const wide = m.phase === 'over' && (taunt || !!quote || badges.length > 0 || !!news || !!aw || !!msg);
-    const cardEl = $('round').querySelector('.card');
-    if (cardEl.classList.contains('wide') !== wide) cardEl.classList.toggle('wide', wide);
-    show('rc-buttons', m.phase === 'over');
-    $('rc-again').disabled = !!m.again[me];
-  }
+  if (card) drawCard(m, view, me, them);
   if (blockChanged) refreshScreen();   // the card stops the controls while it shows
 }
+// How the round ended, from this player's side
+function howLine(r, iHunted) {
+  if (!r) return '';
+  return r.how === 'hit' ? (iHunted ? `Direct hit with ${clock(r.left)} left.` : `You were hit with ${clock(r.left)} left.`)
+    : (iHunted ? 'Time ran out. No hit.' : `You stayed hidden for the full ${clock(RULES.round)}.`);
+}
+// A leader's face in a round frame: one cell of the picker's picture, zoomed 1.12x onto the head (the same crop at any frame size)
+const faceShown = new WeakMap();
+function faceOn(el, n) {
+  if (!n || faceShown.get(el) === n) return;
+  faceShown.set(el, n);
+  const i = n - 1, col = i % 6, row = Math.floor(i / 6);
+  el.style.backgroundPosition = `${((1.12 * col + 0.06) / 5.72 * 100).toFixed(3)}% ${((1.12 * row - 0.0296) / 5.72 * 100).toFixed(3)}%`;
+}
+const flagShown = {};
+function flagOn(id, n) { if (n && flagShown[id] !== n) { flagShown[id] = n; drawFlag($(id), n); } }
+function chips(id, list) {
+  const key = list.join(',');
+  if ($(id).dataset.k === key) return;
+  $(id).dataset.k = key;
+  $(id).hidden = !list.length;
+  $(id).replaceChildren(...list.map(b => { const e = document.createElement('span'); e.textContent = BADGE_NAMES[b] || b; return e; }));
+}
+function drawCard(m, view, me, them) {
+  const r = m.result, won = !!r && r.win === me, iHunted = rules.hunterSide() === me;
+  const quote = (view === 'taunt' || view === 'score') && r?.how !== 'gaveup' ? quoteFor(r, m.lead) : null;   // who speaks comes from the match, so both phones read the same
+  if (view === 'taunt' && !quote) view = 'score';   // (an unknown leader has no line: the score stays up)
+  // the winner's role colour that round: orange if the hunter won, blue if the hider survived
+  const winRole = r && r.how !== 'gaveup' ? (r.win === rules.hunterSide() ? 'hunter' : 'hider') : 'hunter';
+  if ($('round').dataset.win !== winRole) $('round').dataset.win = winRole;
+  const main = $('round').querySelector('.card');
+  show('sc', view === 'score'); show('tt', view === 'taunt');
+  const mainOn = view !== 'score' && view !== 'taunt';
+  if (main.hidden === mainOn) main.hidden = !mainOn;
+
+  if (view === 'score') {   // who won, how, the score (big), the round's badges (the referee wrote them into the result)
+    const over = m.phase === 'over';
+    text('sc-l', over ? 'Match over' : `Round ${m.round}`);
+    text('sc-t', over ? (won ? 'You win the match.' : 'They win the match.') : (won ? 'You win the round.' : 'They win the round.'));
+    text('sc-n0', String(m.score[me])); text('sc-n1', String(m.score[them]));
+    $('sc-n0').classList.toggle('w', won); $('sc-n1').classList.toggle('w', !won);
+    flagOn('sc-f0', myLeader); flagOn('sc-f1', otherLeader);
+    text('sc-how', howLine(r, iHunted));
+    chips('sc-badges', r?.badges || []);
+    return;
+  }
+  if (view === 'taunt') {   // the speaking leader's face, the quote in a bubble, the newspaper headline in small text
+    faceOn($('tt-face'), quote.who);
+    text('tt-q', `“${quote.text}”`);
+    text('tt-news', headlineFor(r, m.lead, rules.hunterSide(), m.mid, m.round, RULES.round - r.left - RULES.headStart) || '');
+    return;
+  }
+
+  // the coin toss, the intro card, the Ready card and the match-over card share one card
+  const intro = view === 'intro' || view === 'ready';
+  main.classList.toggle('intro', intro);
+  main.classList.toggle('ready', view === 'ready');
+  show('rd', view === 'ready');
+  if (intro) {
+    const nextRound = m.phase === 'toss' ? 1 : m.round + 1, hunts = m.phase === 'toss' ? iHunted : !iHunted, L = rules.leaders();
+    text('rc-over', `Round ${nextRound}`);
+    introSide(0, L?.me); introSide(1, L?.them);
+    text('rc-count', view === 'ready' ? `You ${hunts ? 'hunt' : 'hide'}.` : `Round ${nextRound} starts in ${Math.max(1, Math.ceil(RULES.toss - m.t))} s. You ${hunts ? 'hunt' : 'hide'}.`);
+    text('rc-wx', m.phase === 'toss' ? weatherLine(m.wx) : m.next ? weatherLine(m.next) : '');
+    const duck = isDuckRound(m, nextRound);   // Stage 4B: ducks next round (both phones read it from the match)
+    show('rc-duck', duck); text('rc-duck', duck ? DUCK_ROUND : '');
+    if (main.classList.contains('wide')) main.classList.remove('wide');
+    if (view === 'ready') drawReady(m, nextRound, me, them);
+    return;
+  }
+  show('rc-duck', false); text('rc-duck', '');
+  const score = `Score: you ${m.score[me]}, them ${m.score[them]}.`;
+  if (view === 'toss') {
+    text('rc-over', 'Coin toss');
+    text('rc-t', iHunted ? 'You hunt first.' : 'You hide first.');
+    text('rc-p', iHunted ? `The other player hides. They get a ${RULES.headStart}-second head start.` : `The other player hunts. You get a ${RULES.headStart}-second head start.`);
+    text('rc-who', `You are ${nameOf(myLeader)}. The other player is ${nameOf(otherLeader)}.`);
+    text('rc-score', 'Best of 3. Roles swap every round.');
+    text('rc-count', `Round 1 starts in ${Math.max(1, Math.ceil(RULES.toss - m.t))} s.`);
+    text('rc-wx', weatherLine(m.wx));
+  } else {   // the match-over card (view 'final'): after the score and taunt screens, or at once after a surrender (1f)
+    text('rc-over', 'Match over');
+    text('rc-t', r?.how === 'gaveup' ? (r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.') : won ? 'You win the match.' : 'They win the match.');
+    const how = howLine(r, iHunted);
+    text('rc-p', r?.how === 'gaveup' || !how ? '' : `Round ${m.round}: ${how.charAt(0).toLowerCase()}${how.slice(1)}`);
+    text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
+    text('rc-score', score);
+    text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
+    text('rc-wx', '');
+  }
+  // Stage 4A: the rematch taunt for the loser. Stage 4B: the end-of-match awards (none after a surrender) and the secret theme's end message;
+  // all fixed functions of the match both phones share, so both phones print the same.
+  const over = m.phase === 'over';
+  const taunt = over && r && r.how !== 'gaveup' && !won;
+  if (show('rc-taunt', taunt) || taunt) text('rc-taunt', taunt ? REMATCH : '');
+  const aw = over ? awardsFor(m) : null, akey = aw ? aw.map(a => `${a.side}${a.who}${a.name}`).join('|') : '';
+  show('rc-awards', !!aw);
+  if (akey !== shownAwards) {
+    shownAwards = akey;
+    $('rc-awards').replaceChildren(...(aw || []).map(a => { const p = document.createElement('p'), b = document.createElement('b'); b.textContent = a.name; p.append(b, nameOf(a.who)); return p; }));
+  }
+  const th = over ? m.theme : null, msg = th ? [won ? th.w : th.l, th.x].filter(Boolean).join('\n') : '';
+  show('rc-theme', !!msg); text('rc-theme', msg);
+  // a match-over card with extras uses two columns (result on the left, extras on the right) so it stays short
+  const wide = over && (taunt || !!aw || !!msg);
+  if (main.classList.contains('wide') !== wide) main.classList.toggle('wide', wide);
+  show('rc-buttons', over);
+  $('rc-again').disabled = !!m.again[me];
+}
+// The Ready card's row: Ready, who is Ready, the late countdown, Nudge (only for the player who is Ready), or a nudge just received
+let nudgeIn = null;   // { mid, r, n (the nudging leader), until (ms) }
+function drawReady(m, nextRound, me, them) {
+  const mine = !!m.go?.[me], theirs = !!m.go?.[them], left = stallLeft(m);
+  const late = left <= RULES.stallShow ? `Starting anyway in ${Math.max(1, Math.ceil(left - 1e-6))} s.` : '';
+  if ($('rd-go').disabled !== mine) $('rd-go').disabled = mine;
+  text('rd-st1', mine && theirs ? 'Both ready.' : mine ? 'Waiting for the other player.' : theirs ? 'The other player is ready.' : `Round ${nextRound} starts when you both tap Ready.`);
+  text('rd-st2', late || (!mine && theirs ? `Tap Ready to start round ${nextRound}.` : ''));
+  $('rd-st').classList.toggle('ok', !mine && theirs);
+  const canNudge = mine && !theirs;
+  show('rd-nudge', canNudge);
+  if (canNudge) { const w = rules.nudgeWait > 0; if ($('rd-nudge').disabled !== w) $('rd-nudge').disabled = w; text('rd-nudge', w ? 'Nudged' : 'Nudge'); }
+  const said = !!nudgeIn && nudgeIn.mid === m.mid && nudgeIn.r === m.round && !mine && performance.now() < nudgeIn.until;
+  show('rd-bub', said); show('rd-st', !said);
+}
+// The other player nudged (rules.js checked it is for this Ready card): a tick and their leader's line, inside the card, for 4 s
+function nudged(who) {
+  const m = rules.match, n = m?.lead?.[who], line = nudgeLine(n);
+  if (!line) return;
+  nudgeIn = { mid: m.mid, r: m.round, n, until: performance.now() + 4000 };
+  faceOn($('rd-face'), n); text('rd-said', line);
+  play('tick', 0.8, 1.1);
+}
+$('rd-go').addEventListener('click', () => rules.readyUp());
+$('rd-nudge').addEventListener('click', () => rules.nudge());
 $('rc-again').addEventListener('click', () => rules.playAgain());
 
 // The intro card's two columns (0 = you, 1 = the other player): flag, parody name, country / era as is, tagline (lines.js)
@@ -892,7 +945,7 @@ renderer.setAnimationLoop(now => {
   frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+window.__tb = { drawRound, setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },

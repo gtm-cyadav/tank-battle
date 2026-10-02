@@ -99,7 +99,15 @@ const shuffled = (n, rand) => { const a = Array.from({ length: n }, (_, i) => i)
 
 // lamps: placeLamps() from lamps.js ({ x, z, ox, oz } on the wall face, looking out). Returns { pieces, faces, empty }.
 // piece: { kind: 'graffiti' | 'poster', item (index into POOL or POSTERS), x, z, nx, nz, w, h, y, ink, face (index) }
+// The layout is a fixed function of the lamps, worked out once (lamps.js needs it for the extra lamps, props.js draws it): the last answer is kept.
+let lastKey = '', lastLayout = null;
 export function layoutWallArt(lamps) {
+  const key = lamps.map(l => `${l.x},${l.z},${l.ox},${l.oz}`).join(';');
+  if (key === lastKey) return lastLayout;
+  lastKey = key;
+  return (lastLayout = layoutFor(lamps));
+}
+function layoutFor(lamps) {
   const faces = wallFaces(), rand = rng(20261001), pieces = [], empty = [];
   const choc = { x: cellX(CHICKEN.c + 1), z0: cellZ(CHICKEN.r), z1: cellZ(CHICKEN.r + 1) };   // the chicken's face: the east side of its block, kept clear
   // the fixed 4A graffiti first: their places never move

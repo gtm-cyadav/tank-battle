@@ -29,6 +29,17 @@
 //   - `theme`: null, or the love / hate theme { k, s, w, l, x } (kind and the four messages, already decrypted on the phone that typed the
 //     phrase). It is put in the match at the start (the referee's own phone, or the other phone's message `th`) and then kept through
 //     Play again until somebody leaves. The phrase and the encrypted texts never reach this file.
+// Round-end flow (Chetan, 2026-10-02): between rounds there is no automatic start any more. The break shows three screens in a row, the same
+// on both phones because they follow the referee's break clock: the score screen (from the hit's wreck beat until 5 s), the taunt screen
+// (until 10 s), then the Ready card (the next round's intro). The next round starts when BOTH players have tapped Ready, or, if one never
+// does, 60 s after the first tap plus a visible 10 s countdown. The referee decides all of it and writes it into the match:
+//   - `go` { host, guest }: who has tapped Ready for the next round; `goAt`: the break clock at the first tap (-1 = nobody yet).
+//     The other phone sends { t: 'rd', mid, r } and sends it again every 0.5 s until the referee's match shows it; a Ready cannot be taken back.
+//   - the round starts on the referee (startRound), exactly as the old automatic start did, so the clock, the head start, the pings and the
+//     weather all start fresh at that moment on both phones. The break clock stops while the link is down, so the countdown waits too.
+//   - Nudge: the player who is Ready may nudge the other one (at most once every 10 s): { t: 'nd', mid, r, k } straight to the other phone,
+//     which shows its own copy of the nudging leader's fixed line (lines.js NUDGE). Nothing typed is ever sent.
+// The match-over screen uses the same first two screens (score, taunt) before the match-over card; a surrender goes straight to the card.
 // Hunter ping (Stage 1e): every 45 s of round time the hunter's corner map shows, for 4 s, a rough circle the hider is
 // somewhere inside; the hider gets a 3-second countdown first and sees the same circle.
 //   - When: the round clock, which the referee owns (so never in the head start, between rounds or while paused).
@@ -42,10 +53,13 @@ import { shotEffects, badgesOf } from './eggs.js';
 export const RULES = {
   round: 180,        // s on the clock (was 120; raised with the 1.3x bigger map, Chetan, 2026-09-29)
   headStart: 20,     // s before the hunter can fire (was 15; same reason)
-  toss: 7,           // s from the coin toss to round 1: the toss card, then the intro card (Stage 3B; was 4)
-  next: 10,          // s from a round's result to the next round: the result card, then the intro card (Stage 3B; was 6)
+  toss: 7,           // s from the coin toss to round 1: the toss card, then the intro card (Stage 3B; was 4). Round 1 still starts by itself.
   tossCard: 3,       // s the coin-toss card shows before the intro card takes over (Stage 3B)
-  resultCard: 5.5,   // s into the break the result card shows before the intro card takes over (Stage 3B)
+  scoreCard: 5,      // s into the break (or the match over) the score screen shows; then the taunt screen (round-end flow, 2026-10-02)
+  readyCard: 10,     // s into the break the Ready card takes over (the match over: the match-over card)
+  stallWait: 60,     // s after the first Ready tap before the late countdown shows
+  stallShow: 10,     // s of late countdown ("Starting anyway in N s"); then the round starts anyway
+  nudgeGap: 10,      // s between two nudges from the same player
   grace: 0.8,        // s the referee waits after 0:00 for a hit from the other phone that landed just in time
   wins: 2,           // round wins that take the match
   bulletSpeed: 40,   // m/s
@@ -97,6 +111,20 @@ export function cleanTheme(p) {
 export const nextRoundOf = m => !m ? 0 : m.phase === 'toss' ? 1 : (m.phase === 'play' || m.phase === 'break') && m.round < RULES.rounds ? m.round + 1 : 0;
 // Is round r (default: the match's current one) a rubber-duck round?
 export const isDuckRound = (m, r = m?.round) => !!m && r >= 1 && (((m.ducks | 0) >> (r - 1)) & 1) === 1;
+// Round-end flow: which screen the break (or the match over) shows at the match's clock: 'beat' (the wreck after a hit), 'score', 'taunt',
+// then 'ready' (break) or 'final' (match over). A surrender shows 'final' at once. Both phones work it out from the shared match.
+export function cardView(m) {
+  if (!m) return null;
+  if (m.phase === 'toss') return m.t >= RULES.tossCard ? 'intro' : 'toss';
+  if (m.phase !== 'break' && m.phase !== 'over') return null;
+  const r = m.result;
+  if (m.phase === 'over' && (!r || r.how === 'gaveup')) return 'final';
+  if (r?.how === 'hit' && m.t < 1.2) return 'beat';
+  return m.t < RULES.scoreCard ? 'score' : m.t < RULES.readyCard ? 'taunt' : m.phase === 'over' ? 'final' : 'ready';
+}
+// Seconds until a stalled wait starts the round anyway (Infinity until somebody is Ready)
+export const stallLeft = m => m?.phase === 'break' && m.goAt >= 0 ? m.goAt + RULES.stallWait + RULES.stallShow - m.t : Infinity;
+const GO0 = () => ({ go: { host: false, guest: false }, goAt: -1 });
 
 // match (the referee's copy is the real one; the other phone holds a copy):
 //   mid: match number (goes up with each Play again), round: 1-3, first: who hunted round 1 ('host' | 'guest'),
@@ -128,11 +156,15 @@ export function createRules(hooks) {
   let seenSent = null;                // hider's phone (not the referee): told the referee the hunter may have seen it { mid, r, clock }
   let armed = null, themeClock = 0;   // other phone: the theme its player typed (decrypted), sent to the referee until the match shows one
   let duckSent = null;                // other phone: asked the referee for a duck round { mid, n, clock } (asked again until the match shows it)
+  let goSent = null, goSeen = false;  // other phone: tapped Ready for the next round { mid, r, clock } (resent until the referee's own match shows it)
+  let againSeen = false;              // other phone: the referee's own match shows our Play again tap
+  let life = 0;                       // seconds this phone's rules have run (for the nudge's 10 s gap)
+  let nudgeAt = -99, nudgeK = 0, nudgeHeard = -99;   // last nudge sent (life), how many sent, last one shown here
 
   const referee = () => side === 'host';
   const key = m => m ? `${m.mid}/${m.round}/${m.phase}` : '';
   const copy = m => m && JSON.parse(JSON.stringify(m));
-  const phaseLength = m => ({ toss: RULES.toss, play: RULES.round, break: RULES.next })[m.phase] ?? Infinity;
+  const phaseLength = m => ({ toss: RULES.toss, play: RULES.round })[m.phase] ?? Infinity;   // a break lasts until both are Ready (round-end flow)
 
   function set(next) {
     const before = match;
@@ -150,7 +182,7 @@ export function createRules(hooks) {
     theirs = null; want = { n: want.n, ok: false, s: want.s };
     set({ mid, round: 1, first: Math.random() < 0.5 ? 'host' : 'guest', score: { host: 0, guest: 0 },
       phase: 'pick', t: 0, result: null, again: { host: false, guest: false }, ping: null, wx: randomWeather(), next: null,
-      ready: { host: false, guest: false }, lead: null, ...EGG0,
+      ready: { host: false, guest: false }, lead: null, ...EGG0, ...GO0(),
       log: [], ducks: 0, theme: match?.theme || cleanTheme(hooks.theme?.()) });
     due = [];
     broadcast();
@@ -164,7 +196,7 @@ export function createRules(hooks) {
   }
   function startRound(n) {
     due = [];
-    set({ ...match, round: n, phase: 'play', t: 0, ping: null, wx: match.next || match.wx, next: null, ...EGG0 });
+    set({ ...match, round: n, phase: 'play', t: 0, ping: null, wx: match.next || match.wx, next: null, ...EGG0, ...GO0() });
     broadcast();
   }
   function endRound(win, how, t, at) {
@@ -178,7 +210,7 @@ export function createRules(hooks) {
     // one short record of the round for the end-of-match awards (Stage 4B)
     const log = [...(match.log || []), { h: hunterSide(), w: win, how, l: Math.round(result.left * 10) / 10, b: match.bump | 0, g: match.gold ? 1 : 0, s: match.silver ? 1 : 0,
       so: match.sorry | 0, sn: match.seen ? 1 : 0, sh: match.shots | 0, bd: badges }];
-    set({ ...match, score, log, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather() });
+    set({ ...match, score, log, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather(), ...GO0() });
     broadcast();
   }
   // `who` gives up: the other player wins the match at once; the score stays as it was (Chetan's choice, 1f)
@@ -194,6 +226,14 @@ export function createRules(hooks) {
     if (!match || match.phase !== 'play' || h.mid !== match.mid || h.r !== match.round) return;
     if (!(h.e >= 0 && h.e < RULES.round)) return;
     endRound(hunterSide(), 'hit', h.e, Number.isFinite(h.x) && Number.isFinite(h.z) ? { x: h.x, z: h.z } : null);
+  }
+
+  // ---- round-end flow (referee only): a Ready tap from `who`. The first one starts the stall clock (never before the Ready card). ----
+  function goReady(who) {
+    if (!match || match.phase !== 'break' || match.go?.[who]) return;
+    const go = { ...(match.go || { host: false, guest: false }), [who]: true };
+    set({ ...match, go, goAt: match.goAt >= 0 ? match.goAt : Math.max(match.t, RULES.readyCard) });
+    broadcast();
   }
 
   // ---- easter eggs (Stage 4A, referee only) ------------------------------------------------------------------
@@ -299,10 +339,11 @@ export function createRules(hooks) {
 
   function tick(dt) {
     if (!match) return;
+    life += dt;
     if (!referee() && match.phase === 'over') {
       if (!paused) match.t += dt;
       quitMid = 0;
-      if (againMid === match.mid && !match.again.guest && (againClock += dt) > 1) { againClock = 0; hooks.send({ t: 'a', mid: againMid }); }
+      if (againMid === match.mid && !againSeen && (againClock += dt) > 1) { againClock = 0; hooks.send({ t: 'a', mid: againMid }); }   // resent until the referee's match shows it
       return;
     }
     if (!referee()) {   // the copy runs its own clock between the referee's messages, but never ends a phase itself
@@ -318,6 +359,10 @@ export function createRules(hooks) {
       if (match.phase === 'pick' && match.ready.guest !== want.ok && (wantClock += dt) > 0.5) sendChoice();   // resent until the referee shows it
       if (armed && match.theme) armed = null;                                                            // the match has its theme (ours or the referee's)
       else if (armed && match.phase !== 'over' && heard < 1.5 && (themeClock += dt) > 0.5) { themeClock = 0; hooks.send({ t: 'th', mid: match.mid, p: armed }); }
+      if (goSent) {   // tapped Ready: asked again until the referee's own match shows it; done when the round has moved on
+        if (match.phase !== 'break' || goSent.mid !== match.mid || goSent.r !== match.round) goSent = null;
+        else if (!goSeen && heard < 1.5 && (goSent.clock += dt) > 0.5) { goSent.clock = 0; hooks.send({ t: 'rd', mid: goSent.mid, r: goSent.r }); }
+      }
       if (duckSent) {   // asked for a duck round: asked again until the match shows it, dropped when that round is no longer the next one
         if (duckSent.mid !== match.mid || nextRoundOf(match) !== duckSent.n || isDuckRound(match, duckSent.n)) duckSent = null;
         else if ((duckSent.clock += dt) > 0.5) { duckSent.clock = 0; hooks.send({ t: 'dk', mid: duckSent.mid, n: duckSent.n }); }
@@ -327,7 +372,8 @@ export function createRules(hooks) {
     if (paused) return;
     match.t += dt;
     if (match.phase === 'toss' && match.t >= RULES.toss) startRound(1);
-    else if (match.phase === 'break' && match.t >= RULES.next) startRound(match.round + 1);
+    // the next round: both players Ready (never before the Ready card shows), or the stalled wait has run out
+    else if (match.phase === 'break' && match.t >= RULES.readyCard && ((match.go?.host && match.go?.guest) || stallLeft(match) <= 0)) startRound(match.round + 1);
     else if (match.phase === 'play' && match.t >= RULES.round) {
       // if the hider is on the other phone, give its hit message a moment to arrive
       const hiderHere = hunterSide() !== side;
@@ -354,6 +400,12 @@ export function createRules(hooks) {
     if (m.t === 'pong') { delay = delay * 0.7 + Math.min(0.3, (performance.now() - m.k) / 2000) * 0.3; return true; }
     if (m.t === 'h' && referee()) { if (match && hunterSide() === 'host') judgeHit(m); return true; }   // only the hider's phone reports hits
     if (m.t === 'a' && referee()) { playAgain('guest', m.mid); return true; }
+    if (m.t === 'rd') { if (referee() && match && m.mid === match.mid && m.r === match.round) goReady('guest'); return true; }   // the other phone is Ready
+    if (m.t === 'nd') {   // the other player nudged: shown only while this phone is still on its Ready card and the nudger is Ready; never more than once a gap
+      const them = other(side);
+      if (match?.phase === 'break' && m.mid === match.mid && m.r === match.round && match.go?.[them] && !match.go?.[side] && match.t >= RULES.readyCard - 0.5 && life - nudgeHeard >= RULES.nudgeGap - 1) { nudgeHeard = life; hooks.nudged?.(them); }
+      return true;
+    }
     if (m.t === 'g') { if (referee() && match && m.mid === match.mid) giveUp('guest'); return true; }   // the other phone gave up
     if (m.t === 'pc') { if (referee()) takeCircle(m); return true; }
     if (m.t === 'hn') { if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.silver && !paused) { set({ ...match, silver: true }); broadcast(); } return true; }
@@ -366,7 +418,10 @@ export function createRules(hooks) {
       const next = copy(m.m);
       if (m.run) next.t += delay;   // it has moved on by the time the message lands
       if (pendingHit && (next.mid !== pendingHit.mid || next.round !== pendingHit.r || next.phase !== 'play')) pendingHit = null;
+      againSeen = next.phase === 'over' && againMid === next.mid && !!next.again?.guest;
       if (next.phase === 'over' && againMid === next.mid) next.again.guest = true;   // our tap may still be on its way
+      goSeen = !!goSent && next.phase === 'break' && goSent.mid === next.mid && goSent.r === next.round && !!next.go?.guest;
+      if (goSent && next.phase === 'break' && goSent.mid === next.mid && goSent.r === next.round) next.go = { ...(next.go || {}), guest: true };   // ours may still be on its way
       if (next.phase === 'pick' && match && (match.mid !== next.mid || match.phase !== 'pick')) want = { ...want, ok: false };   // a new match: choose again
       if (next.phase === 'pick' && next.ready.guest !== want.ok) wantClock = 1;   // a choice waiting for the match goes out at once
       set(next);
@@ -389,13 +444,16 @@ export function createRules(hooks) {
     start(s, saved) {
       side = s; paused = false; pendingHit = null; againMid = 0; quitMid = 0; delay = 0.05; heard = 0; match = null; mine = null;
       want = { n: 0, ok: false, s: 0 }; wantClock = 0; theirs = null; due = []; seenSent = null; honkSent = null; armed = null; duckSent = null;
+      goSent = null; goSeen = false; againSeen = false; nudgeAt = -99; nudgeHeard = -99;
       if (saved) set(copy(saved));
+      // a refresh after tapping Ready: the tap is in the saved copy; ask the referee again until its match shows it (it may never have arrived)
+      if (s === 'guest' && match?.phase === 'break' && match.go?.guest) goSent = { mid: match.mid, r: match.round, clock: 1 };
       if (referee()) {
         if (match?.phase === 'pick') match.ready.guest = false;   // its private choice was lost: it sends it again
         if (!match) newMatch(1); else broadcast();
       }
     },
-    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; theirs = null; due = []; seenSent = null; honkSent = null; armed = null; duckSent = null; },
+    stop() { side = null; match = null; pendingHit = null; mine = null; quitMid = 0; theirs = null; due = []; seenSent = null; honkSent = null; armed = null; duckSent = null; goSent = null; },
     pause(on) { paused = on; if (!on) broadcast(); },
     tick,
     onMessage,
@@ -408,6 +466,24 @@ export function createRules(hooks) {
       else if (!pendingHit) { pendingHit = h; hitClock = 0; hooks.send(h); }
     },
     playAgain() { if (match) playAgain(side, match.mid); },
+    // Round-end flow: this phone's player taps Ready on the Ready card. False if there is nothing to be Ready for (or already Ready).
+    readyUp() {
+      if (!match || match.phase !== 'break' || match.go?.[side] || quitMid === match.mid) return false;
+      if (referee()) { goReady(side); return true; }
+      goSent = { mid: match.mid, r: match.round, clock: 0 }; goSeen = false;
+      match.go = { ...(match.go || {}), guest: true };   // shown at once; the referee's match confirms it
+      hooks.send({ t: 'rd', mid: match.mid, r: match.round });
+      return true;
+    },
+    // Nudge the other player (only while this player is Ready and the other is not, at most once every 10 s). True if it was sent.
+    nudge() {
+      if (!match || match.phase !== 'break' || !match.go?.[side] || match.go?.[other(side)] || match.t < RULES.readyCard - 0.5 || life - nudgeAt < RULES.nudgeGap) return false;
+      nudgeAt = life;
+      hooks.send({ t: 'nd', mid: match.mid, r: match.round, k: ++nudgeK });
+      return true;
+    },
+    // seconds until this player may nudge again (0 = now)
+    get nudgeWait() { return Math.max(0, RULES.nudgeGap - (life - nudgeAt)); },
     // Stage 4A (this phone's game tells the rules): the hunter fired on this phone (referee only looks at it), the tanks have
     // stayed touching (referee only), the hider's phone says the hunter may have seen it (either phone).
     noteShot(f) { if (referee()) noteShot(f); },

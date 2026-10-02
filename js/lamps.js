@@ -1,20 +1,26 @@
 // Wall lamps (Stage 2A): industrial lamps on the walls, about every 12 m, each with a glow and a pool of light on the
 // floor. Most are warm sodium lamps, some cold tubes; about one in five is faulty and flickers now and then (with a
 // buzz, sound.js). Weather sets how strong they are (nearly off in sunshine, full at dusk).
-// Cheap on phones: no real lights. All glows are one draw call, all pools one, all housings one.
+// More lamps (Chetan, 2026-10-02, Part B of the round-end session): 75 extra lamps of the same kind (135 in all, 2.25x), placed after the
+// first 60 on the wall faces that have no wall art (so no poster or graffiti moves), 5 m or more from any other lamp, off the chicken's face.
+// The extras show on High graphics only; on Low they are not drawn, do not hum and do not fizz.
+// Cheap on phones: no real lights. Each set of lamps is three draw calls (glows, pools, housings): 3 on Low, 6 on High.
 import * as THREE from '../lib/three.module.js';
 import { ROWS, COLS, isWallCell, cellX, cellZ } from './world.js';
 import { CELL } from './map.js';
 import { smogU, SMOG_GLSL } from './vision.js';
+import { layoutWallArt } from './wallart.js';
+import { CHICKEN } from './eggs.js';
 
 const HEIGHT = 3.7, SPACING = 12;
+export const EXTRA_SPACING = 5, ART_CLEAR = 1.0;   // the extras: metres from any other lamp, and from the edge of any wall-art piece on the same face
 const SODIUM = [1.0, 0.68, 0.34], TUBE = [0.78, 0.88, 1.0];
 
 function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 
-// Where the lamps go: the middle of a wall face next to open floor, no two closer than SPACING. Same on every phone.
-export function placeLamps() {
-  const cand = [], r = rng(5);
+// Every spot a lamp could hang: the middle of a wall face next to open floor, facing out, in a seeded order.
+function candidates(seed) {
+  const cand = [], r = rng(seed);
   for (let i = 0; i < ROWS; i++) for (let j = 0; j < COLS; j++) {
     if (isWallCell(i, j)) continue;
     for (const [di, dj] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
@@ -23,14 +29,37 @@ export function placeLamps() {
       cand.push({ x: cx + dj * CELL / 2, z: cz + di * CELL / 2, ox: -dj, oz: -di, k: r() });   // on the wall face, facing out
     }
   }
-  cand.sort((a, b) => a.k - b.k);
+  return cand.sort((a, b) => a.k - b.k);
+}
+
+// Where the lamps go: no two closer than SPACING. Same on every phone.
+export function placeLamps() {
   const out = [];
-  for (const c of cand) if (out.every(o => Math.hypot(o.x - c.x, o.z - c.z) >= SPACING)) out.push(c);
+  for (const c of candidates(5)) if (out.every(o => Math.hypot(o.x - c.x, o.z - c.z) >= SPACING)) out.push(c);
   return out;
 }
 
-export function createLamps(scene) {
-  const list = placeLamps(), n = list.length, r = rng(9);
+// The extra lamps (Part B): placed after the first 60, kept clear of every wall-art piece (the art is laid out round the first 60 only, so it
+// never moves) and of the chicken's face. A fixed function of the map, the lamps and the art: the same on every phone.
+export function placeExtraLamps(base = placeLamps()) {
+  const art = layoutWallArt(base).pieces, all = base.slice(), out = [];
+  const chick = { x: cellX(CHICKEN.c + 1), z0: cellZ(CHICKEN.r) - 0.5, z1: cellZ(CHICKEN.r + 1) + 0.5 };
+  const clearOfArt = c => art.every(p => {
+    if (p.nx !== c.ox || p.nz !== c.oz) return true;
+    if (c.ox ? Math.abs(p.x - c.x) > 0.1 : Math.abs(p.z - c.z) > 0.1) return true;   // another face
+    return (c.ox ? Math.abs(p.z - c.z) : Math.abs(p.x - c.x)) >= p.ink / 2 + ART_CLEAR;
+  });
+  for (const c of candidates(11)) {
+    if (c.ox === 1 && Math.abs(c.x - chick.x) < 0.05 && c.z > chick.z0 && c.z < chick.z1) continue;
+    if (!all.every(o => Math.hypot(o.x - c.x, o.z - c.z) >= EXTRA_SPACING) || !clearOfArt(c)) continue;
+    all.push(c); out.push(c);
+  }
+  return out;
+}
+
+// One set of lamps: glows (one draw call), floor pools (one), housings (one). `weather` and `scaleU` are shared by both sets.
+function makeSet(scene, list, seed, weather, scaleU) {
+  const n = list.length, r = rng(seed);
   const glowPos = new Float32Array(n * 3), glowCol = new Float32Array(n * 3), level = new Float32Array(n);
   const poolPos = [], poolUv = [], poolCol = [], poolLevel = new Float32Array(n * 4), idx = [];
   const housings = [];
@@ -52,14 +81,12 @@ export function createLamps(scene) {
     housings.push([l.x + l.ox * 0.22, HEIGHT, l.z + l.oz * 0.22, Math.abs(ax) * 0.7 + Math.abs(l.ox) * 0.44, 0.2, Math.abs(az) * 0.7 + Math.abs(l.oz) * 0.44]);
   });
 
-  const weather = { value: 0.5 };
   // glows: soft round sprites that keep their size in metres (a bright core in a wide halo); fade in the smog, but
   // keep a faint halo, as lamps do in fog
   const glowGeo = new THREE.BufferGeometry();
   glowGeo.setAttribute('position', new THREE.BufferAttribute(glowPos, 3));
   glowGeo.setAttribute('aCol', new THREE.BufferAttribute(glowCol, 3));
   glowGeo.setAttribute('aLevel', new THREE.BufferAttribute(level, 1));
-  const scaleU = { value: 600 };
   const glowMat = new THREE.ShaderMaterial({
     uniforms: { ...smogU, uScale: scaleU, uWeather: weather },
     vertexShader: `
@@ -132,35 +159,57 @@ export function createLamps(scene) {
   const cases = new THREE.Mesh(hGeo, new THREE.MeshStandardMaterial({ color: 0x2a2d2c, roughness: 0.6, metalness: 0.5 }));
   scene.add(pools, cases, glows);
 
-  let onZap = () => {};
-  function update(dt) {
-    for (let i = 0; i < n; i++) {
-      const l = list[i];
-      if (l.faulty) {
-        if (l.burst > 0) {   // flickering: on and off at random every few hundredths of a second
-          l.burst -= dt; l.flip -= dt;
-          if (l.flip <= 0) { l.on = l.on > 0.5 ? 0.05 + Math.random() * 0.2 : 1; l.flip = 0.03 + Math.random() * 0.09; }
-          if (l.burst <= 0) { l.on = 1; l.next = 3 + Math.random() * 10; }
-        } else if ((l.next -= dt) <= 0) {
-          l.burst = 0.25 + Math.random() * 1.1; l.flip = 0;
-          onZap(l);
-        }
-      }
-      level[i] = l.on;
-      poolLevel[i * 4] = poolLevel[i * 4 + 1] = poolLevel[i * 4 + 2] = poolLevel[i * 4 + 3] = l.on;
-    }
-    glowGeo.attributes.aLevel.needsUpdate = true;
-    poolGeo.attributes.aLevel.needsUpdate = true;
-  }
   return {
-    list,
-    cases,
-    update,
+    list, cases, parts: [pools, cases, glows],
+    // faulty lamps: on and off at random every few hundredths of a second, now and then; zap(l) when a burst starts
+    update(dt, zap) {
+      for (let i = 0; i < n; i++) {
+        const l = list[i];
+        if (l.faulty) {
+          if (l.burst > 0) {
+            l.burst -= dt; l.flip -= dt;
+            if (l.flip <= 0) { l.on = l.on > 0.5 ? 0.05 + Math.random() * 0.2 : 1; l.flip = 0.03 + Math.random() * 0.09; }
+            if (l.burst <= 0) { l.on = 1; l.next = 3 + Math.random() * 10; }
+          } else if ((l.next -= dt) <= 0) {
+            l.burst = 0.25 + Math.random() * 1.1; l.flip = 0;
+            zap(l);
+          }
+        }
+        level[i] = l.on;
+        poolLevel[i * 4] = poolLevel[i * 4 + 1] = poolLevel[i * 4 + 2] = poolLevel[i * 4 + 3] = l.on;
+      }
+      glowGeo.attributes.aLevel.needsUpdate = true;
+      poolGeo.attributes.aLevel.needsUpdate = true;
+    },
+  };
+}
+
+// quality: 'high' | 'low' at load; setQuality switches the extra lamps on and off later (Settings > Graphics)
+export function createLamps(scene, quality = 'high') {
+  const weather = { value: 0.5 }, scaleU = { value: 600 };
+  const base = placeLamps();
+  const first = makeSet(scene, base, 9, weather, scaleU);
+  const extra = makeSet(scene, placeExtraLamps(base), 13, weather, scaleU);
+  let extraOn = true;
+  const setQuality = q => { extraOn = q === 'high'; for (const o of extra.parts) o.visible = extraOn; };
+  setQuality(quality);
+  let onZap = () => {};
+  return {
+    list: first.list,          // the first 60 (the wall art is laid out round these)
+    extra: extra.list,         // the 75 extras (High graphics only)
+    cases: first.cases, extraCases: extra.cases,
+    setQuality,
+    get extraOn() { return extraOn; },
+    update(dt) { first.update(dt, l => onZap(l)); if (extraOn) extra.update(dt, l => onZap(l)); },
     setLevel(v) { weather.value = v; },
     get level() { return weather.value; },
     setScale(px) { scaleU.value = px; },   // screen height in pixels / (2 tan(fov / 2)): keeps glows sized in metres
     onZap(fn) { onZap = fn; },
-    // the closest lamp to (x, z) and how far it is
-    nearest(x, z) { let best = null, d = Infinity; for (const l of list) { const e = Math.hypot(l.x - x, l.z - z); if (e < d) { d = e; best = l; } } return { lamp: best, d }; },
+    // the closest lit lamp to (x, z) and how far it is (the extras count only while they show)
+    nearest(x, z) {
+      let best = null, d = Infinity;
+      for (const set of extraOn ? [first.list, extra.list] : [first.list]) for (const l of set) { const e = Math.hypot(l.x - x, l.z - z); if (e < d) { d = e; best = l; } }
+      return { lamp: best, d };
+    },
   };
 }

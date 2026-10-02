@@ -413,6 +413,47 @@ export function awardsFor(m) {
   }
   return out;
 }
+// ---- Round-end flow (Chetan, 2026-10-02): the Nudge line, in the voice of the leader of the player who is Ready and waiting (one per leader).
+// Shown on the OTHER phone, inside its Ready card, next to the nudging leader's face. The reasons are in the brief (section 21).
+export const NUDGE = [null,
+  'Still waiting. Last time I waited this long, it was winter.',
+  'We shall wait on the beaches. The tea is getting cold.',
+  'Take your time. I am a professional at this.',
+  "The trains ran on time. Why don't you?",
+  'I am not impatient. Please do not check the tapes.',
+  'Nobody waits better than me. Tremendous waiting. Hurry up.',
+  'This is not a delay. It is a special waiting exercise.',
+  'Same hoodie. Still here. Still waiting.',
+  'I am not hiding a delay. Please stop looking in the back.',
+  'The newspaper says you are ready. Please make it true.',
+  'I have conquered countries faster than this.',
+  'Veni. Vidi. Waiti.',
+  'Waiting is free. Hurrying is a premium feature.',
+  'Stay cool. But the ice is melting. Hurry.',
+  'Estimated wait: too long. Please tap Ready. Thank you.',
+  'No pressure. I am right behind you.',
+  'Hurry, darling. The carpet will not unroll itself.',
+  'A hundred thousand horses are waiting. And me.',
+  'Sorry to rush you. Please hurry. Sorry.',
+  'The schedule says now. Even the speech is ready.',
+  'Slow over rate. The umpire is looking at you.',
+  'The bear is patient. The honey is not.',
+  'I conquered the world by 32. You are still reading.',
+  'Even the elephant is ready. The elephant does nothing.',
+  'The longship leaves at dawn. It is nearly dawn.',
+  'The tea is getting cold. Again.',
+  'The moustache is ready. The moustache is twitching.',
+  'The voices say hurry up.',
+  'The chariot is ready. The hair is getting impatient.',
+  'One spear. Zero patience. Tap Ready.',
+  'We are not amused by the wait.',
+  'The cigar is half gone. So is my patience.',
+  'Are you unwell? The doctor can come over.',
+  'Hurry. I get hungry when I wait.',
+  'Ready yet? The fort has been ready since 1674.',
+  'Birbal, why is this taking so long?',
+];
+export const nudgeLine = n => NUDGE[n] || null;
 export const SECRET_LABEL = 'Secret';
 export const QUACK = 'Quack. Ducks next round.';
 export const DUCK_ROUND = 'Rubber duck round.';

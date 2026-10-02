@@ -1,5 +1,5 @@
 // Builds the 3-D yard: concrete floor, painted precast walls with a worn hazard band, rusty corrugated outer walls,
-// wall lamps (lamps.js), a sky, lights and rain, and switches them between the five weathers (weather.js).
+// wall lamps (lamps.js), fake fans on the wall tops (fans.js, 2026-10-02), a sky, lights and rain, and switches them between the five weathers (weather.js).
 // Stage 2A: surfaces are drawn in code (textures.js), no downloads.
 import * as THREE from '../lib/three.module.js';
 import { WIDTH, DEPTH, ROWS, COLS, wallBoxes, isWallCell, WALL_H, EDGE_H } from './world.js';
@@ -8,6 +8,7 @@ import { floorTexture, wallTexture, outerTexture, stripeTexture, yardShade } fro
 import { WEATHERS, DEFAULT_WEATHER } from './weather.js';
 import { setSmog, smogU, SMOG_GLSL } from './vision.js';
 import { createLamps } from './lamps.js';
+import { createFans } from './fans.js';
 
 const TILE = 2 * CELL;      // one floor / wall texture tile = 6.5 m, so joints meet the wall edges
 const BAND = { y: 0.35, h: 0.38, tile: 1.3 };   // hazard band near the foot of every wall
@@ -153,8 +154,9 @@ export function buildArena(scene, quality = 'high') {
     edgeMat.map = ot.map; edgeMat.normalMap = hi ? ot.normalMap : null; edgeMat.color.set(0xffffff); edgeMat.needsUpdate = true;
     floorMat.aoMap = await yardShade(ROWS, COLS, CELL, isWallCell); floorMat.needsUpdate = true;
   })();
-  const lamps = createLamps(scene);
-  lamps.cases.castShadow = true;
+  const lamps = createLamps(scene, quality);
+  lamps.cases.castShadow = true;   // the first 60 only: the shadows are drawn once per weather and the extra lamps come and go with the graphics setting
+  const fans = createFans(scene, quality);
   const rain = makeRain(hi ? 1400 : 600);
   rain.visible = false;
   scene.add(rain);
@@ -194,11 +196,13 @@ export function buildArena(scene, quality = 'high') {
     return w;
   }
   return {
-    sky: sky.material, sun, lamps, setWeather,
+    sky: sky.material, sun, lamps, fans, setWeather,
+    // Graphics High / Low switched in Settings: the extra lamps show and the fans turn (with their grilles) on High only
+    setQuality(q) { lamps.setQuality(q); fans.setQuality(q); },
     setTone(kind) { kind = kind in TONES ? kind : null; if (kind === tone) return; tone = kind; applyLights(); },
     ready,   // resolves when every surface is drawn (testing)
     get weather() { return current; },
-    update(t, dt) { rain.material.uniforms.uTime.value = t; lamps.update(dt); },
+    update(t, dt) { rain.material.uniforms.uTime.value = t; lamps.update(dt); fans.update(t); },
     setScale(px) { rain.material.uniforms.uScale.value = px; lamps.setScale(px); },
   };
 }
