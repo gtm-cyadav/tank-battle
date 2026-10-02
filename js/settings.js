@@ -2,6 +2,7 @@
 // position, camera height and distance, corner map on or off (1e), sound on or off and graphics high or low (2A). Saved on the phone, so they survive closing the game.
 // Controls (2026-10-02, Chetan): the two fixed sliders are the only style. The old 'style' value that earlier versions saved
 // (point-to-drive or tank) is simply never read, so a phone that saved either one loads with two sliders and no error.
+// R3 (2026-10-02, Chetan): 'control' picks two sliders (the default) or the ring; anything else saved there loads as two sliders.
 const $ = id => document.getElementById(id);
 const KEY = 'tank-battle.settings.v1';
 
@@ -10,8 +11,10 @@ const TABLET = (() => { try { return matchMedia('(pointer: coarse)').matches && 
 
 export const DEFAULTS = {
   turnSpeed: 100,       // % of the normal turning speed
+  control: 'sliders',   // 'sliders' (speed + steering) | 'ring' (one round pad, tank-style)
+  ringSize: TABLET ? 125 : 100,    // % of the normal ring size (150 px across)
   stickSize: TABLET ? 125 : 100,   // % of the normal slider size
-  stickSide: 'left',    // which side the speed slider goes; the steering slider and the action button take the other side
+  stickSide: 'left',    // which side the speed slider (or the ring) goes; the steering slider and the action button take the other side
   btnSize: TABLET ? 125 : 100,     // % of the normal action button size
   btnHeight: 26,        // px up from the bottom edge
   btnEdge: 26,          // px in from the side edge
@@ -28,13 +31,14 @@ export const DEFAULTS = {
 const SLIDERS = {
   turnSpeed: { min: 50, max: 150, step: 5, show: v => v + '%' },
   stickSize: { min: 70, max: 140, step: 5, show: v => v + '%' },
+  ringSize: { min: 70, max: 140, step: 5, show: v => v + '%' },
   btnSize: { min: 70, max: 140, step: 5, show: v => v + '%' },
   btnHeight: { min: 10, max: 180, step: 2, show: v => v + ' px' },
   btnEdge: { min: 10, max: 180, step: 2, show: v => v + ' px' },
   camHeight: { min: 1.8, max: 3.8, step: 0.1, show: v => v.toFixed(1) + ' m' },
   camDistance: { min: 4, max: 10, step: 0.5, show: v => v.toFixed(1) + ' m' },
 };
-const CHOICES = { stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'] };
+const CHOICES = { control: ['sliders', 'ring'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'] };
 
 function load() {
   let saved = {};

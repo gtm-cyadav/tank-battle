@@ -94,8 +94,8 @@
      Two FIXED sliders and one action button, 2026-10-02 (Chetan). The speed slider sits on one edge, the steering slider in the bottom corner of the other
      side with the action button above it; the middle and the top of the screen are left free for taps. Nothing here moves while you play.
      A slider starts only from a touch on its own ring or the 24 px of grab room round it (the ::before); the corner map, the poke circle and every button
-     are kept out of that by input.js and by the buttons sitting on top. */
-  #controls { display: none; --s: var(--stick-scale, 1); --bs: var(--btn-scale, 1); }
+     are kept out of that by input.js and by the buttons sitting on top. The ring (R3, below) is the other choice: Settings > Control. */
+  #controls { display: none; --s: var(--stick-scale, 1); --bs: var(--btn-scale, 1); --r: var(--ring-scale, 1); }
   .touch[data-state="playing"] #controls, [data-settings] #controls { display: block; }
   .pad { position: fixed; z-index: 5; left: 0; top: 0; width: var(--w); height: var(--h);
     margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); pointer-events: none; touch-action: none;
@@ -114,6 +114,14 @@
   .knob { position: absolute; left: 50%; top: 50%; width: var(--k); height: var(--k); margin: calc(var(--k) / -2) 0 0 calc(var(--k) / -2);
     border-radius: 50%; background: rgba(223, 229, 225, 0.82); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
   .pad:not(.active) .knob { transition: transform 0.08s ease-out; }   /* firm return to the middle */
+  /* the ring (R3, Chetan 2026-10-02): a second choice, one FIXED round pad in the bottom corner of the slider side, 150 px across at 100%,
+     never taller than leaves its top clear of the corner map and room label (or the top-right buttons). Its grab room is round. */
+  #ring-pad { --top-clear: calc(max(10px, var(--st)) + 48px); --d: min(150px * var(--r), 100dvh - var(--sb) - 26px - var(--top-clear));
+    --w: var(--d); --h: var(--d); --k: calc(var(--d) * 0.4); border-radius: 50%; }
+  [data-map]:not([data-side="right"]) #ring-pad { --top-clear: calc(max(10px, var(--st)) + var(--map-h) + 44px); }
+  [data-side="right"] #ring-pad { --x: calc(100vw - var(--sr) - var(--w) / 2 - 26px); }
+  #ring-pad::before { border-radius: 50%; }
+  [data-control="ring"] #stick, [data-control="ring"] #steer, html:not([data-control="ring"]) #ring-pad { display: none; }
   /* the button never rises into the top-corner buttons (gear, full screen), whatever the size and height settings */
   #action { --top-limit: calc(100dvh - max(10px, var(--st)) - 48px - 128px * var(--bs));
     position: fixed; z-index: 5; right: calc(var(--sr) + var(--btn-edge, 26px)); bottom: min(calc(var(--sb) + var(--btn-height, 26px)), var(--top-limit));
@@ -121,6 +129,7 @@
     display: grid; place-items: center; --c: var(--hunter); }
   [data-side="right"] #action { right: auto; left: calc(var(--sl) + var(--btn-edge, 26px)); }
   #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px) + 96px * var(--s)), var(--top-limit)); }   /* above the steering slider */
+  [data-control="ring"] #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px)), var(--top-limit)); }   /* ring: no slider under it, so down in the corner */
   /* button on the left, under the corner map: never rises into the map or the room label under it */
   [data-map][data-side="right"] #action { --top-limit: calc(100dvh - max(10px, var(--st)) - var(--map-h) - 36px - 110px * var(--bs)); }   /* 110 = the box less its 18 px of empty margin, which may reach up into the (touch-proof) room label's line */
   [data-role="hider"] #action { --c: var(--hider); }
@@ -157,6 +166,7 @@
   .seg button + button { border-left: 1px solid var(--line); }
   .seg button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .note { margin: 7px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+  [data-control="ring"] .ctl-sliders, html:not([data-control="ring"]) .ctl-ring { display: none; }   /* only the chosen control's rows */
   #set-reset { width: 100%; margin-top: 8px; min-width: 0; }
 
   /* ---- overlays: start screen, rotate message, leave prompt ---- */
@@ -255,7 +265,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=re-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=r3-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -419,7 +429,7 @@
   .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
   .chips span { padding: 5px 10px; border: 1px solid #e9b43a; border-radius: 999px; font: 700 10px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase; color: #e9b43a; white-space: nowrap; }
   /* a leader's face: one cell of the picker's picture (models/faces.webp, 6 x 6), zoomed a little onto the head, in a round frame (main.js faceOn) */
-  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=re-1) no-repeat; background-size: 672% 672%; }
+  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=r3-1) no-repeat; background-size: 672% 672%; }
   #round #sc { width: min(500px, 100%); box-sizing: border-box; max-width: none; padding: 0; overflow: hidden; }
   #sc .hz { height: 12px; background: repeating-linear-gradient(-45deg, var(--win) 0 9px, #141816 9px 18px); }
   #sc .sc-body { padding: 12px 22px 14px; }
@@ -513,6 +523,7 @@
 <div id="controls">
   <div id="stick" class="pad"><div id="knob" class="knob"></div></div>
   <div id="steer" class="pad"><div id="steer-knob" class="knob"></div></div>
+  <div id="ring-pad" class="pad"><div id="ring-knob" class="knob"></div></div>
   <button id="action" type="button"><i class="ring"></i><span>FIRE</span></button>
 </div>
 
@@ -594,11 +605,23 @@
     <div class="set-head"><h2 id="set-title">Settings</h2><button id="set-done" class="btn" type="button">Done</button></div>
     <div class="set-body">
       <h3>Driving</h3>
+      <div class="set-row"><div class="lbl"><span>Control</span></div>
+        <div class="seg"><button type="button" data-set="control" data-value="sliders">Two sliders</button><button type="button" data-set="control" data-value="ring">Ring</button></div>
+        <p class="note">Two sliders: one for speed, one for steering. Ring: up drives, down reverses, sideways turns.</p></div>
       <div class="set-row"><div class="lbl"><span>Turning speed</span><span id="val-turnSpeed"></span></div><input id="set-turnSpeed" type="range" aria-label="Turning speed"></div>
+      <div class="ctl-sliders">
       <h3>Sliders</h3>
       <div class="set-row"><div class="lbl"><span>Size</span><span id="val-stickSize"></span></div><input id="set-stickSize" type="range" aria-label="Size"></div>
       <div class="set-row"><div class="lbl"><span>Speed slider side</span></div>
         <div class="seg"><button type="button" data-set="stickSide" data-value="left">Left</button><button type="button" data-set="stickSide" data-value="right">Right</button></div></div>
+      </div>
+      <div class="ctl-ring">
+      <h3>Ring</h3>
+      <div class="set-row"><div class="lbl"><span>Size</span><span id="val-ringSize"></span></div><input id="set-ringSize" type="range" aria-label="Ring size"></div>
+      <div class="set-row"><div class="lbl"><span>Ring side</span></div>
+        <div class="seg"><button type="button" data-set="stickSide" data-value="left">Left</button><button type="button" data-set="stickSide" data-value="right">Right</button></div>
+        <p class="note">The fire / sprint button takes the other side.</p></div>
+      </div>
       <h3>Fire / sprint button</h3>
       <div class="set-row"><div class="lbl"><span>Size</span><span id="val-btnSize"></span></div><input id="set-btnSize" type="range" aria-label="Size"></div>
       <div class="set-row"><div class="lbl"><span>Height from bottom</span><span id="val-btnHeight"></span></div><input id="set-btnHeight" type="range" aria-label="Height from bottom"></div>
@@ -758,51 +781,51 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=re-1",
-  "./js/assist.js": "./js/assist.js?v=re-1",
-  "./js/bubble.js": "./js/bubble.js?v=re-1",
-  "./js/camera.js": "./js/camera.js?v=re-1",
-  "./js/cornermap.js": "./js/cornermap.js?v=re-1",
-  "./js/effects.js": "./js/effects.js?v=re-1",
-  "./js/eggs.js": "./js/eggs.js?v=re-1",
-  "./js/fans.js": "./js/fans.js?v=re-1",
-  "./js/flags.js": "./js/flags.js?v=re-1",
-  "./js/input.js": "./js/input.js?v=re-1",
-  "./js/lamps.js": "./js/lamps.js?v=re-1",
-  "./js/leaders.js": "./js/leaders.js?v=re-1",
-  "./js/lines.js": "./js/lines.js?v=re-1",
-  "./js/lobby.js": "./js/lobby.js?v=re-1",
-  "./js/main.js": "./js/main.js?v=re-1",
-  "./js/map.js": "./js/map.js?v=re-1",
-  "./js/menu.js": "./js/menu.js?v=re-1",
-  "./js/models.js": "./js/models.js?v=re-1",
-  "./js/net.js": "./js/net.js?v=re-1",
-  "./js/picker.js": "./js/picker.js?v=re-1",
-  "./js/props.js": "./js/props.js?v=re-1",
-  "./js/rules.js": "./js/rules.js?v=re-1",
-  "./js/screen.js": "./js/screen.js?v=re-1",
-  "./js/secret.js": "./js/secret.js?v=re-1",
-  "./js/settings.js": "./js/settings.js?v=re-1",
-  "./js/shots.js": "./js/shots.js?v=re-1",
-  "./js/sound.js": "./js/sound.js?v=re-1",
-  "./js/tank.js": "./js/tank.js?v=re-1",
-  "./js/textures.js": "./js/textures.js?v=re-1",
-  "./js/theme.js": "./js/theme.js?v=re-1",
-  "./js/tips.js": "./js/tips.js?v=re-1",
-  "./js/vision.js": "./js/vision.js?v=re-1",
-  "./js/wallart.js": "./js/wallart.js?v=re-1",
-  "./js/wallart_draw.js": "./js/wallart_draw.js?v=re-1",
-  "./js/weather.js": "./js/weather.js?v=re-1",
-  "./js/world.js": "./js/world.js?v=re-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=re-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=re-1",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=re-1",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=re-1",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=re-1",
-  "three": "./lib/three.module.js?v=re-1"
+  "./js/arena.js": "./js/arena.js?v=r3-1",
+  "./js/assist.js": "./js/assist.js?v=r3-1",
+  "./js/bubble.js": "./js/bubble.js?v=r3-1",
+  "./js/camera.js": "./js/camera.js?v=r3-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=r3-1",
+  "./js/effects.js": "./js/effects.js?v=r3-1",
+  "./js/eggs.js": "./js/eggs.js?v=r3-1",
+  "./js/fans.js": "./js/fans.js?v=r3-1",
+  "./js/flags.js": "./js/flags.js?v=r3-1",
+  "./js/input.js": "./js/input.js?v=r3-1",
+  "./js/lamps.js": "./js/lamps.js?v=r3-1",
+  "./js/leaders.js": "./js/leaders.js?v=r3-1",
+  "./js/lines.js": "./js/lines.js?v=r3-1",
+  "./js/lobby.js": "./js/lobby.js?v=r3-1",
+  "./js/main.js": "./js/main.js?v=r3-1",
+  "./js/map.js": "./js/map.js?v=r3-1",
+  "./js/menu.js": "./js/menu.js?v=r3-1",
+  "./js/models.js": "./js/models.js?v=r3-1",
+  "./js/net.js": "./js/net.js?v=r3-1",
+  "./js/picker.js": "./js/picker.js?v=r3-1",
+  "./js/props.js": "./js/props.js?v=r3-1",
+  "./js/rules.js": "./js/rules.js?v=r3-1",
+  "./js/screen.js": "./js/screen.js?v=r3-1",
+  "./js/secret.js": "./js/secret.js?v=r3-1",
+  "./js/settings.js": "./js/settings.js?v=r3-1",
+  "./js/shots.js": "./js/shots.js?v=r3-1",
+  "./js/sound.js": "./js/sound.js?v=r3-1",
+  "./js/tank.js": "./js/tank.js?v=r3-1",
+  "./js/textures.js": "./js/textures.js?v=r3-1",
+  "./js/theme.js": "./js/theme.js?v=r3-1",
+  "./js/tips.js": "./js/tips.js?v=r3-1",
+  "./js/vision.js": "./js/vision.js?v=r3-1",
+  "./js/wallart.js": "./js/wallart.js?v=r3-1",
+  "./js/wallart_draw.js": "./js/wallart_draw.js?v=r3-1",
+  "./js/weather.js": "./js/weather.js?v=r3-1",
+  "./js/world.js": "./js/world.js?v=r3-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=r3-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=r3-1",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=r3-1",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=r3-1",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=r3-1",
+  "three": "./lib/three.module.js?v=r3-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=re-1"></script>
-<script type="module" src="./js/main.js?v=re-1"></script>
+<script src="lib/peerjs.min.js?v=r3-1"></script>
+<script type="module" src="./js/main.js?v=r3-1"></script>
 </body>
 </html>

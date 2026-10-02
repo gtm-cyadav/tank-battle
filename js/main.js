@@ -730,7 +730,8 @@ initLobby({
   },
 });
 
-// Turn the player's input into throttle and turn for the tank (speed slider = throttle, steering slider = turn, scaled by the turning speed setting).
+// Turn the player's input into throttle and turn for the tank (speed slider or the ring's up / down = throttle, steering slider or the ring's sideways = turn,
+// scaled by the turning speed setting).
 const drive = { throttle: 0, turn: 0 };
 function steer(inp) {
   drive.throttle = inp.throttle;
@@ -874,8 +875,8 @@ function headCircle() {
   return { cx, cy, r: Math.max(28, Math.abs((e.x * 0.5 + 0.5) * W - cx)) };
 }
 const pokeOK = () => mode !== 'solo' && rules.match?.phase === 'play' && !rules.paused && !rules.givingUp && isPlaying() && inputEnabled();
-// Where a slider must never start (controller changes, 2026-10-02): the poke circle on your own figure (two-player matches) and the corner-map box
-// (where the five duck taps go, there even when the map is off). The buttons need no entry: they sit on top of the sliders and take the touch themselves.
+// Where a slider or the ring must never start (controller changes and R3, 2026-10-02): the poke circle on your own figure (two-player matches) and the corner-map box
+// (where the five duck taps go, there even when the map is off). The buttons need no entry: they sit on top of the controls and take the touch themselves.
 setSliderBlocker((x, y) => {
   const c = mode !== 'solo' ? headCircle() : null;
   if (c && Math.hypot(x - c.cx, y - c.cy) <= c.r) return true;

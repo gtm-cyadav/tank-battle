@@ -1,7 +1,7 @@
 // Stage 3B (Chetan, 2026-10-01): the "watching" speech bubble. Once at the start of a round, on your own screen only, a small
 // bubble near the top for 4 seconds, then gone. It never takes touches. It is placed where it covers nothing: it looks for
 // the highest spot (then the most central) that clears the round chip and its ping-text slot, the corner map, the room
-// label, the top-right buttons, a notice, the action button and the two sliders, and stays inside the
+// label, the top-right buttons, a notice, the action button and the two sliders or the ring, and stays inside the
 // notch margins. If a very cramped layout leaves no clear spot (the biggest button and sliders at once on a small phone), it
 // takes the least bad one and says so in data-clear="no" (testing only).
 const $ = id => document.getElementById(id);
@@ -30,7 +30,7 @@ export function obstacles() {
     }
   }
   add('cmap'); add('menu-btn'); add('gear'); add('fs-again'); add('action');
-  add('steer'); add('stick');   // both sliders are fixed controls
+  add('steer'); add('stick'); add('ring-pad');   // the sliders and the ring are fixed controls (only the chosen ones are visible)
   const soft = (id, ok = true) => { const el = $(id); if (ok && visible(el)) { const b = box(el, SOFT); if (b) out.push(b); } };
   soft('hud'); soft('toast', $('toast').classList.contains('show'));
   return out;
