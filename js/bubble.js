@@ -4,6 +4,7 @@
 // hint, the top-right buttons, a notice, the action button and the two sliders or the ring, and stays inside the
 // notch margins. If a very cramped layout leaves no clear spot (the biggest button and sliders at once on a small phone), it
 // takes the least bad one and says so in data-clear="no" (testing only).
+import { say, drop } from './say.js';
 const $ = id => document.getElementById(id);
 const SHOW = 4000, GAP = 6;   // ms on screen; px of air kept round every other thing
 // How much it matters to cover each thing: HARD things (the clock, ping text, corner map, buttons, the action button, the two fixed sliders) are
@@ -11,7 +12,7 @@ const SHOW = 4000, GAP = 6;   // ms on screen; px of air kept round every other 
 // covered when no spot clears everything, which happens only with the biggest button and sliders pushed well into the screen.
 export const HARD = 100, SOFT = 1;
 
-let timer = 0;
+let shown = 0;   // which bubble is drawn (R4 Part B: the queue asks whether its own bubble is still up)
 
 const visible = el => el && !el.hidden && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
 const box = (el, w = HARD) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? { l: r.left, t: r.top, r: r.right, b: r.bottom, w } : null; };
@@ -67,11 +68,19 @@ function place(w, h, avoid, m, low = 0.55) {
   return best && { ...best, clear: false };
 }
 
-// opt (Stage 4B): { ms: how long it stays, theme: 'love' | 'hate' for the themed start message }
+// opt (Stage 4B): { ms: how long it stays, theme: 'love' | 'hate' for the themed start message }; R4 Part B: { still: () => false drops it while it waits,
+// pri: 1.5 for the poke's answer (the player's own tap: it cuts in on another bubble, never on a notice, the flash or the ping number) }
+// It goes through the one-message queue (say.js): it shows at once unless a notice is up, the ping counts down or the round flash shows; then it waits.
 export function showBubble(text, opt = {}) {
   const el = $('bubble');
   if (!el || !text) return;
-  clearTimeout(timer);
+  const k = String(++shown);
+  say({ kind: 'bubble', pri: opt.pri || 1, ms: opt.ms || SHOW, still: opt.still, wait: opt.wait ?? 6000,
+    show: () => { drawBubble(el, text, opt); el.dataset.k = k; },
+    hide: () => { el.classList.remove('show'); el.hidden = true; },
+    on: () => !el.hidden && el.dataset.k === k });
+}
+function drawBubble(el, text, opt) {
   el.textContent = text;
   if (opt.theme) el.dataset.theme = opt.theme; else delete el.dataset.theme;
   el.hidden = false; el.classList.remove('show');   // laid out (and see-through) so it can be measured
@@ -103,10 +112,10 @@ export function showBubble(text, opt = {}) {
   el.hidden = false;
   void el.offsetWidth;
   el.classList.add('show');
-  timer = setTimeout(hideBubble, opt.ms || SHOW);
 }
+// every bubble goes, the one showing and the ones waiting (a card is coming, or a test resets)
 export function hideBubble() {
-  clearTimeout(timer);
+  drop('bubble');
   const el = $('bubble');
   if (!el) return;
   el.classList.remove('show');

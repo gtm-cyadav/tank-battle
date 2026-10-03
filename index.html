@@ -105,7 +105,11 @@
     width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(40, 8, 6, 0.85); box-shadow: 0 0 0 1px #ff4a3a; color: #ff5a4a; pointer-events: none; }
   html:not([data-state="playing"]) #flash, html:not([data-state="playing"]) #bign, html:not([data-state="playing"]) #cmap-ping { display: none; }
   [data-flash] #rh-note { visibility: hidden; }   /* the 1.5 s flash sits where the head-start tag is; the tag comes back after it */
-  [data-flash] #toast, [data-bign] #toast { opacity: 0; }   /* one thing at a time under the HUD: the flash or the ping number win over a notice */
+  /* (R4 Part B: a notice no longer just turns see-through for the flash or the ping number: the one-message queue, js/say.js, pauses it and shows it after) */
+  /* R4 Part B, the HUD fades when idle (Chetan, 2026-10-03): 5 s after the last change the faces and the weather tag fade to 25 %; the clock stays.
+     main.js sets .idle only in play, never during a ping, the head-start lock, the hit beat or the last 10 s; any change takes it off at once. */
+  #rh .rh-pl, #rh #rh-wx { transition: opacity 0.25s; }
+  #rh.idle .rh-pl, #rh.idle #rh-wx { opacity: 0.25; transition: opacity 0.8s; }
   /* hider's ping alarm (1e, Chetan: "red highlights all over to show danger"): red glow from every edge, pulsing on
      each count, a flash at "Pinged", then steady for the 4 s. The middle stays clear for driving. Strength set by main.js. */
   #alarm { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; --flash: 0;
@@ -216,6 +220,9 @@
   .note { margin: 7px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
   [data-control="ring"] .ctl-sliders, html:not([data-control="ring"]) .ctl-ring { display: none; }   /* only the chosen control's rows */
   #set-reset { width: 100%; margin-top: 8px; min-width: 0; }
+  #set-hints { min-width: 0; padding: 8px 12px; font-size: 12px; }
+  #set-hints .b, #set-hints[data-done] .a { display: none; }
+  #set-hints[data-done] .b { display: inline; }
 
   /* ---- overlays: start screen, rotate message, leave prompt ---- */
   .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: var(--ink-2);
@@ -264,11 +271,28 @@
   @media (max-height: 340px) { .rule { margin: 10px 0 14px; } .hint { font-size: 12px; } .code { font-size: 38px; } }
   #start:not([data-panel="home"]) .hint { display: none; }
 
-  #toast { position: fixed; z-index: 8; top: calc(max(10px, var(--st)) + 56px); left: 50%; transform: translate(-50%, -8px); opacity: 0;
+  /* R4 Part B: drawn UNDER the controls (z 4; they are z 5), so a FIRE / SPRINT button pushed into the middle is never covered (T1, layout_r4) */
+  #toast { position: fixed; z-index: 4; top: calc(max(10px, var(--st)) + 56px); left: 50%; transform: translate(-50%, -8px); opacity: 0;
     max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 7px; padding: 6px 13px 6px 8px; border-radius: 999px; background: rgba(20, 26, 24, 0.86);
     border: 1px solid var(--line); font: 700 12px/1 var(--font); color: var(--text); white-space: nowrap; pointer-events: none; transition: opacity 0.25s, transform 0.25s; --cut: #161b19; }
   #toast .face { width: 20px; height: 20px; box-shadow: 0 0 0 1.5px var(--hider); }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  /* Auto-Low's Undo: the only notice with a button; it alone takes touches */
+  #toast .u { pointer-events: auto; margin: -3px -7px -3px 4px; padding: 6px 10px; border: 0; border-radius: 999px; background: var(--text); color: var(--ink); font: 700 11px/1 var(--font); cursor: pointer; }
+  #toast:not(.show) .u { pointer-events: none; }
+  /* R4 Part B, first-time hints (js/hints.js): a small pale pill with an icon and two or three words, a tail pointing at the thing. Above the cards
+     (the Ready hint points at Ready), below the menu and Settings. They never take touches. */
+  #hints { position: fixed; inset: 0; z-index: 13; pointer-events: none; }
+  html:not([data-state="playing"]) #hints { display: none; }
+  .hint { position: absolute; display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 8px; border-radius: 8px; background: rgba(236, 240, 237, 0.95); color: #141816;
+    font: 700 12px/1 var(--font); white-space: nowrap; --cut: #ecf0ed; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); animation: hintIn 0.25s ease-out; --tx: 50%; --ty: 50%; }
+  .hint::after { content: ''; position: absolute; border: 6px solid transparent; }
+  .hint.dn::after { left: var(--tx); bottom: -6px; margin-left: -6px; border-bottom: 0; border-top-color: rgba(236, 240, 237, 0.95); }
+  .hint.up::after { left: var(--tx); top: -6px; margin-left: -6px; border-top: 0; border-bottom-color: rgba(236, 240, 237, 0.95); }
+  .hint.lf::after { top: var(--ty); left: -6px; margin-top: -6px; border-left: 0; border-right-color: rgba(236, 240, 237, 0.95); }
+  .hint.rt::after { top: var(--ty); right: -6px; margin-top: -6px; border-right: 0; border-left-color: rgba(236, 240, 237, 0.95); }
+  @keyframes hintIn { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .hint { animation: none; } }
   [data-match] #toast { top: calc(max(10px, var(--st)) + 104px); }   /* under the HUD and its tag */
   [data-card] #toast { top: auto; bottom: max(14px, var(--sb)); transform: translate(-50%, 8px); }   /* under the round card, not over it */
   [data-card] #toast.show { transform: translate(-50%, 0); }
@@ -310,7 +334,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=r4-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=r4-2) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -423,7 +447,7 @@
   .chips span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 7px; border: 1px solid #e9b43a; border-radius: 999px; font: 700 10px/1 var(--font);
     letter-spacing: 0.1em; text-transform: uppercase; color: #e9b43a; white-space: nowrap; --cut: #161b19; }
   /* a leader's face: one cell of the picker's picture (models/faces.webp, 6 x 6), zoomed a little onto the head, in a round frame (main.js faceOn) */
-  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=r4-1) no-repeat; background-size: 672% 672%; }
+  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=r4-2) no-repeat; background-size: 672% 672%; }
   .vs { font: 700 13px/1 var(--font); color: var(--muted); letter-spacing: 0.1em; }
   #round canvas.fl { display: block; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
   /* toss card */
@@ -480,6 +504,10 @@
   #sc-how { --cut: #161b19; }
   #sc-how.hunter { color: var(--hunter); } #sc-how.hider { color: var(--hider); }
   #sc-badges[hidden] { display: none; }
+  /* R4 Part B, tap to skip (Chetan, 2026-10-03): after 1.5 s on the score or taunt screen a small "Tap >" mark shows; a tap then moves this phone on */
+  #round #sc, #round #tt { position: relative; }
+  .skip { position: absolute; right: 10px; bottom: 2px; height: 11px; display: flex; align-items: center; gap: 5px; font: 700 10px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); --cut: #161b19; animation: hintIn 0.3s ease-out; }
   /* taunt screen (unchanged: the face, the quote, the headline) */
   #round #tt { width: min(520px, 100%); padding: 16px 20px 14px; }
   .tt-top { display: flex; align-items: center; gap: 20px; }
@@ -556,6 +584,7 @@
 <div id="hud"><span class="keys">Arrows / WASD drive &middot; Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bubble" aria-live="off" hidden></div>
+<div id="hints" aria-live="polite" hidden></div>
 <div id="rh" hidden>
   <div class="rh-top">
     <div id="rh-p0" class="rh-pl"><span id="rh-w0" class="who"><i id="rh-f0" class="face"></i><span id="rh-r0" class="rb l"></span></span><span id="rh-s0" class="pips"><b></b><b></b></span></div>
@@ -627,7 +656,10 @@
         <p id="create-text" class="say"></p>
         <p id="create-note" class="say error"></p>
         <p id="create-tip" class="tip" aria-live="off"></p>
-        <button id="create-cancel" class="btn secondary small" type="button">Cancel</button>
+        <div class="row">
+          <button id="invite" class="btn ico small" type="button" data-ic="invite" data-s="18" hidden>Invite</button>
+          <button id="create-cancel" class="btn secondary small" type="button">Cancel</button>
+        </div>
       </div>
       <div id="p-join" class="lobby" hidden>
         <label class="lbl" for="code-in">Room code</label>
@@ -697,7 +729,7 @@
         <p id="n-sound" class="note" hidden>Starts after your first tap. Silent while the game is in the background. On iPhone, the ring/silent switch also mutes it.</p></div>
       <div class="set-row"><div class="lbl" data-ic="graphics"><span>Graphics</span>
         <div class="seg"><button type="button" data-set="graphics" data-value="high">High</button><button type="button" data-set="graphics" data-value="low">Low</button></div><button class="ib" type="button" data-note="n-graphics" aria-label="About Graphics" data-ic="info"></button></div>
-        <p id="n-graphics" class="note" hidden>Low: no shadows, a softer picture and fewer effects, for phones that stutter. Wall and floor detail changes the next time the game opens.</p></div>
+        <p id="n-graphics" class="note" hidden>Low: no shadows, a softer picture and fewer effects, for phones that stutter. Wall and floor detail changes the next time the game opens. If a round stutters for 5 s, the game switches to Low once by itself (Undo on the notice).</p></div>
       <div class="set-row"><div class="lbl" data-ic="map"><span>Map</span>
         <div class="seg"><button type="button" data-set="map" data-value="on">On</button><button type="button" data-set="map" data-value="off">Off</button></div><button class="ib" type="button" data-note="n-map" aria-label="About the corner map" data-ic="info"></button></div>
         <p id="n-map" class="note" hidden>Shows the walls and your own tank. Never the other player. While a ping is on, it shows even when switched off.</p></div>
@@ -708,6 +740,8 @@
       <div class="set-row"><div class="lbl" data-ic="chatter"><span>Chatter</span>
         <div class="seg"><button type="button" data-set="chatter" data-value="full">Full</button><button type="button" data-set="chatter" data-value="short">Short</button><button type="button" data-set="chatter" data-value="off">Off</button></div><button class="ib" type="button" data-note="n-chatter" aria-label="About Chatter" data-ic="info"></button></div>
         <p id="n-chatter" class="note" hidden>Speech bubbles from the leaders: watching, bump and poke. Short: the watching line in round 1 only, and one line per bump. Off: none. Taunts and headlines always show.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="info"><span>Hints</span>
+        <button id="set-hints" class="btn secondary small" type="button"><span class="a">Show again</span><span class="b">Will show</span></button></div></div>
       <button id="set-reset" class="btn secondary" type="button">Reset to default</button>
     </div>
   </div>
@@ -806,11 +840,13 @@
       </div>
       <div class="sc-foot"><span id="sc-how" class="mini"></span><span id="sc-badges" class="chips" hidden></span></div>
     </div>
+    <span id="sc-skip" class="skip" hidden>Tap<svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="M8 4.8l11 7.2-11 7.2z" fill="currentColor"/></svg></span>
   </div>
   <!-- the taunt screen (the speaking leader's face, the quote in a bubble, the headline) -->
   <div id="tt" class="card" role="status" aria-labelledby="tt-q" hidden>
     <div class="tt-top"><i id="tt-face" class="face"></i><p id="tt-q"></p></div>
     <p id="tt-news"></p>
+    <span id="tt-skip" class="skip" hidden>Tap<svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="M8 4.8l11 7.2-11 7.2z" fill="currentColor"/></svg></span>
   </div>
   <!-- the match-over card: the winner's face and the score, Again / Leave, the rematch status; the awards, the theme message and the rematch taunt beside it -->
   <div id="fin" class="card" role="status" aria-label="Match over" hidden>
@@ -856,52 +892,55 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=r4-1",
-  "./js/assist.js": "./js/assist.js?v=r4-1",
-  "./js/bubble.js": "./js/bubble.js?v=r4-1",
-  "./js/camera.js": "./js/camera.js?v=r4-1",
-  "./js/cornermap.js": "./js/cornermap.js?v=r4-1",
-  "./js/effects.js": "./js/effects.js?v=r4-1",
-  "./js/eggs.js": "./js/eggs.js?v=r4-1",
-  "./js/fans.js": "./js/fans.js?v=r4-1",
-  "./js/flags.js": "./js/flags.js?v=r4-1",
-  "./js/icons.js": "./js/icons.js?v=r4-1",
-  "./js/input.js": "./js/input.js?v=r4-1",
-  "./js/lamps.js": "./js/lamps.js?v=r4-1",
-  "./js/leaders.js": "./js/leaders.js?v=r4-1",
-  "./js/lines.js": "./js/lines.js?v=r4-1",
-  "./js/lobby.js": "./js/lobby.js?v=r4-1",
-  "./js/main.js": "./js/main.js?v=r4-1",
-  "./js/map.js": "./js/map.js?v=r4-1",
-  "./js/menu.js": "./js/menu.js?v=r4-1",
-  "./js/models.js": "./js/models.js?v=r4-1",
-  "./js/net.js": "./js/net.js?v=r4-1",
-  "./js/picker.js": "./js/picker.js?v=r4-1",
-  "./js/props.js": "./js/props.js?v=r4-1",
-  "./js/rules.js": "./js/rules.js?v=r4-1",
-  "./js/screen.js": "./js/screen.js?v=r4-1",
-  "./js/secret.js": "./js/secret.js?v=r4-1",
-  "./js/settings.js": "./js/settings.js?v=r4-1",
-  "./js/shots.js": "./js/shots.js?v=r4-1",
-  "./js/sound.js": "./js/sound.js?v=r4-1",
-  "./js/tank.js": "./js/tank.js?v=r4-1",
-  "./js/textures.js": "./js/textures.js?v=r4-1",
-  "./js/theme.js": "./js/theme.js?v=r4-1",
-  "./js/tips.js": "./js/tips.js?v=r4-1",
-  "./js/vision.js": "./js/vision.js?v=r4-1",
-  "./js/wallart.js": "./js/wallart.js?v=r4-1",
-  "./js/wallart_draw.js": "./js/wallart_draw.js?v=r4-1",
-  "./js/weather.js": "./js/weather.js?v=r4-1",
-  "./js/world.js": "./js/world.js?v=r4-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=r4-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=r4-1",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=r4-1",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=r4-1",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=r4-1",
-  "three": "./lib/three.module.js?v=r4-1"
+  "./js/arena.js": "./js/arena.js?v=r4-2",
+  "./js/assist.js": "./js/assist.js?v=r4-2",
+  "./js/autolow.js": "./js/autolow.js?v=r4-2",
+  "./js/bubble.js": "./js/bubble.js?v=r4-2",
+  "./js/camera.js": "./js/camera.js?v=r4-2",
+  "./js/cornermap.js": "./js/cornermap.js?v=r4-2",
+  "./js/effects.js": "./js/effects.js?v=r4-2",
+  "./js/eggs.js": "./js/eggs.js?v=r4-2",
+  "./js/fans.js": "./js/fans.js?v=r4-2",
+  "./js/flags.js": "./js/flags.js?v=r4-2",
+  "./js/hints.js": "./js/hints.js?v=r4-2",
+  "./js/icons.js": "./js/icons.js?v=r4-2",
+  "./js/input.js": "./js/input.js?v=r4-2",
+  "./js/lamps.js": "./js/lamps.js?v=r4-2",
+  "./js/leaders.js": "./js/leaders.js?v=r4-2",
+  "./js/lines.js": "./js/lines.js?v=r4-2",
+  "./js/lobby.js": "./js/lobby.js?v=r4-2",
+  "./js/main.js": "./js/main.js?v=r4-2",
+  "./js/map.js": "./js/map.js?v=r4-2",
+  "./js/menu.js": "./js/menu.js?v=r4-2",
+  "./js/models.js": "./js/models.js?v=r4-2",
+  "./js/net.js": "./js/net.js?v=r4-2",
+  "./js/picker.js": "./js/picker.js?v=r4-2",
+  "./js/props.js": "./js/props.js?v=r4-2",
+  "./js/rules.js": "./js/rules.js?v=r4-2",
+  "./js/say.js": "./js/say.js?v=r4-2",
+  "./js/screen.js": "./js/screen.js?v=r4-2",
+  "./js/secret.js": "./js/secret.js?v=r4-2",
+  "./js/settings.js": "./js/settings.js?v=r4-2",
+  "./js/shots.js": "./js/shots.js?v=r4-2",
+  "./js/sound.js": "./js/sound.js?v=r4-2",
+  "./js/tank.js": "./js/tank.js?v=r4-2",
+  "./js/textures.js": "./js/textures.js?v=r4-2",
+  "./js/theme.js": "./js/theme.js?v=r4-2",
+  "./js/tips.js": "./js/tips.js?v=r4-2",
+  "./js/vision.js": "./js/vision.js?v=r4-2",
+  "./js/wallart.js": "./js/wallart.js?v=r4-2",
+  "./js/wallart_draw.js": "./js/wallart_draw.js?v=r4-2",
+  "./js/weather.js": "./js/weather.js?v=r4-2",
+  "./js/world.js": "./js/world.js?v=r4-2",
+  "./lib/three.module.js": "./lib/three.module.js?v=r4-2",
+  "./lib/three.core.js": "./lib/three.core.js?v=r4-2",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=r4-2",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=r4-2",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=r4-2",
+  "three": "./lib/three.module.js?v=r4-2"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=r4-1"></script>
-<script type="module" src="./js/main.js?v=r4-1"></script>
+<script src="lib/peerjs.min.js?v=r4-2"></script>
+<script type="module" src="./js/main.js?v=r4-2"></script>
 </body>
 </html>

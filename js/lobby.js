@@ -6,6 +6,7 @@ import { startPlaying, showStart, leaveToStart, enterFullscreen, refreshScreen, 
 import { randomWeather } from './weather.js';
 import { tipOn, tipOff } from './tips.js';
 import { icon } from './icons.js';
+import { say, end } from './say.js';
 
 const $ = id => document.getElementById(id);
 const WAIT = 60;                         // seconds a dropped player gets to come back
@@ -146,7 +147,46 @@ function toHome() {
 function showCode(code) {
   $('room-code').textContent = code;
   $('room-code').classList.remove('pending');
-  $('create-text').textContent = 'Tell the other player this code. The game starts when they join. Keep the game open until then.';
+  $('create-text').textContent = 'Send the invite or say the code. Keep the game open.';
+  $('invite').hidden = false;
+}
+// ---- R4 Part B (Chetan, 2026-10-03): the invite link. The room code goes in the part after "#" (never sent to any server, nothing else in it: no
+// names). One tap: the phone's share sheet where it has one, else the link is copied. Opening the link fills in the code; the friend only taps Join.
+export const inviteLink = code => `${location.origin}${location.pathname}#join=${code}`;
+export const codeFromLink = hash => (/^#join=([A-HJ-NP-Z]{4})$/i.exec(hash || '') || [])[1]?.toUpperCase() || null;   // room codes never use I or O
+let inviteT = 0;
+// share the link (the phone's share sheet), else copy it: 'shared' | 'closed' (the share sheet was closed) | 'copied' | 'failed'
+export async function shareInvite(code) {
+  const url = inviteLink(code);
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Tank Battle', text: `Tank Battle · ${code}`, url }); return 'shared'; }
+    catch (e) { if (e?.name === 'AbortError') return 'closed'; }   // anything else: copy instead
+  }
+  try { await navigator.clipboard.writeText(url); return 'copied'; } catch (e) { /* no clipboard (an old browser, or not https): the old way */ }
+  const t = document.createElement('textarea');
+  t.value = url; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;left:-999px;top:0;opacity:0';
+  document.body.append(t); t.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  t.remove();
+  return ok ? 'copied' : 'failed';
+}
+async function invite() {
+  const code = room?.code;
+  if (!code || stage !== 'creating') return;
+  const how = await shareInvite(code), b = $('invite');
+  if (how !== 'copied' && how !== 'failed') return;
+  b.innerHTML = how === 'copied' ? icon('ready', 18) : icon('room', 18); b.append(how === 'copied' ? 'Copied' : code);   // copied: a tick; no way to copy: the code to say
+  clearTimeout(inviteT); inviteT = setTimeout(() => { b.innerHTML = icon('invite', 18); b.append('Invite'); }, 2200);
+}
+// the link opened this page (or was opened in this tab while on the start screen): the Join panel with the code filled in, the address cleaned up
+function joinFromLink() {
+  const code = codeFromLink(location.hash);
+  if (location.hash.startsWith('#join=')) { try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { /* keep it */ } }
+  if (!code || stage !== 'home') return false;
+  $('code-in').value = code;
+  showJoin();
+  return true;
 }
 function showJoin(error = '') {
   panel('join');
@@ -174,6 +214,7 @@ function create() {
   panel('create');
   $('room-code').textContent = '····';
   $('room-code').classList.add('pending');
+  $('invite').hidden = true;
   $('create-text').textContent = 'Opening a room.';
   $('create-note').textContent = '';
   link.host();
@@ -264,15 +305,27 @@ function endMatch(title, text) {
   showCard('end', title, text);
 }
 
-let toastTimer = 0;
-// R4: a notice is an icon (or a face) and at most one word; `ic` is the icon's page text from icons.js or main.js (never typed text)
-export function toast(text, ic = '') {
-  const el = $('toast');
-  el.innerHTML = ic;
-  el.append(text);
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+let toasts = 0;
+// R4: a notice is an icon (or a face) and at most one word; `ic` is the icon's page text from icons.js or main.js (never typed text).
+// R4 Part B: it goes through the one-message queue (say.js) at the top rank: it cuts in on a bubble or a hint, waits for the ping number and the
+// round flash, and never shows on top of another notice. opt: { ms (default 2.8 s), action: { label, run } } adds one small button (Auto-Low's Undo).
+export function toast(text, ic = '', opt = {}) {
+  const el = $('toast'), k = String(++toasts), key = 'toast:' + text + ic;
+  say({ kind: 'toast', pri: 2, ms: opt.ms || 2800, key, wait: 10000,
+    show() {
+      el.innerHTML = ic;
+      el.append(text);
+      if (opt.action) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'u'; b.textContent = opt.action.label;
+        b.addEventListener('click', () => { opt.action.run(); end(key); });
+        el.append(b);
+      }
+      el.dataset.k = k;
+      el.classList.add('show');
+    },
+    hide() { el.classList.remove('show'); },
+    on: () => el.classList.contains('show') && el.dataset.k === k });
 }
 
 function startCountdown(el, secs, done) {
@@ -323,6 +376,8 @@ export function initLobby(hooks) {
   for (const b of document.querySelectorAll('[data-wx]')) b.addEventListener('click', () => { soloWx = b.dataset.wx; showSoloWx(); });
   showSoloWx();
   $('create-cancel').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
+  $('invite').addEventListener('click', invite);
+  addEventListener('hashchange', joinFromLink);
   $('join-back').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
   $('join-go').addEventListener('click', join);
   const input = $('code-in');
@@ -341,5 +396,6 @@ export function initLobby(hooks) {
   });
 
   const r = findRoom();
-  if (r) { showStart(); rejoin(r); } else toHome();
+  if (r) { showStart(); rejoin(r); joinFromLink(); }   // a match to carry on wins over an invite (the link is only tidied away)
+  else { toHome(); joinFromLink(); }
 }

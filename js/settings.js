@@ -3,6 +3,7 @@
 // Controls (2026-10-02, Chetan): the two fixed sliders are the only style. The old 'style' value that earlier versions saved
 // (point-to-drive or tank) is simply never read, so a phone that saved either one loads with two sliders and no error.
 // R3 (2026-10-02, Chetan): 'control' picks two sliders (the default) or the ring; anything else saved there loads as two sliders.
+import { resetHints } from './hints.js';
 const $ = id => document.getElementById(id);
 const KEY = 'tank-battle.settings.v1';
 
@@ -26,6 +27,7 @@ export const DEFAULTS = {
   assist: 'on',         // aim assist for the hunter (assist.js): 'on' | 'off'
   assistStrength: 'medium',   // 'light' | 'medium' | 'strong': the cone, 3 / 6 / 10 degrees
   chatter: 'full',      // R4: the leaders' speech bubbles (watching, bump, poke): 'full' (as before) | 'short' | 'off' (bubble.js chatter)
+  autoLow: 'on',        // R4 Part B: 'on' = may switch to Low once if the game stutters (main.js, autolow.js) | 'used' = it did, never again on this phone
 };
 
 // Slider ranges and labels. Camera height tops out at 3.8 m: with the squeeze rise it still stays under the 4.5 m walls.
@@ -39,7 +41,7 @@ const SLIDERS = {
   camHeight: { min: 1.8, max: 3.8, step: 0.1, show: v => v.toFixed(1) + ' m' },
   camDistance: { min: 4, max: 10, step: 0.5, show: v => v.toFixed(1) + ' m' },
 };
-const CHOICES = { control: ['sliders', 'ring'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'], chatter: ['full', 'short', 'off'] };
+const CHOICES = { control: ['sliders', 'ring'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'], chatter: ['full', 'short', 'off'], autoLow: ['on', 'used'] };
 
 function load() {
   let saved = {};
@@ -75,6 +77,9 @@ function render() {
   }
 }
 
+// R4 Part B: a change from the game itself (Auto-Low and its Undo), saved and applied like a tap in the panel
+export function setSettings(change) { Object.assign(settings, change); changed(); }
+
 let openPanel = () => {};
 export const openSettings = () => openPanel(true);   // from the in-game menu (1f)
 
@@ -88,6 +93,12 @@ export function initSettings(onOpenChange) {
     b.addEventListener('click', () => { settings[b.dataset.set] = b.dataset.value; changed(); });
   }
   $('set-reset').addEventListener('click', () => { Object.assign(settings, DEFAULTS); changed(); });
+  // R4 Part B: the first-time hints come back (each once more); the button says so for a moment
+  let hintT = 0;
+  $('set-hints').addEventListener('click', () => {
+    resetHints();
+    const b = $('set-hints'); b.dataset.done = ''; clearTimeout(hintT); hintT = setTimeout(() => delete b.dataset.done, 1800);
+  });
   // R4: each row's long explanation sits behind a small "i" (closed until tapped; never saved)
   for (const b of document.querySelectorAll('.ib[data-note]')) b.addEventListener('click', () => { const n = $(b.dataset.note); n.hidden = !n.hidden; b.setAttribute('aria-expanded', String(!n.hidden)); });
   const open = on => {
