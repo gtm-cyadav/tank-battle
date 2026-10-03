@@ -1,4 +1,4 @@
-// Stage 4B (Chetan, 2026-10-01): the secret love and hate modes. Typed into the small "Secret" box on the start screen, NOT the room-code box.
+// The secret love and hate modes. Typed into the small "Secret" box on the start screen, NOT the room-code box.
 //
 // PRIVACY (a hard rule: the game is a public web page). Nothing readable about the modes is in this file or anywhere in the code:
 //   - js/secret.js holds, for each mode, only an AES-GCM encrypted blob (and its random salt and iv). The key is made from the typed phrase
@@ -6,7 +6,7 @@
 //     tag is the test, so a wrong phrase simply fails to open the blob. The blob holds the mode's kind and its messages.
 //   - unlock() always does exactly the same work, whatever was typed: an empty box, a wrong phrase and a right one all derive both keys and
 //     try both blobs, and only the right one opens anything. Nothing on screen differs between an empty box and a wrong phrase.
-//   - The phrases and the messages are only in PROJECT.md (section 11) and tools/make_secret.html, which are never published.
+//   - The phrases and the messages are kept outside this repository and are never published.
 // What a determined person could still learn: the file tells them there are two modes and how big the messages are; with enough computing
 // time they could try phrases against the blobs, so a short phrase can be guessed by someone who tries the obvious ones (the slow key
 // derivation makes each try cost time, it does not make a guess impossible).

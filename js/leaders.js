@@ -1,9 +1,9 @@
-// Stage 3A: who the 36 leaders are on screen. The number is the leader's number in the brief's list (section 6), which
-// is also the model (models/bNN.glb) and the flag (flags.js).
-//   name:  the PARODY name shown everywhere (Chetan's rule, 2026-09-30; plain deadpan text)
+// Who the 36 leaders are on screen. The number is the leader's number, which is also the model (models/bNN.glb) and
+// the flag (flags.js).
+//   name:  the PARODY name shown everywhere (plain deadpan text)
 //   place: country / era / kingdom exactly as it is
 //   group: which heading the picker files the card under
-// Taglines, "watching" lines and taunts are Stage 3B and not here.
+// Taglines, "watching" lines and taunts are in lines.js.
 export const GROUPS = ['Modern', 'Cold War', 'World Wars', 'Empires, 1500-1800s', 'Medieval', 'Ancient', 'The future'];
 
 const L = (name, place, group) => ({ name, place, group });
@@ -36,7 +36,7 @@ export const LEADERS = [null,
   L('Oda Nobu-Naga-Tea', 'Japan, feudal', 4),
   L('Kaiser Wilhelm Two-Stache', 'Germany, WW1', 2),
   L('Joan of Arc-ade', 'France, medieval', 4),
-  L('Boudica Hair-Raiser', 'Britain, ancient', 5),      // 29-36: drafts, waiting for Chetan's approval (batch 3)
+  L('Boudica Hair-Raiser', 'Britain, ancient', 5),
   L('Shaka Spear-Ka', 'Zulu Kingdom', 3),
   L('Queen Victoria Sponge', 'Britain, Victorian', 3),
   L('Fidel Cigar-stro', 'Cuba, Cold War', 1),
@@ -47,6 +47,6 @@ export const LEADERS = [null,
 ];
 export const COUNT = LEADERS.length - 1;
 export const nameOf = n => LEADERS[n]?.name || '';
-// Stage 4A: the short name on the two-leader bump bubble (the first word of the parody name; a few that would not say who it is are spelled out)
+// The short name on the two-leader bump bubble (the first word of the parody name; a few that would not say who it is are spelled out)
 const SHORT = { 14: 'Waddle-ington', 27: 'Kaiser', 31: 'Victoria' };
 export const shortName = n => SHORT[n] || nameOf(n).split(' ')[0];

@@ -1,8 +1,8 @@
 // Player settings (gear icon): turning speed, slider size and side, action button size and
-// position, camera height and distance, corner map on or off (1e), sound on or off and graphics high or low (2A). Saved on the phone, so they survive closing the game.
-// Controls (2026-10-02, Chetan): the two fixed sliders are the only style. The old 'style' value that earlier versions saved
-// (point-to-drive or tank) is simply never read, so a phone that saved either one loads with two sliders and no error.
-// R3 (2026-10-02, Chetan): 'control' picks two sliders (the default) or the ring; anything else saved there loads as two sliders.
+// position, camera height and distance, corner map on or off, sound on or off and graphics high or low. Saved on the phone, so they
+// survive closing the game.
+// Controls: 'control' picks two sliders (the default) or the ring; anything else saved there loads as two sliders. The 'style' value
+// that earlier versions saved (point-to-drive or tank) is never read, so a phone that saved either one loads with no error.
 import { resetHints } from './hints.js';
 const $ = id => document.getElementById(id);
 const KEY = 'tank-battle.settings.v1';
@@ -22,12 +22,12 @@ export const DEFAULTS = {
   camHeight: 3.0,       // m; the camera code still keeps it under the wall tops (fairness)
   camDistance: 7.5,     // m behind the tank
   map: 'on',            // corner map (walls and your own tank): 'on' | 'off'
-  sound: 'on',          // Stage 2A: 'on' | 'off' (mute)
-  graphics: 'high',     // Stage 2A: 'high' | 'low' (low: no shadows, lower sharpness, fewer effects, for slow phones)
+  sound: 'on',          // 'on' | 'off' (mute)
+  graphics: 'high',     // 'high' | 'low' (low: no shadows, lower sharpness, fewer effects, for slow phones)
   assist: 'on',         // aim assist for the hunter (assist.js): 'on' | 'off'
   assistStrength: 'medium',   // 'light' | 'medium' | 'strong': the cone, 3 / 6 / 10 degrees
-  chatter: 'full',      // R4: the leaders' speech bubbles (watching, bump, poke): 'full' (as before) | 'short' | 'off' (bubble.js chatter)
-  autoLow: 'on',        // R4 Part B: 'on' = may switch to Low once if the game stutters (main.js, autolow.js) | 'used' = it did, never again on this phone
+  chatter: 'full',      // the leaders' speech bubbles (watching, bump, poke): 'full' | 'short' | 'off' (bubble.js chatter)
+  autoLow: 'on',        // 'on' = may switch to Low once if the game stutters (main.js, autolow.js) | 'used' = it did, never again on this phone
 };
 
 // Slider ranges and labels. Camera height tops out at 3.8 m: with the squeeze rise it still stays under the 4.5 m walls.
@@ -77,11 +77,11 @@ function render() {
   }
 }
 
-// R4 Part B: a change from the game itself (Auto-Low and its Undo), saved and applied like a tap in the panel
+// A change from the game itself (Auto-Low and its Undo), saved and applied like a tap in the panel
 export function setSettings(change) { Object.assign(settings, change); changed(); }
 
 let openPanel = () => {};
-export const openSettings = () => openPanel(true);   // from the in-game menu (1f)
+export const openSettings = () => openPanel(true);   // from the in-game menu
 
 export function initSettings(onOpenChange) {
   for (const k in SLIDERS) {
@@ -93,13 +93,13 @@ export function initSettings(onOpenChange) {
     b.addEventListener('click', () => { settings[b.dataset.set] = b.dataset.value; changed(); });
   }
   $('set-reset').addEventListener('click', () => { Object.assign(settings, DEFAULTS); changed(); });
-  // R4 Part B: the first-time hints come back (each once more); the button says so for a moment
+  // the first-time hints come back (each once more); the button says so for a moment
   let hintT = 0;
   $('set-hints').addEventListener('click', () => {
     resetHints();
     const b = $('set-hints'); b.dataset.done = ''; clearTimeout(hintT); hintT = setTimeout(() => delete b.dataset.done, 1800);
   });
-  // R4: each row's long explanation sits behind a small "i" (closed until tapped; never saved)
+  // each row's long explanation sits behind a small "i" (closed until tapped; never saved)
   for (const b of document.querySelectorAll('.ib[data-note]')) b.addEventListener('click', () => { const n = $(b.dataset.note); n.hidden = !n.hidden; b.setAttribute('aria-expanded', String(!n.hidden)); });
   const open = on => {
     $('settings').hidden = !on;

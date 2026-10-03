@@ -1,4 +1,4 @@
-// Bullets (Stage 1d): the hunter's shots fly straight at 40 m/s from the barrel, stop at the first wall, and can
+// Bullets: the hunter's shots fly straight at 40 m/s from the barrel, stop at the first wall, and can
 // only ever hit the hider's tank (never the tank that fired them).
 // Each bullet's path is worked out from the centre of the hunter's tank, so a barrel poking into a wall can't
 // shoot through it, and a hider parked right against the barrel is still hit. Walls never move, so the distance
@@ -32,12 +32,12 @@ export function touchesTank(tank, ax, az, bx, bz) {
   return t0;
 }
 
-// fx (Stage 2A, effects.js + sound.js): { muzzle(x, y, z, dx, dz), wallHit(x, y, z, nx, nz) } for the flash, smoke,
-// sparks and sounds. The Stage 1 grey spheres are gone.
+// fx (effects.js + sound.js): { muzzle(x, y, z, dx, dz), wallHit(x, y, z, nx, nz) } for the flash, smoke,
+// sparks and sounds.
 export function createShots(scene, fx = { muzzle() {}, wallHit() {} }) {
   const live = [];
   // what a bullet looks like: a long bright streak with an orange glow at its head, so it reads against a grey sky
-  // (the first version, a small pale box, was too hard to see on a phone: Chetan, 2026-09-29)
+  // (a small pale box is too hard to see on a phone)
   const streak = new THREE.BoxGeometry(0.16, 0.16, 2.4).translate(0, 0, -1.2);   // head at the bullet, tail behind it
   const hot = new THREE.MeshBasicMaterial({ color: 0xfff0b8 });
   const glowTex = (() => {

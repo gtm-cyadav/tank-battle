@@ -2,15 +2,14 @@
 // plus the keyboard for desktop testing (arrows or WASD drive, Space is the action button).
 // Nothing moves. A touch starts a slider or the ring only on its own track (and a thumb's width of grab room round it);
 // the corner map, the figure's poke circle, every button and all the free space in the middle take no such touches.
-// Controls changed 2026-10-02 (Chetan): point-to-drive and the original tank style are gone; fixed sliders only.
-// R3 (Chetan, 2026-10-02): the ring is back as a second choice (Settings > Control), tank-style: up drives, down reverses, sideways turns.
+// The ring is the second choice (Settings > Control), tank-style: up drives, down reverses, sideways turns.
 import { settings, onSettings } from './settings.js';
 
 const $ = id => document.getElementById(id);
 const root = document.documentElement;
 const DEAD = 0.14;          // speed slider: ignore tiny thumb wobbles (fraction of full push)
 const STEER_DEAD = 0.18;    // steering slider: a wider middle band counts as dead straight
-const TRAVEL = { speed: 48, steer: 56 };   // px of knob travel to full speed / full steering at 100% size (was 64 / 76)
+const TRAVEL = { speed: 48, steer: 56 };   // px of knob travel to full speed / full steering at 100% size
 const RING_DEAD = 0.2;      // ring: a resting thumb this close to the middle (fraction of full push) does nothing at all
 const RING_TRAVEL = 0.3;    // ring: knob travel as a share of the ring's width (the knob is 0.4 of it, so its edge stops on the ring's edge)
 const GRAB = 24;            // px of grab room round the ring (the same as the CSS ::before)
@@ -71,7 +70,7 @@ function makeSlider(ring, knob, axis) {
 const speed = makeSlider($('stick'), $('knob'), 'y');       // speed slider: up = forward, down = reverse, middle = stopped
 const steer = makeSlider($('steer'), $('steer-knob'), 'x');   // steering slider: right = turn right, middle band = straight
 
-// ---- the ring (R3) --------------------------------------------------------------------------------------------
+// ---- the ring -------------------------------------------------------------------------------------------------
 // One fixed round pad. The knob follows the thumb from the ring's own centre and stops at its edge; a still thumb gives a still value.
 // It starts only from a touch inside the ring plus its grab room (a round ::before, checked here too).
 function makeRing(ring, knob) {

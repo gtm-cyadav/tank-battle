@@ -1,6 +1,5 @@
-// Stage 3B (Chetan, 2026-10-01): every line the leaders say. Plain deadpan text. All lines approved by Chetan; the
-// reasons behind them are in the project brief (section 15). Lines refer to leaders by NUMBER (the number in the brief's
-// list, js/leaders.js), never by name, so renaming a leader later never breaks a line.
+// Every line the leaders say. Plain deadpan text. Lines refer to leaders by NUMBER (the leader's number in
+// js/leaders.js), never by name, so renaming a leader later never breaks a line.
 //   TAGLINE   shown on the intro card before each round
 //   WATCH     the speech bubble on your own screen at the start of each round: [hunter version, hider version]
 //   TAUNT     when this leader's tank hits the other tank
@@ -176,8 +175,8 @@ export const SURVIVE = [null,
   'Hidden all round. Birbal wants the credit.',
 ];
 
-// ---- matchup lines (brief section 7) ----------------------------------------------------------------------------
-// Groups of leader numbers (Chetan approved who counts as what, 2026-10-01). The one place they are listed.
+// ---- matchup lines --------------------------------------------------------------------------------------------
+// Groups of leader numbers. The one place they are listed.
 const G = {
   china: [22], usaAny: [5, 6], usaModern: [6], pakistan: [21], indiaModern: [20], ukraine: [8], russia: [7],
   russiaNapoleon: [7, 3],            // for the Napoleon pair the Soviet Union counts as Russia (Moscow fits both)
@@ -185,7 +184,7 @@ const G = {
   cleopatra: [17], napoleon: [11], hannibal: [24], genghis: [18], alexander: [23], ashoka: [19],
   northKorea: [10], cuba: [32], iraq: [9], vikings: [25], joan: [28], boudica: [29], shivaji: [35], akbar: [36],
 };
-// [who hits, who gets hit, line]. In the brief's order.
+// [who hits, who gets hit, line].
 export const PAIRS = [
   [G.china, G.usaAny, 'Trade war, but with tanks.'],
   [G.usaModern, G.china, 'Tariffs. Now with shells.'],
@@ -240,9 +239,9 @@ export function quoteFor(result, lead) {
   return text && { who, tag: 'Survived', text, kind: 'survive' };
 }
 
-// ---- Stage 4A (Chetan, 2026-10-01): the easter-egg texts ---------------------------------------------------------
-// BUMP: what each leader says when the two tanks stay touching (one line each). Cleopatra's and Genghis Khan's are Chetan's
-// own, kept exactly as written. The rest are in the brief (section 16) with their approval status.
+// ---- the easter-egg texts ---------------------------------------------------------
+// BUMP: what each leader says when the two tanks stay touching (one line each). Cleopatra's and Genghis Khan's stay
+// exactly as written.
 export const BUMP = [null,
   'Sorry. The map was upside down.',
   'Mind the teacup, old chap.',
@@ -281,7 +280,6 @@ export const BUMP = [null,
   'Found you. Wait, you found me.',
   'Birbal, explain this bump.',
 ];
-export const bumpLine = n => BUMP[n] || null;
 // What the bubble shows when the tanks bump: the hunter's leader first, then the hider's (the same order on both phones).
 // lead: { host, guest } leader numbers; hunter: 'host' | 'guest'.
 export function bumpPair(lead, hunter) {
@@ -307,11 +305,11 @@ export const CLUCK = 'Cluck.';
 export const SORRY = 'Sorry!';
 export const REMATCH = 'Best of 3? Make it 5.';
 
-// ---- Stage 4B (Chetan, 2026-10-01): loading tips, newspaper headlines, end-of-match awards -------------------------------------
-// All texts approved by Chetan (brief section 17). Like everything else in this file they are plain functions of what the two
-// phones share; only the loading tips are random, because they carry no game information and each phone shows its own.
+// ---- loading tips, newspaper headlines, end-of-match awards -------------------------------------
+// Like everything else in this file they are plain functions of what the two phones share; only the loading tips are random,
+// because they carry no game information and each phone shows its own.
 
-// Loading tips (egg 10): shown while a phone connects, waits for the other player or waits for the models to load.
+// Loading tips: shown while a phone connects, waits for the other player or waits for the models to load.
 export const TIPS = [
   'Convincing the tank to start.', "Sharpening Brutus's knife.", 'Asking Birbal for advice.', 'Inflating the elephants.',
   'Boiling water for the tea. The war can wait.', 'Turning the map the right way up.', 'Waiting for winter. It is never late.',
@@ -413,8 +411,8 @@ export function awardsFor(m) {
   }
   return out;
 }
-// ---- Round-end flow (Chetan, 2026-10-02): the Nudge line, in the voice of the leader of the player who is Ready and waiting (one per leader).
-// Shown on the OTHER phone, inside its Ready card, next to the nudging leader's face. The reasons are in the brief (section 21).
+// ---- Round-end flow: the Nudge line, in the voice of the leader of the player who is Ready and waiting (one per leader).
+// Shown on the OTHER phone, inside its Ready card, next to the nudging leader's face.
 export const NUDGE = [null,
   'Still waiting. Last time I waited this long, it was winter.',
   'We shall wait on the beaches. The tea is getting cold.',
