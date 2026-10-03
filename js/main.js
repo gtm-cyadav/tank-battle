@@ -932,7 +932,7 @@ const duckOK = () => mode !== 'solo' && isPlaying() && !!rules.match && nextRoun
   && ['settings', 'menu', 'link', 'leave', 'rotate', 'pick'].every(id => $(id).hidden);
 addEventListener('pointerdown', e => {
   duckFrom = null;
-  if (!duckOK()) return;
+  if (!duckOK() || e.target.closest?.('#round .card')) return;   // 5b (review): a tap on a round card is the card's (tap to skip), never a duck tap, even where the card covers the box
   const r = $('cmap-box').getBoundingClientRect();
   if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) duckFrom = { id: e.pointerId, t: performance.now(), x: e.clientX, y: e.clientY };
 }, true);
