@@ -41,32 +41,77 @@
   /* ---- in-game corner bits ---- */
   #hud { position: fixed; z-index: 6; left: max(12px, var(--sl)); top: max(10px, var(--st)); font-size: 11px; letter-spacing: 0.02em;
     background: rgba(20, 26, 24, 0.55); padding: 5px 9px; border-radius: 4px; pointer-events: none; }
-  #hud b { color: var(--hunter); font-weight: 600; }
-  .touch #hud .keys { display: none; }
-  /* round display, top centre: role, clock, round, score; the head-start line sits under it */
+  .touch #hud, [data-match] #hud { display: none; }   /* R4: only the keyboard hint is left (Drive alone on a computer); the room code is in the menu */
+  /* R4 declutter (Chetan, 2026-10-03): the edge HUD, layout B "faces out". Top centre: a small clock chip (clock + three round dashes),
+     your face on its left and theirs on its right (36 px, a ring and a badge in the role colour: crosshair = hunter, eye = hider), two
+     score pips under each face, the weather icon and view distance in a tag under the clock. Under it only one small tag (the head-start
+     lock, the hit beat). The middle of the screen keeps only the aim area, the round-start flash, a bubble and the big ping number. */
   #rh { position: fixed; z-index: 6; top: max(10px, var(--st)); left: 50%; transform: translateX(-50%);
     display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
-  #rh .chip { display: flex; align-items: center; white-space: nowrap; background: rgba(20, 26, 24, 0.62); border: 1px solid var(--line);
-    border-radius: 999px; font: 500 11px/1 var(--font); letter-spacing: 0.04em; text-transform: uppercase; }
-  #rh .chip > span { padding: 8px 10px; }
-  #rh .chip > span + span { border-left: 1px solid var(--line); }
-  #rh-role { color: var(--hunter); }
-  [data-role="hider"] #rh-role { color: var(--hider); }
-  #rh-clock { font-size: 15px; font-weight: 700; letter-spacing: 0; min-width: 2.8em; text-align: center; }
+  .rh-top { display: flex; align-items: flex-start; gap: 10px; }
+  .rh-pl { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  #rh .face { width: 36px; height: 36px; }
+  .rh-mid { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  #rh .chip { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 7px 10px 5px; box-sizing: border-box;
+    background: rgba(20, 26, 24, 0.66); border: 1px solid var(--line); border-radius: 10px; }
+  #rh-clock { font: 700 15px/1 var(--font); letter-spacing: 0; text-align: center; font-variant-numeric: tabular-nums; }
   /* Stage 4A, the last ten seconds: the clock goes red and beats (the beat speeds up with the heartbeat sound, set by main.js) */
   #rh-clock.low { color: #ff5a4a; text-shadow: 0 0 8px rgba(255, 70, 50, 0.45); animation: beat var(--beat, 0.9s) ease-out infinite; }
   @keyframes beat { 0% { transform: scale(1); } 10% { transform: scale(1.24); } 22% { transform: scale(1); } 34% { transform: scale(1.13); } 50%, 100% { transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) { #rh-clock.low { animation: none; } }
-  #rh-note { margin: 0; font-size: 12px; background: rgba(20, 26, 24, 0.62); padding: 5px 10px; border-radius: 4px; white-space: nowrap; }
-  #rh-note:empty { display: none; }
+  /* the round dashes (rounds 1-3: done, now, to come) and the score pips (rounds won of the two needed) */
+  .rp { display: flex; gap: 3px; justify-content: center; margin-top: 4px; }
+  .rp b { width: 9px; height: 2.5px; border-radius: 2px; background: rgba(223, 229, 225, 0.28); }
+  .rp b.done { background: rgba(223, 229, 225, 0.6); }
+  .rp b.now { width: 14px; background: var(--text); }
+  .pips { display: flex; gap: 4px; }
+  .pips b { width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid rgba(223, 229, 225, 0.7); }
+  .pips b.on { background: var(--text); border-color: var(--text); }
+  /* a small dark tag with an icon and a number or one word (weather, head start, hit) */
+  .tagc { display: flex; align-items: center; gap: 5px; margin: 0; padding: 3px 9px 3px 7px; background: rgba(20, 26, 24, 0.66); border: 1px solid var(--line);
+    border-radius: 999px; font: 700 12px/1 var(--font); white-space: nowrap; --cut: #1b201e; }
+  .tagc:empty { display: none; }
+  #rh-note { font-size: 13px; padding: 4px 10px 4px 8px; }
+  #rh-note.hit { color: var(--hunter); }
+  #rh-note.hit.me { color: #ff5a4a; }
+  /* Drive alone: no clock, no score, no other player's face */
+  html:not([data-match]) #rh .chip, html:not([data-match]) #rh .pips, html:not([data-match]) #rh-p1 { display: none; }
+  /* a face with a ring and a badge in its role colour (the HUD and the cards); .st is a status badge (Ready tick, waiting, again) */
+  .who { position: relative; display: inline-block; flex: none; --rc: var(--hunter); }
+  .who[data-role="hider"] { --rc: var(--hider); }
+  .who .face { box-shadow: 0 0 0 2px var(--rc), 0 0 0 3px #141816; }
+  .who .rb { position: absolute; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+    background: #141816; color: var(--rc); box-shadow: 0 0 0 1.5px var(--rc); --cut: #141816; }
+  .who .rb.l { left: -7px; } .who .rb.r { right: -7px; }
+  .who .st { position: absolute; top: -4px; right: -6px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #141816; --cut: #141816; }
+  .who .st:empty { display: none; }
+  .who .st.ok { color: #7fd48a; } .who .st.wait { color: var(--muted); } .who .st.again { color: var(--text); }
+  .who.win .face { box-shadow: 0 0 18px var(--rc), 0 0 0 2px var(--rc), 0 0 0 3px #141816; }
+  .who.lose { opacity: 0.6; }
+  .ic { display: block; flex: none; }
+  /* the round-start flash (in place of "Round 2. You are the hunter."): the role icon in a disc and the round dashes, 1.5 s. It sits UNDER the controls
+     (z 4, like the ping alarm), so a button pushed up into the middle is never covered by it */
+  #flash { position: fixed; z-index: 4; top: calc(max(10px, var(--st)) + 84px); left: 50%; transform: translateX(-50%); pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--hunter); animation: flashIn 1.5s ease-out forwards; }
+  #flash[data-role="hider"] { color: var(--hider); }
+  #flash .disc { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: rgba(20, 26, 24, 0.72); box-shadow: 0 0 0 2px currentColor; --cut: #141816; }
+  @keyframes flashIn { 0% { opacity: 0; transform: translateX(-50%) scale(0.7); } 12% { opacity: 1; transform: translateX(-50%) scale(1.06); } 22% { transform: translateX(-50%) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { #flash { animation: none; } }
+  /* the ping countdown on the hider's phone: one big red number under the HUD (the red edges stay) */
+  #bign { position: fixed; z-index: 8; top: calc(max(10px, var(--st)) + 86px); left: 50%; transform: translateX(-50%); pointer-events: none;
+    font: 700 64px/1 var(--font); color: #ff4a3a; text-shadow: 0 0 16px rgba(255, 40, 28, 0.6), 0 2px 0 rgba(60, 0, 0, 0.6); }
+  /* the ping ring on the corner map's right edge while a ping shows (both players; beside the map, so a button under the map never meets it) */
+  #cmap-ping { position: fixed; z-index: 7; left: calc(max(12px, var(--sl)) + var(--map-w) - 13px); top: calc(max(10px, var(--st)) + var(--map-h) / 2 - 13px);
+    width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(40, 8, 6, 0.85); box-shadow: 0 0 0 1px #ff4a3a; color: #ff5a4a; pointer-events: none; }
+  html:not([data-state="playing"]) #flash, html:not([data-state="playing"]) #bign, html:not([data-state="playing"]) #cmap-ping { display: none; }
+  [data-flash] #rh-note { visibility: hidden; }   /* the 1.5 s flash sits where the head-start tag is; the tag comes back after it */
+  [data-flash] #toast, [data-bign] #toast { opacity: 0; }   /* one thing at a time under the HUD: the flash or the ping number win over a notice */
   /* hider's ping alarm (1e, Chetan: "red highlights all over to show danger"): red glow from every edge, pulsing on
      each count, a flash at "Pinged", then steady for the 4 s. The middle stays clear for driving. Strength set by main.js. */
   #alarm { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; --flash: 0;
     background: radial-gradient(ellipse at center, rgba(255, 40, 28, 0) 42%, rgba(255, 40, 28, 0.42) 78%, rgba(210, 18, 12, 0.88) 100%);
     box-shadow: inset 0 0 0 3px rgba(255, 64, 48, 0.9); }
   #alarm::after { content: ''; position: absolute; inset: 0; background: rgba(255, 36, 24, 0.32); opacity: var(--flash); }
-  #rh-note.alarm { font-size: 14px; font-weight: 700; letter-spacing: 0.01em; color: #ff6a5a; background: rgba(40, 8, 6, 0.72);
-    border: 1px solid rgba(255, 70, 55, 0.6); padding: 6px 8px; }   /* 12 -> 8 px a side (2026-10-02): the longest ping text no longer touches the back-to-full-screen button on a 667 px phone with a cut-out */
   #cmap.alarm { border-color: #ff4a3a; box-shadow: 0 0 0 1px #ff4a3a, 0 0 14px rgba(255, 50, 35, 0.55); }
   .corner { position: fixed; z-index: 7; top: max(10px, var(--st)); width: 40px; height: 40px; display: grid; place-items: center;
     padding: 0; background: rgba(20, 26, 24, 0.55); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
@@ -88,7 +133,6 @@
   [data-map] #hud { top: calc(max(10px, var(--st)) + var(--map-h) + 6px); }
   html:not([data-state="playing"]) #hud, html:not([data-state="playing"]) #rh, html:not([data-state="playing"]) #gear, html:not([data-state="playing"]) #menu-btn,
   html:not([data-state="playing"]) #cmap, html:not([data-state="playing"]) #alarm { display: none; }
-  [data-match] #hud .brand, [data-match] #hud .keys { display: none; }
 
   /* ---- phone controls (sizes and sides come from the settings panel) ----
      Two FIXED sliders and one action button, 2026-10-02 (Chetan). The speed slider sits on one edge, the steering slider in the bottom corner of the other
@@ -122,12 +166,16 @@
   [data-side="right"] #ring-pad { --x: calc(100vw - var(--sr) - var(--w) / 2 - 26px); }
   #ring-pad::before { border-radius: 50%; }
   [data-control="ring"] #stick, [data-control="ring"] #steer, html:not([data-control="ring"]) #ring-pad { display: none; }
-  /* the button never rises into the top-corner buttons (gear, full screen), whatever the size and height settings */
-  #action { --top-limit: calc(100dvh - max(10px, var(--st)) - 48px - 128px * var(--bs));
+  /* the button never rises into the top-corner buttons (gear, full screen), whatever the size and height settings. R4: when it is pushed in so
+     far that it would sit under the HUD (its inner edge closer than 90 px to the middle of the screen), it also stays below the HUD row and its
+     tag (100 px from the top); nearer the edge the old 48 px limit holds, so the usual layouts are exactly as before */
+  #action { --hud-clear: clamp(0px, (var(--sr) + var(--btn-edge, 26px) + 128px * var(--bs) - 50vw + 90px) * 100, 52px);
+    --top-limit: calc(100dvh - max(10px, var(--st)) - 48px - var(--hud-clear) - 128px * var(--bs));
     position: fixed; z-index: 5; right: calc(var(--sr) + var(--btn-edge, 26px)); bottom: min(calc(var(--sb) + var(--btn-height, 26px)), var(--top-limit));
     width: calc(128px * var(--bs)); height: calc(128px * var(--bs)); padding: 0; border: 0; background: none; touch-action: none;
     display: grid; place-items: center; --c: var(--hunter); }
-  [data-side="right"] #action { right: auto; left: calc(var(--sl) + var(--btn-edge, 26px)); }
+  [data-side="right"] #action { right: auto; left: calc(var(--sl) + var(--btn-edge, 26px));
+    --hud-clear: clamp(0px, (var(--sl) + var(--btn-edge, 26px) + 128px * var(--bs) - 50vw + 90px) * 100, 52px); }
   #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px) + 96px * var(--s)), var(--top-limit)); }   /* above the steering slider */
   [data-control="ring"] #action { bottom: min(calc(var(--sb) + var(--btn-height, 26px)), var(--top-limit)); }   /* ring: no slider under it, so down in the corner */
   /* button on the left, under the corner map: never rises into the map or the room label under it */
@@ -156,7 +204,7 @@
   .set-body h3 { margin: 18px 0 10px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--hunter); font-weight: 700; }
   .set-row { margin-bottom: 12px; }
   .set-row .lbl { display: flex; justify-content: space-between; font-size: 13px; color: var(--text); }
-  .set-row .lbl span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .set-row .lbl span[id^="val-"] { color: var(--muted); font-variant-numeric: tabular-nums; }
   .set-row input[type="range"] { width: 100%; height: 30px; margin: 2px 0 0; accent-color: var(--hunter); touch-action: none; }
   .seg { display: flex; margin-top: 7px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
   .seg button { flex: 1; background: none; border: 0; color: var(--muted); padding: 10px 4px; font: 500 12px/1.1 var(--font); cursor: pointer; }
@@ -216,11 +264,12 @@
   @media (max-height: 340px) { .rule { margin: 10px 0 14px; } .hint { font-size: 12px; } .code { font-size: 38px; } }
   #start:not([data-panel="home"]) .hint { display: none; }
 
-  #toast { position: fixed; z-index: 8; top: max(56px, calc(var(--st) + 46px)); left: 50%; transform: translate(-50%, -8px); opacity: 0;
-    max-width: calc(100vw - 48px); padding: 9px 16px; border-radius: 6px; background: rgba(20, 26, 24, 0.82); border: 1px solid var(--line);
-    font-size: 12px; color: var(--text); white-space: nowrap; pointer-events: none; transition: opacity 0.25s, transform 0.25s; }
+  #toast { position: fixed; z-index: 8; top: calc(max(10px, var(--st)) + 56px); left: 50%; transform: translate(-50%, -8px); opacity: 0;
+    max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 7px; padding: 6px 13px 6px 8px; border-radius: 999px; background: rgba(20, 26, 24, 0.86);
+    border: 1px solid var(--line); font: 700 12px/1 var(--font); color: var(--text); white-space: nowrap; pointer-events: none; transition: opacity 0.25s, transform 0.25s; --cut: #161b19; }
+  #toast .face { width: 20px; height: 20px; box-shadow: 0 0 0 1.5px var(--hider); }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
-  [data-match] #toast { top: max(80px, calc(var(--st) + 70px)); }
+  [data-match] #toast { top: calc(max(10px, var(--st)) + 104px); }   /* under the HUD and its tag */
   [data-card] #toast { top: auto; bottom: max(14px, var(--sb)); transform: translate(-50%, 8px); }   /* under the round card, not over it */
   [data-card] #toast.show { transform: translate(-50%, 0); }
   #link { z-index: 18; background: rgba(12, 15, 14, 0.62); }
@@ -229,31 +278,27 @@
   #link .card .count:empty { display: none; }
   #link .card p:not(.count) + .row { margin-top: 20px; }
 
-  /* round result / coin toss / match over: see-through, so the arena (and a wrecked tank) shows round it */
-  #round { z-index: 12; background: rgba(12, 15, 14, 0.3); pointer-events: none; padding-top: max(54px, calc(var(--st) + 44px)); }
+  /* round-end and toss cards: see-through, so the arena (and a wrecked tank) shows round them */
+  #round { z-index: 12; background: rgba(12, 15, 14, 0.3); pointer-events: none; padding-top: calc(max(10px, var(--st)) + 56px); }   /* R4: under the faces and pips */
+  [data-card] #rh-wx { display: none; }   /* while a card shows, the HUD keeps only the faces, the clock and the pips (the Ready card shows the next weather) */
   [data-map] #round { padding-left: calc(max(12px, var(--sl)) + var(--map-w) + 12px); }
-  #round .card { pointer-events: auto; min-width: 280px; max-width: 480px; padding: 16px 24px; background: rgba(20, 24, 22, 0.94); }
-  #round .over { margin: 0 0 8px; }
-  #round .card p { margin: 0 0 5px; }
-  #round #rc-wx { margin-top: 10px; color: var(--text); font-size: 12px; }
-  #round #rc-wx:empty { display: none; }
-  #round #rc-duck { margin: 4px 0 0; font-size: 12px; color: var(--hunter); }
-  #round #rc-duck:empty { display: none; }
-  #round #rc-wx::before { content: 'Weather '; color: var(--muted); }
-  #round #rc-score, #round #rc-who { color: var(--text); }
-  #round #rc-who:empty { display: none; }
-  #round #rc-count { margin-top: 12px; font-variant-numeric: tabular-nums; }
-  #round #rc-count:empty, #round #rc-p:empty { display: none; }
-  #round .row { margin-top: 16px; }
-
-  /* in-game menu (1f): above the round card (it can be opened between rounds), below settings, the waiting card and the leave prompt */
+  #round .card { pointer-events: auto; min-width: 0; box-sizing: border-box; padding: 14px 22px; background: rgba(20, 24, 22, 0.94); }
+  #round .card p { margin: 0; }
+  #round .over { margin: 0; }
+  /* in-game menu (1f; R4: icon buttons with tiny labels, the room code and "Clock runs" on top): above the round card, below settings, the waiting card and the leave prompt */
   #menu { z-index: 14; background: rgba(12, 15, 14, 0.45); }
-  #menu .card { width: min(340px, 100%); box-sizing: border-box; min-width: 0; padding: 20px 24px; }
+  #menu .card { width: min(300px, 100%); box-sizing: border-box; min-width: 0; padding: 14px 16px; }
   #menu .card p { margin-bottom: 16px; }
+  .menu-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 18px; margin-bottom: 12px; }
+  #menu-room { letter-spacing: 0.14em; font-size: 14px; color: var(--text); }
+  #menu .card p#menu-p { margin: 0 0 0 auto; font-size: 11px; color: var(--muted); }
   #menu .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  #menu .grid .btn { min-width: 0; padding: 13px 8px; }
+  #menu .grid .btn { min-width: 0; padding: 12px 6px 9px; display: flex; flex-direction: column; align-items: center; gap: 6px; font: 500 11px/1 var(--font); --cut: #141816; }
+  #menu .grid .btn.secondary { color: var(--text); }
+  #menu .grid .btn:not(.secondary) { --cut: var(--hunter); }
   #menu-quit { grid-column: 1 / -1; }
-
+  .mini { display: inline-flex; align-items: center; gap: 5px; font: 700 13px/1 var(--font); white-space: nowrap; }
+  .mini:empty { display: none; }
 
   /* leader picker (Stage 3A): all 36 grouped by era plus Random; side panel with the choice, scrolling grid beside it.
      Above the round card and the menu, below settings, the waiting card and the leave prompt. */
@@ -265,7 +310,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=r3-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=r4-1) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -288,25 +333,7 @@
   .pk-card.on { border-color: var(--text); background: #2a332f; box-shadow: 0 0 0 1px var(--text); }
   #pk-list.locked .pk-card:not(.on) { opacity: 0.45; }
 
-  /* Stage 3B: the intro card (both leaders before each round) and the "watching" speech bubble. Since the round-end flow (2026-10-02) the
-     quote, the badges and the headline live on the score and taunt screens (below), not on this card. Stage 4A: the rematch taunt on the
-     loser's match-over card */
-  #round #rc-taunt { margin: 10px 0 0; font-size: 13px; color: var(--text); }
-  #round #rc-taunt:empty { display: none; }
-  #round .card.intro #rc-taunt, #round .card.intro #rc-extra { display: none; }
-  #rc-vs { display: none; }
-  #round .card.intro { width: min(540px, 100%); box-sizing: border-box; max-width: none; }
-  #round .card.intro #rc-t, #round .card.intro #rc-p, #round .card.intro #rc-who, #round .card.intro #rc-score,
-  #round .card.intro #rc-buttons { display: none; }
-  #round .card.intro #rc-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 4px 0 4px; }
-  #rc-vs .vs { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-  #rc-vs .vs-who { margin-bottom: 6px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-  #rc-vs canvas { width: 60px; height: 40px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
-  #rc-vs b { margin-top: 8px; font: 700 13px/1.25 var(--font); }
-  #rc-vs .vs-place { margin-top: 2px; font-size: 11px; line-height: 1.3; color: var(--muted); }
-  #rc-vs .vs-tag { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--text); }
-  #round .card.intro #rc-count { margin-top: 10px; }
-  #round .card.intro #rc-wx { margin-top: 4px; }
+  /* Stage 3B, the "watching" speech bubble (the intro card's styles are now the R4 cards' further down) */
   #bubble { position: fixed; z-index: 9; left: 0; top: 0; width: max-content; box-sizing: border-box; padding: 8px 12px; border-radius: 10px;
     background: rgba(236, 240, 237, 0.95); color: #141816; font: 500 12px/1.35 var(--font); text-align: center; white-space: pre-line; pointer-events: none;
     opacity: 0; transition: opacity 0.25s; --tx: 50%; }
@@ -315,14 +342,6 @@
     border-top-color: rgba(236, 240, 237, 0.95); }
   html:not([data-state="playing"]) #bubble { display: none; }
 
-  /* Stage 4A: on a short phone screen the cards give up a little padding, so badges and the rematch taunt fit beside the quote and buttons */
-  @media (max-height: 400px) {
-    #round .card { padding: 12px 22px; }
-    #round .card p { margin-bottom: 3px; }
-    #round #rc-count { margin-top: 8px; }
-    #round .row { margin-top: 12px; }
-    #round #rc-taunt { margin-top: 6px; }
-  }
 
   /* ---- Stage 4B ---------------------------------------------------------------------------------------------------------------- */
   /* loading tips (egg 10): one quiet line under the status text while a phone connects, waits for the other player or waits for the models */
@@ -370,37 +389,10 @@
   #bubble[data-theme="love"]::after { border-top-color: rgba(255, 232, 240, 0.97); }
   #bubble[data-theme="hate"] { background: rgba(38, 8, 8, 0.96); color: #ffd9d4; box-shadow: 0 0 0 1px rgba(255, 90, 70, 0.75); }
   #bubble[data-theme="hate"]::after { border-top-color: rgba(38, 8, 8, 0.96); }
-  #round #rc-theme { margin: 8px 0 0; font-size: 13px; line-height: 1.4; white-space: pre-line; }
+  #round #rc-theme { margin: 8px 0 0; font-size: 12px; line-height: 1.4; white-space: pre-line; text-align: left; }
   html[data-theme="love"] #round #rc-theme { color: #ffb8cf; }
   html[data-theme="hate"] #round #rc-theme { color: #ff9f92; }
   #round #rc-theme:empty { display: none; }
-
-  /* the end-of-match awards (egg 12); the round's newspaper headline (egg 11) is on the taunt screen */
-  #round #rc-awards { margin: 4px 0 6px; }
-  #round #rc-awards p { margin: 0 0 4px; font-size: 10.5px; line-height: 1.3; color: var(--muted); }
-  #round #rc-awards b { display: block; color: #e9b43a; font: 700 11px/1.3 var(--font); letter-spacing: 0; }
-  /* a match-over card with extras (quote, headline, awards, taunt) uses two columns so it stays short: the result, the themed message and the
-     buttons on the left, the story (badges, quote, headline, awards, taunt) on the right. The "A vs B" line gives its room away: the awards and
-     the quote name the leaders. */
-  #round .card.wide { display: grid; grid-template-columns: minmax(0, 48%) minmax(0, 48%); column-gap: 4%; grid-template-rows: auto 1fr; grid-template-areas: "top extra" "bot extra";
-    width: min(600px, 100%); box-sizing: border-box; max-width: none; text-align: left; }
-  #rc-top { grid-area: top; } #rc-extra { grid-area: extra; } #rc-bot { grid-area: bot; }
-  #round .card.wide #rc-who { display: none; }
-  #round .card.wide #rc-extra > * { text-align: left; }
-  #round .card.wide #rc-buttons { margin-top: 10px; justify-content: flex-start; gap: 8px; }
-  #round .card.wide #rc-buttons .btn { flex: 1; min-width: 0; padding: 11px 6px; font-size: 13px; white-space: nowrap; }
-  #round .card.wide #rc-theme { font-size: 12px; line-height: 1.35; }
-  #round .card.wide #rc-p, #round .card.wide #rc-count { font-size: 11px; }
-  /* a narrow phone (667 wide) leaves the cards only about 480 px between the corner map and the right edge: the two-column match-over card drops the "Round 2: ..." line (the quote and the headline say how the round ended) */
-  @media (max-width: 720px) {
-    #round .card.wide { padding: 10px 14px; }
-    #round .card.wide #rc-p { display: none; }
-    #round .card.wide #rc-awards b { font-size: 10px; }
-    #round .card.wide #rc-awards p { font-size: 10px; margin-bottom: 3px; }
-    #round .card.wide #rc-theme { font-size: 11.5px; margin-top: 6px; }
-    #round .card.wide #rc-count { font-size: 10.5px; margin-top: 6px; }
-    #round .card.wide #rc-taunt { font-size: 12px; margin-top: 4px; }
-  }
 
   #rotate { z-index: 30; background: var(--ink); text-align: center; }
   #rotate svg { display: block; margin: 0 auto 22px; animation: turn 2.4s ease-in-out infinite; }
@@ -422,83 +414,162 @@
   #start:not([data-panel="home"]) .tag, #start:not([data-panel="home"]) .spec { display: none; }
   .card .row { display: flex; gap: 10px; justify-content: center; }
   .card .btn { min-width: 110px; }
-  /* ---- round-end flow (Chetan, 2026-10-02): score screen, taunt screen, Ready card ------------------------------------------------------
-     The stripe, the winning number and the face's ring take the round winner's role colour: orange when the hunter won, blue when the hider survived. */
+  /* ---- round-end flow (Chetan, 2026-10-02) and the R4 cards (2026-10-03, icons first, faces instead of names, text only where the joke lives) ----
+     Toss card (coin toss + intro, one card), Ready card, score screen, taunt screen, match-over card. The stripe, the winning number and the
+     winner's glow take the round winner's role colour: orange when the hunter won, blue when the hider survived. */
   #round { --win: var(--hunter); }
   #round[data-win="hider"] { --win: var(--hider); }
   .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-  .chips span { padding: 5px 10px; border: 1px solid #e9b43a; border-radius: 999px; font: 700 10px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase; color: #e9b43a; white-space: nowrap; }
+  .chips span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 7px; border: 1px solid #e9b43a; border-radius: 999px; font: 700 10px/1 var(--font);
+    letter-spacing: 0.1em; text-transform: uppercase; color: #e9b43a; white-space: nowrap; --cut: #161b19; }
   /* a leader's face: one cell of the picker's picture (models/faces.webp, 6 x 6), zoomed a little onto the head, in a round frame (main.js faceOn) */
-  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=r3-1) no-repeat; background-size: 672% 672%; }
-  #round #sc { width: min(500px, 100%); box-sizing: border-box; max-width: none; padding: 0; overflow: hidden; }
-  #sc .hz { height: 12px; background: repeating-linear-gradient(-45deg, var(--win) 0 9px, #141816 9px 18px); }
-  #sc .sc-body { padding: 12px 22px 14px; }
-  #round #sc .over { margin: 0 0 4px; }
-  #sc h2 { margin: 0 0 10px; font-size: 21px; }
-  .sc-board { display: flex; align-items: center; justify-content: center; gap: 22px; }
-  .sc-side { display: flex; flex-direction: column; align-items: center; gap: 7px; }
-  .sc-side canvas { width: 60px; height: 40px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
-  .sc-side small { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-  .sc-num { font: 700 76px/1 var(--font); color: var(--text); font-variant-numeric: tabular-nums; }
-  .sc-num.w { color: var(--win); }
-  .sc-dash { font: 400 38px/1 var(--font); color: var(--muted); }
-  #round #sc-how { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
-  #sc-badges { margin-top: 10px; }
-  #round #tt { width: min(520px, 100%); box-sizing: border-box; max-width: none; padding: 16px 20px 14px; }
-  .tt-top { display: flex; align-items: center; gap: 20px; }
-  #tt-face { width: 112px; height: 112px; box-shadow: 0 0 0 4px var(--win), 0 0 0 5px #141816; }
-  #round #tt-q, #round #rd-said { position: relative; flex: 1; min-width: 0; margin: 0; padding: 12px 16px; border-radius: 12px; background: rgba(236, 240, 237, 0.96);
-    color: #141816; text-align: left; font: 500 16px/1.4 var(--font); }
-  #tt-q::before, #rd-said::before { content: ''; position: absolute; left: -9px; top: 50%; margin-top: -9px; border: 9px solid transparent; border-left: 0; border-right-color: rgba(236, 240, 237, 0.96); }
-  #round #tt-news { margin: 12px 0 0; padding: 7px 4px; border-top: 1px solid var(--muted); border-bottom: 1px solid var(--muted); font: 700 12px/1.35 var(--font); color: var(--text); }
-  #round #tt-news:empty { display: none; }
-  /* the Ready card: the intro card, one line for who hunts and the weather, then Ready, the status (or a nudge from the other player) and Nudge */
-  #round .card.ready #rc-count, #round .card.ready #rc-wx { display: inline; margin: 0; font-size: 12px; }
-  #round .card.ready #rc-count::after { content: ' · '; color: var(--muted); }
-  #round .card.ready #rc-duck { margin-top: 2px; }
-  #round .card.ready .over { margin-bottom: 4px; }
-  #round .card.ready #rc-vs canvas { width: 48px; height: 32px; }
-  #round .card.ready #rc-vs b { margin-top: 6px; }
-  #round .card.ready #rc-vs .vs-tag { margin-top: 6px; }
-  #rd { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 8px; }
+  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=r4-1) no-repeat; background-size: 672% 672%; }
+  .vs { font: 700 13px/1 var(--font); color: var(--muted); letter-spacing: 0.1em; }
+  #round canvas.fl { display: block; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+  /* toss card */
+  #round #ti { width: 340px; max-width: 100%; text-align: center; }
+  .ti-vs { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 12px 0 10px; }
+  .ti-side { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #ti .face { width: 64px; height: 64px; }
+  #ti canvas.fl { width: 42px; height: 28px; }
+  .ti-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .ti-row .rp { margin: 0; }
+  #ti-n { font-size: 22px; color: var(--text); }
+  #ti-n .ic { color: var(--muted); --cut: #161b19; }
+  #round .duck { margin: 8px 0 0; font-size: 12px; color: var(--hunter); }
+  #round .duck:empty { display: none; }
+  /* Ready card: faces, flags, the parody names and taglines (the joke stays here), the next round's weather, Ready, the late countdown, Nudge */
+  #round #rdy { width: min(520px, 100%); text-align: center; padding: 12px 18px; }
+  .rdy-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: start; margin-top: 10px; }
+  .rdy-vs .vs { margin-top: 20px; }
+  .rdy-side { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; }
+  .rdy-id { display: flex; align-items: center; gap: 10px; }
+  #rdy .face { width: 52px; height: 52px; }
+  #rdy canvas.fl { width: 36px; height: 24px; }
+  .rdy-side b { font: 700 12px/1.25 var(--font); }
+  .rdy-side .vs-tag { font-size: 11px; line-height: 1.35; color: var(--text); }
+  #rdy .rp { margin: 0; }
+  #rd { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; min-width: 0; }
   #rd[hidden] { display: none; }
-  #rd-go { flex: none; min-width: 120px; }
-  #rd-go:disabled { background: transparent; color: var(--muted); border-color: var(--line); opacity: 1; }
-  #round #rd-st { margin: 0; min-width: 0; text-align: left; font-size: 12px; line-height: 1.35; color: var(--muted); font-variant-numeric: tabular-nums; }
-  #rd-st b { display: block; color: var(--text); font-weight: 700; }
-  #rd-st.ok b { color: #7fd48a; }
-  #rd-st span:empty { display: none; }
-  #rd-nudge { flex: none; min-width: 0; padding: 11px 14px; font-size: 12px; }
+  #rd-go { flex: none; min-width: 120px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; --cut: var(--hunter); }
+  #rd-go:disabled { background: transparent; color: var(--muted); border-color: var(--line); opacity: 1; --cut: #161b19; }
+  #rd-late { color: var(--muted); }
+  #rd-late .ic { --cut: #161b19; }
+  #rd-wx { --cut: #161b19; }
+  #rd-nudge { flex: none; min-width: 0; padding: 10px 13px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; --cut: #161b19; }
   #rd-bub { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 0 1 330px; }
   #rd-bub[hidden] { display: none; }
   #rd-face { width: 40px; height: 40px; box-shadow: 0 0 0 2px var(--win); }
-  #round #rd-said { padding: 7px 11px; font-size: 12px; line-height: 1.35; border-radius: 10px; }
+  #round #rd-said, #round #tt-q { position: relative; flex: 1; min-width: 0; margin: 0; border-radius: 12px; background: rgba(236, 240, 237, 0.96); color: #141816; text-align: left; }
+  #round #rd-said { padding: 7px 11px; font: 500 12px/1.35 var(--font); border-radius: 10px; }
+  #tt-q::before, #rd-said::before { content: ''; position: absolute; left: -9px; top: 50%; margin-top: -9px; border: 9px solid transparent; border-left: 0; border-right-color: rgba(236, 240, 237, 0.96); }
   #rd-said::before { left: -7px; margin-top: -7px; border-width: 7px; border-left: 0; }
-  /* short phones: the score and taunt screens give up a little height */
+  /* score screen: the winner's face big, the score big, how (icon + time) and the badges */
+  #round #sc { width: min(470px, 100%); padding: 0; overflow: hidden; text-align: center; }
+  #sc .hz { height: 12px; background: repeating-linear-gradient(-45deg, var(--win) 0 9px, #141816 9px 18px); }
+  #sc .sc-body { padding: 10px 22px 14px; }
+  #sc .over { margin-bottom: 4px; }
+  #sc .over:empty { display: none; }
+  .sc-board { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 12px 0 8px; }
+  #sc .who.win .face { width: 76px; height: 76px; }
+  #sc .who.lose .face { width: 46px; height: 46px; }
+  .sc-num { font: 700 72px/1 var(--font); color: var(--text); font-variant-numeric: tabular-nums; }
+  .sc-num.w { color: var(--win); }
+  .sc-dash { font: 400 34px/1 var(--font); color: var(--muted); }
+  .sc-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 12px; }
+  #sc-how { --cut: #161b19; }
+  #sc-how.hunter { color: var(--hunter); } #sc-how.hider { color: var(--hider); }
+  #sc-badges[hidden] { display: none; }
+  /* taunt screen (unchanged: the face, the quote, the headline) */
+  #round #tt { width: min(520px, 100%); padding: 16px 20px 14px; }
+  .tt-top { display: flex; align-items: center; gap: 20px; }
+  #tt-face { width: 112px; height: 112px; box-shadow: 0 0 0 4px var(--win), 0 0 0 5px #141816; }
+  #round #tt-q { padding: 12px 16px; font: 500 16px/1.4 var(--font); }
+  #round #tt-news { margin: 12px 0 0; padding: 7px 4px; border-top: 1px solid var(--muted); border-bottom: 1px solid var(--muted); font: 700 12px/1.35 var(--font); color: var(--text); text-align: center; }
+  #round #tt-news:empty { display: none; }
+  /* match-over card: the winner's face and the score, Again / Leave, who wants a rematch; on the right the awards (a face, not a name), the theme message, the rematch taunt */
+  #round #fin { width: min(300px, 100%); display: grid; grid-template-columns: 1fr; gap: 18px; text-align: center; }
+  #round #fin.wide { width: min(560px, 100%); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .fin-l { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+  #fin-t { font-size: 13px; line-height: 1.4; color: var(--text); }
+  #fin-t:empty { display: none; }
+  .fin-board { display: flex; align-items: center; gap: 12px; padding: 0 8px; }   /* room for the role badges that stick out of the faces */
+  #fin .who.win .face { width: 64px; height: 64px; }
+  #fin .who.lose .face { width: 40px; height: 40px; }
+  #fin-score { font: 700 46px/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #fin-score i { font-style: normal; font-weight: 400; color: var(--muted); }
+  #fin.wide .fin-board { gap: 8px; }   /* two columns: the faces and the score a little smaller so they fit half the card */
+  #fin.wide .who.win .face { width: 52px; height: 52px; }
+  #fin.wide .who.lose .face { width: 34px; height: 34px; }
+  #fin.wide #fin-score { font-size: 36px; }
+  #fin-score .w { color: var(--win); }
+  #rc-buttons { display: flex; gap: 8px; }
+  #rc-buttons .btn { min-width: 0; display: inline-flex; align-items: center; gap: 7px; padding: 11px 14px; font-size: 13px; --cut: var(--hunter); }
+  #rc-buttons .btn.secondary { --cut: #161b19; }
+  #fin-st { color: var(--muted); --cut: #161b19; }
+  #fin-st .face { width: 22px; height: 22px; box-shadow: 0 0 0 1.5px var(--line); }
+  #rc-extra { display: none; text-align: left; padding-top: 4px; min-width: 0; }
+  #fin.wide #rc-extra { display: block; }
+  #rc-awards p { display: flex; align-items: center; gap: 8px; margin: 0 0 7px; }
+  #rc-awards .face { width: 24px; height: 24px; box-shadow: 0 0 0 1.5px #e9b43a; }
+  #rc-awards b { color: #e9b43a; font: 700 11px/1.3 var(--font); }
+  #round #rc-taunt { margin: 10px 0 0; font-size: 13px; color: var(--text); }
+  #round #rc-taunt:empty { display: none; }
+  /* short phones and the narrow phone: the cards give up a little room */
   @media (max-height: 400px) {
-    #sc .sc-body { padding: 10px 20px 12px; }
-    .sc-num { font-size: 68px; }
-    #round #sc-how { margin-top: 10px; }
+    #sc .sc-body { padding: 8px 20px 12px; }
+    .sc-num { font-size: 64px; }
   }
   @media (max-width: 720px) {
-    .sc-board { gap: 16px; }
+    .sc-board { gap: 14px; }
     #tt-face { width: 96px; height: 96px; }
     #round #tt-q { font-size: 15px; padding: 10px 14px; }
     .tt-top { gap: 16px; }
+    #round #fin.wide { padding: 12px 14px; column-gap: 12px; }
+    #rc-awards b { font-size: 10px; }
   }
+  /* ---- R4 Settings rows: an icon, a short label, the control, and an "i" that opens the note ---- */
+  .set-row .lbl { align-items: center; gap: 10px; }
+  .set-row .lbl > .ic { color: var(--muted); --cut: #141816; }
+  .set-row .lbl > span:first-of-type { flex: 1; }
+  .set-row .lbl .seg { margin-top: 0; flex: none; }
+  .set-row .lbl .seg button { padding: 8px 9px; display: inline-flex; align-items: center; gap: 5px; --cut: #141816; }
+  .set-row .lbl .seg button[aria-pressed="true"] { --cut: var(--hunter); }
+  .set-row > .seg { margin-left: 32px; }
+  .set-row input[type="range"] { width: calc(100% - 32px); margin-left: 32px; }
+  .ib { flex: none; width: 26px; height: 26px; padding: 0; margin: -4px -4px -4px 0; display: grid; place-items: center; background: none; border: 0; color: var(--muted); cursor: pointer; --cut: #141816; }
+  .ib[aria-expanded="true"] { color: var(--text); }
+  .set-row .note { margin: 7px 0 0 32px; padding: 6px 9px; border-radius: 6px; background: rgba(223, 229, 225, 0.07); }
+  .set-body > .set-row:first-child { margin-top: 12px; }
+  .set-sep { height: 1px; margin: 4px 0 12px; background: var(--line); }
+  /* start screen buttons with an icon */
+  .btn.ico { display: inline-flex; align-items: center; gap: 10px; --cut: var(--hunter); }
+  .btn.ico.secondary { --cut: #141816; }
+  .solo-wx .seg button { display: grid; place-items: center; padding: 8px 4px; --cut: #141816; }
+  .solo-wx .seg button[aria-pressed="true"] { --cut: var(--hunter); }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="safe"></div>
 
-<div id="hud"><span class="brand"><b>TANK BATTLE</b> &middot; Stage 4B &middot; </span><span id="hud-room"></span><span class="keys"> &middot; arrows / WASD drive, Space = action</span></div>
+<div id="hud"><span class="keys">Arrows / WASD drive &middot; Space = action</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bubble" aria-live="off" hidden></div>
 <div id="rh" hidden>
-  <div class="chip"><span id="rh-role">Hunter</span><span id="rh-clock">3:00</span><span id="rh-round">Round 1</span><span id="rh-score">You 0 &ndash; 0 Them</span></div>
-  <p id="rh-note"></p>
+  <div class="rh-top">
+    <div id="rh-p0" class="rh-pl"><span id="rh-w0" class="who"><i id="rh-f0" class="face"></i><span id="rh-r0" class="rb l"></span></span><span id="rh-s0" class="pips"><b></b><b></b></span></div>
+    <div class="rh-mid">
+      <div class="chip"><span id="rh-clock">3:00</span><span id="rh-rp" class="rp"><b></b><b></b><b></b></span></div>
+      <p id="rh-wx" class="tagc"></p>
+    </div>
+    <div id="rh-p1" class="rh-pl"><span id="rh-w1" class="who"><i id="rh-f1" class="face"></i><span id="rh-r1" class="rb r"></span></span><span id="rh-s1" class="pips"><b></b><b></b></span></div>
+  </div>
+  <p id="rh-note" class="tagc"></p>
 </div>
+<div id="flash" aria-hidden="true" hidden></div>
+<div id="bign" aria-hidden="true" hidden></div>
+<span id="cmap-ping" aria-hidden="true" hidden></span>
 <button id="fs-again" class="corner" type="button" aria-label="Back to full screen" hidden>
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#dfe5e1" stroke-width="1.8"><path d="M1 6V1h5M12 1h5v5M17 12v5h-5M6 17H1v-5"/></svg>
 </button>
@@ -531,24 +602,22 @@
   <button id="gear-start" class="corner gear" type="button" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dfe5e1" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></button>
   <div class="start-grid">
     <div>
-      <p class="over">Stage 4B &middot; easter eggs</p>
       <h1>Tank Battle</h1>
       <div class="rule"></div>
       <p class="tag">Two phones. One hunter. Three minutes.</p>
       <div id="p-home" class="buttons">
-        <button id="create" class="btn" type="button">Create game</button>
-        <button id="join" class="btn secondary" type="button">Join game</button>
+        <button id="create" class="btn ico" type="button" data-ic="room">Create game</button>
+        <button id="join" class="btn ico secondary" type="button" data-ic="resume">Join game</button>
         <button id="solo" class="textlink" type="button">Drive alone</button>
       </div>
       <p id="home-tip" class="tip" aria-live="off"></p>
       <div id="p-solo" class="lobby" hidden>
         <p class="lbl">Drive alone as</p>
-        <p class="say">Practice only. No clock, no score.</p>
         <div class="solo-wx"><span class="lbl">Weather</span>
-          <div class="seg wrap"><button type="button" data-wx="random">Random</button><button type="button" data-wx="sunny">Sunny</button><button type="button" data-wx="overcast">Overcast</button><button type="button" data-wx="dusk">Dusk</button><button type="button" data-wx="rain">Rain</button><button type="button" data-wx="fog">Fog</button></div></div>
+          <div class="seg wrap"><button type="button" data-wx="random" aria-label="Random">?</button><button type="button" data-wx="sunny" data-ic="sunny" aria-label="Sunny"></button><button type="button" data-wx="overcast" data-ic="overcast" aria-label="Overcast"></button><button type="button" data-wx="dusk" data-ic="dusk" aria-label="Dusk"></button><button type="button" data-wx="rain" data-ic="rain" aria-label="Rain"></button><button type="button" data-wx="fog" data-ic="fog" aria-label="Fog"></button></div></div>
         <div class="buttons">
-          <button id="solo-hunter" class="btn" type="button">Hunter (fire)</button>
-          <button id="solo-hider" class="btn secondary" type="button">Hider (sprint)</button>
+          <button id="solo-hunter" class="btn ico" type="button" data-ic="hunter">Hunter</button>
+          <button id="solo-hider" class="btn ico secondary" type="button" data-ic="hider">Hider</button>
           <button id="solo-back" class="textlink" type="button">Back</button>
         </div>
       </div>
@@ -580,20 +649,15 @@
     </div>
     <div id="hint-iphone" class="hint" hidden>
       <h2>Full screen on iPhone</h2>
-      <p>iPhone Safari can't go full screen on its own. Add the game to your Home Screen once:</p>
-      <ol>
-        <li>Tap <b>Share</b> (on newer iPhones it sits inside the <b>&middot;&middot;&middot;</b> menu)</li>
-        <li>Choose <b>Add to Home Screen</b></li>
-        <li>Open <b>Tank Battle</b> from your Home Screen</li>
-      </ol>
+      <p><b>Share</b> (in the <b>&middot;&middot;&middot;</b> menu on newer iPhones) &rsaquo; <b>Add to Home Screen</b> &rsaquo; open it from there.</p>
     </div>
     <div id="hint-ipad" class="hint" hidden>
-      <h2>Tip: add it to your Home Screen</h2>
-      <p>Tap <b>Share</b>, then <b>Add to Home Screen</b>, and open Tank Battle from there. It then always opens full screen.</p>
+      <h2>Full screen on iPad</h2>
+      <p><b>Share</b> &rsaquo; <b>Add to Home Screen</b> &rsaquo; open it from there.</p>
     </div>
     <div id="hint-keys" class="hint" hidden>
       <h2>Keyboard</h2>
-      <p><b>Arrows</b> or <b>WASD</b> to drive, <b>Space</b> for the action button, <b>Enter</b> to drive alone.</p>
+      <p><b>Arrows</b> / <b>WASD</b> drive &middot; <b>Space</b> action &middot; <b>Enter</b> drive alone</p>
     </div>
   </div>
   <p id="spec" class="spec"></p>
@@ -604,45 +668,46 @@
   <div id="settings-panel" class="scrolls" role="dialog" aria-labelledby="set-title">
     <div class="set-head"><h2 id="set-title">Settings</h2><button id="set-done" class="btn" type="button">Done</button></div>
     <div class="set-body">
-      <h3>Driving</h3>
-      <div class="set-row"><div class="lbl"><span>Control</span></div>
-        <div class="seg"><button type="button" data-set="control" data-value="sliders">Two sliders</button><button type="button" data-set="control" data-value="ring">Ring</button></div>
-        <p class="note">Two sliders: one for speed, one for steering. Ring: up drives, down reverses, sideways turns.</p></div>
-      <div class="set-row"><div class="lbl"><span>Turning speed</span><span id="val-turnSpeed"></span></div><input id="set-turnSpeed" type="range" aria-label="Turning speed"></div>
+      <div class="set-row"><div class="lbl" data-ic="drive"><span>Control</span>
+        <div class="seg"><button type="button" data-set="control" data-value="sliders" data-ic="sliders" aria-label="Two sliders"></button><button type="button" data-set="control" data-value="ring" data-ic="ring" aria-label="Ring"></button></div><button class="ib" type="button" data-note="n-control" aria-label="About Control" data-ic="info"></button></div>
+        <p id="n-control" class="note" hidden>Two sliders: one for speed, one for steering. Ring: up drives, down reverses, sideways turns.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="turn"><span>Turning</span><span id="val-turnSpeed"></span></div><input id="set-turnSpeed" type="range" aria-label="Turning speed"></div>
       <div class="ctl-sliders">
-      <h3>Sliders</h3>
-      <div class="set-row"><div class="lbl"><span>Size</span><span id="val-stickSize"></span></div><input id="set-stickSize" type="range" aria-label="Size"></div>
-      <div class="set-row"><div class="lbl"><span>Speed slider side</span></div>
-        <div class="seg"><button type="button" data-set="stickSide" data-value="left">Left</button><button type="button" data-set="stickSide" data-value="right">Right</button></div></div>
+      <div class="set-row"><div class="lbl" data-ic="sliders"><span>Slider size</span><span id="val-stickSize"></span></div><input id="set-stickSize" type="range" aria-label="Slider size"></div>
+      <div class="set-row"><div class="lbl" data-ic="side"><span>Speed side</span>
+        <div class="seg"><button type="button" data-set="stickSide" data-value="left">L</button><button type="button" data-set="stickSide" data-value="right">R</button></div></div></div>
       </div>
       <div class="ctl-ring">
-      <h3>Ring</h3>
-      <div class="set-row"><div class="lbl"><span>Size</span><span id="val-ringSize"></span></div><input id="set-ringSize" type="range" aria-label="Ring size"></div>
-      <div class="set-row"><div class="lbl"><span>Ring side</span></div>
-        <div class="seg"><button type="button" data-set="stickSide" data-value="left">Left</button><button type="button" data-set="stickSide" data-value="right">Right</button></div>
-        <p class="note">The fire / sprint button takes the other side.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="ring"><span>Ring size</span><span id="val-ringSize"></span></div><input id="set-ringSize" type="range" aria-label="Ring size"></div>
+      <div class="set-row"><div class="lbl" data-ic="side"><span>Ring side</span>
+        <div class="seg"><button type="button" data-set="stickSide" data-value="left">L</button><button type="button" data-set="stickSide" data-value="right">R</button></div><button class="ib" type="button" data-note="n-ringside" aria-label="About Ring side" data-ic="info"></button></div>
+        <p id="n-ringside" class="note" hidden>The fire / sprint button takes the other side.</p></div>
       </div>
-      <h3>Fire / sprint button</h3>
-      <div class="set-row"><div class="lbl"><span>Size</span><span id="val-btnSize"></span></div><input id="set-btnSize" type="range" aria-label="Size"></div>
-      <div class="set-row"><div class="lbl"><span>Height from bottom</span><span id="val-btnHeight"></span></div><input id="set-btnHeight" type="range" aria-label="Height from bottom"></div>
-      <div class="set-row"><div class="lbl"><span>Distance from edge</span><span id="val-btnEdge"></span></div><input id="set-btnEdge" type="range" aria-label="Distance from edge"></div>
-      <h3>Camera</h3>
-      <div class="set-row"><div class="lbl"><span>Height</span><span id="val-camHeight"></span></div><input id="set-camHeight" type="range" aria-label="Height"></div>
-      <div class="set-row"><div class="lbl"><span>Distance behind</span><span id="val-camDistance"></span></div><input id="set-camDistance" type="range" aria-label="Distance behind"></div>
-      <p class="note">The camera always stays below the wall tops, so nobody can see over walls.</p>
-      <h3>Sound</h3>
-      <div class="set-row"><div class="seg"><button type="button" data-set="sound" data-value="on">On</button><button type="button" data-set="sound" data-value="off">Off</button></div>
-        <p class="note">Starts after your first tap. Silent while the game is in the background. On iPhone, the ring/silent switch also mutes it.</p></div>
-      <h3>Graphics</h3>
-      <div class="set-row"><div class="seg"><button type="button" data-set="graphics" data-value="high">High</button><button type="button" data-set="graphics" data-value="low">Low</button></div>
-        <p class="note">Low: no shadows, a softer picture and fewer effects, for phones that stutter. Wall and floor detail changes the next time the game opens.</p></div>
-      <h3>Corner map</h3>
-      <div class="set-row"><div class="seg"><button type="button" data-set="map" data-value="on">On</button><button type="button" data-set="map" data-value="off">Off</button></div>
-        <p class="note">Shows the walls and your own tank. Never the other player. While a ping is on, it shows even when switched off.</p></div>
-      <h3>Aim assist</h3>
-      <div class="set-row"><div class="seg"><button type="button" data-set="assist" data-value="on">On</button><button type="button" data-set="assist" data-value="off">Off</button></div>
+      <div class="set-sep"></div>
+      <div class="set-row"><div class="lbl" data-ic="button"><span>Button size</span><span id="val-btnSize"></span></div><input id="set-btnSize" type="range" aria-label="Button size"></div>
+      <div class="set-row"><div class="lbl" data-ic="height"><span>Button height</span><span id="val-btnHeight"></span></div><input id="set-btnHeight" type="range" aria-label="Button height from bottom"></div>
+      <div class="set-row"><div class="lbl" data-ic="width"><span>Button edge</span><span id="val-btnEdge"></span></div><input id="set-btnEdge" type="range" aria-label="Button distance from edge"></div>
+      <div class="set-sep"></div>
+      <div class="set-row"><div class="lbl" data-ic="camera"><span>Camera height</span><span id="val-camHeight"></span><button class="ib" type="button" data-note="n-camera" aria-label="About the camera" data-ic="info"></button></div><input id="set-camHeight" type="range" aria-label="Camera height">
+        <p id="n-camera" class="note" hidden>The camera always stays below the wall tops, so nobody can see over walls.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="camera"><span>Camera back</span><span id="val-camDistance"></span></div><input id="set-camDistance" type="range" aria-label="Camera distance behind"></div>
+      <div class="set-sep"></div>
+      <div class="set-row"><div class="lbl" data-ic="sound"><span>Sound</span>
+        <div class="seg"><button type="button" data-set="sound" data-value="on">On</button><button type="button" data-set="sound" data-value="off">Off</button></div><button class="ib" type="button" data-note="n-sound" aria-label="About Sound" data-ic="info"></button></div>
+        <p id="n-sound" class="note" hidden>Starts after your first tap. Silent while the game is in the background. On iPhone, the ring/silent switch also mutes it.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="graphics"><span>Graphics</span>
+        <div class="seg"><button type="button" data-set="graphics" data-value="high">High</button><button type="button" data-set="graphics" data-value="low">Low</button></div><button class="ib" type="button" data-note="n-graphics" aria-label="About Graphics" data-ic="info"></button></div>
+        <p id="n-graphics" class="note" hidden>Low: no shadows, a softer picture and fewer effects, for phones that stutter. Wall and floor detail changes the next time the game opens.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="map"><span>Map</span>
+        <div class="seg"><button type="button" data-set="map" data-value="on">On</button><button type="button" data-set="map" data-value="off">Off</button></div><button class="ib" type="button" data-note="n-map" aria-label="About the corner map" data-ic="info"></button></div>
+        <p id="n-map" class="note" hidden>Shows the walls and your own tank. Never the other player. While a ping is on, it shows even when switched off.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="assist"><span>Aim assist</span>
+        <div class="seg"><button type="button" data-set="assist" data-value="on">On</button><button type="button" data-set="assist" data-value="off">Off</button></div><button class="ib" type="button" data-note="n-assist" aria-label="About Aim assist" data-ic="info"></button></div>
         <div class="seg" style="margin-top:8px"><button type="button" data-set="assistStrength" data-value="light">Light</button><button type="button" data-set="assistStrength" data-value="medium">Medium</button><button type="button" data-set="assistStrength" data-value="strong">Strong</button></div>
-        <p class="note">Hunter only. If you fire while the hider is on your screen and your aim is close, the shot bends a few degrees towards it, with a small lead if it is moving. It never works on a hider you cannot see. Light is about 3 degrees, Medium 6, Strong 10. Hits are still judged on the hider's phone.</p></div>
+        <p id="n-assist" class="note" hidden>Hunter only. If you fire while the hider is on your screen and your aim is close, the shot bends a few degrees towards it, with a small lead if it is moving. It never works on a hider you cannot see. Light is about 3 degrees, Medium 6, Strong 10. Hits are still judged on the hider's phone.</p></div>
+      <div class="set-row"><div class="lbl" data-ic="chatter"><span>Chatter</span>
+        <div class="seg"><button type="button" data-set="chatter" data-value="full">Full</button><button type="button" data-set="chatter" data-value="short">Short</button><button type="button" data-set="chatter" data-value="off">Off</button></div><button class="ib" type="button" data-note="n-chatter" aria-label="About Chatter" data-ic="info"></button></div>
+        <p id="n-chatter" class="note" hidden>Speech bubbles from the leaders: watching, bump and poke. Short: the watching line in round 1 only, and one line per bump. Off: none. Taunts and headlines always show.</p></div>
       <button id="set-reset" class="btn secondary" type="button">Reset to default</button>
     </div>
   </div>
@@ -660,16 +725,15 @@
 </div>
 
 <div id="menu" class="overlay" hidden>
-  <div class="card" role="dialog" aria-labelledby="menu-t">
+  <div class="card" role="dialog" aria-label="Menu">
     <div id="menu-main">
-      <h2 id="menu-t">Menu</h2>
-      <p id="menu-p"></p>
+      <div class="menu-top"><span id="menu-room" class="mini"></span><p id="menu-p" class="mini"></p></div>
       <div class="grid">
-        <button id="menu-resume" class="btn" type="button">Resume</button>
-        <button id="menu-settings" class="btn secondary" type="button">Settings</button>
-        <button id="menu-surrender" class="btn secondary" type="button">Surrender</button>
-        <button id="menu-leave" class="btn secondary" type="button">Leave match</button>
-        <button id="menu-quit" class="btn secondary" type="button">Quit to menu</button>
+        <button id="menu-resume" class="btn" type="button" data-ic="resume" data-s="26">Resume</button>
+        <button id="menu-settings" class="btn secondary" type="button" data-ic="settings" data-s="26">Settings</button>
+        <button id="menu-surrender" class="btn secondary" type="button" data-ic="surrender" data-s="26">Surrender</button>
+        <button id="menu-leave" class="btn secondary" type="button" data-ic="leave" data-s="26">Leave</button>
+        <button id="menu-quit" class="btn secondary" type="button" data-ic="home" data-s="26">Quit</button>
       </div>
     </div>
     <div id="menu-ask" hidden>
@@ -701,59 +765,70 @@
 </div>
 
 <div id="round" class="overlay" hidden>
-  <div class="card" role="status" aria-labelledby="rc-t">
-    <div id="rc-top">
-      <p id="rc-over" class="over"></p>
-      <h2 id="rc-t"></h2>
-      <p id="rc-p"></p>
+  <!-- R4 (2026-10-03): the coin toss and the intro are one card: two faces with role badges, two flags, VS, the weather, the round dashes, the countdown -->
+  <div id="ti" class="card" role="status" aria-label="Coin toss" hidden>
+    <p class="over">Toss</p>
+    <div class="ti-vs">
+      <div class="ti-side"><span id="ti-w0" class="who"><i id="ti-f0" class="face"></i><span id="ti-r0" class="rb l"></span></span><canvas id="ti-fl0" class="fl" width="84" height="56"></canvas></div>
+      <span class="vs">VS</span>
+      <div class="ti-side"><span id="ti-w1" class="who"><i id="ti-f1" class="face"></i><span id="ti-r1" class="rb r"></span></span><canvas id="ti-fl1" class="fl" width="84" height="56"></canvas></div>
     </div>
-    <div id="rc-extra">
-      <div id="rc-awards" hidden></div>
-      <p id="rc-taunt" hidden></p>
+    <div class="ti-row"><span id="ti-wx" class="mini"></span><span id="ti-rp" class="rp"><b></b><b></b><b></b></span><span id="ti-n" class="mini"></span></div>
+    <p id="ti-duck" class="duck"></p>
+  </div>
+  <!-- the Ready card (round-end flow): faces, flags, names and taglines, the next round's weather, Ready, the late countdown, Nudge, a nudge received -->
+  <div id="rdy" class="card" role="status" aria-label="Ready" hidden>
+    <span id="rdy-rp" class="rp"><b></b><b></b><b></b></span>
+    <div class="rdy-vs">
+      <div class="rdy-side"><div class="rdy-id"><span id="rdy-w0" class="who"><i id="rdy-f0" class="face"></i><span id="rdy-r0" class="rb l"></span><span id="rdy-s0" class="st"></span></span><canvas id="vs-f0" class="fl" width="72" height="48"></canvas></div><b id="vs-n0"></b><span id="vs-t0" class="vs-tag"></span></div>
+      <span class="vs">VS</span>
+      <div class="rdy-side"><div class="rdy-id"><canvas id="vs-f1" class="fl" width="72" height="48"></canvas><span id="rdy-w1" class="who"><i id="rdy-f1" class="face"></i><span id="rdy-r1" class="rb r"></span><span id="rdy-s1" class="st"></span></span></div><b id="vs-n1"></b><span id="vs-t1" class="vs-tag"></span></div>
     </div>
-    <div id="rc-bot">
-    <div id="rc-vs" aria-hidden="true">
-      <div class="vs"><span class="vs-who">You</span><canvas id="vs-f0" width="120" height="80"></canvas><b id="vs-n0"></b><span id="vs-p0" class="vs-place"></span><span id="vs-t0" class="vs-tag"></span></div>
-      <div class="vs"><span class="vs-who">Them</span><canvas id="vs-f1" width="120" height="80"></canvas><b id="vs-n1"></b><span id="vs-p1" class="vs-place"></span><span id="vs-t1" class="vs-tag"></span></div>
-    </div>
-    <p id="rc-who"></p>
-    <p id="rc-score"></p>
-    <p id="rc-theme" hidden></p>
-    <p id="rc-count"></p>
-    <p id="rc-wx"></p>
-    <p id="rc-duck" hidden></p>
-    <!-- round-end flow (2026-10-02): the Ready card is the intro card plus this row; a nudge from the other player shows in place of the status -->
-    <div id="rd" hidden>
-      <button id="rd-go" class="btn" type="button">Ready</button>
-      <p id="rd-st"><b id="rd-st1"></b><span id="rd-st2"></span></p>
+    <p id="rc-duck" class="duck"></p>
+    <div id="rd">
+      <button id="rd-go" class="btn" type="button" data-ic="ready" data-s="17">Ready</button>
+      <span id="rd-wx" class="mini"></span>
+      <span id="rd-late" class="mini"></span>
       <div id="rd-bub" hidden><i id="rd-face" class="face"></i><p id="rd-said"></p></div>
-      <button id="rd-nudge" class="btn secondary" type="button" hidden>Nudge</button>
-    </div>
-    <div id="rc-buttons" class="row">
-      <button id="rc-again" class="btn" type="button">Play again</button>
-      <button id="rc-leave" class="btn secondary" type="button">Leave</button>
-    </div>
+      <button id="rd-nudge" class="btn secondary" type="button" hidden></button>
     </div>
   </div>
-  <!-- round-end flow: the score screen (who won, how, the score, badges) -->
-  <div id="sc" class="card" role="status" aria-labelledby="sc-t" hidden>
+  <!-- the score screen: the winner's face, the score, how (icon + time), the badges -->
+  <div id="sc" class="card" role="status" aria-label="Score" hidden>
     <div class="hz"></div>
     <div class="sc-body">
       <p id="sc-l" class="over"></p>
-      <h2 id="sc-t"></h2>
+      <span id="sc-rp" class="rp"><b></b><b></b><b></b></span>
       <div class="sc-board">
-        <div class="sc-side"><canvas id="sc-f0" width="120" height="80"></canvas><small>You</small></div>
+        <span id="sc-w0" class="who"><i id="sc-f0" class="face"></i><span id="sc-r0" class="rb l"></span></span>
         <b id="sc-n0" class="sc-num"></b><span class="sc-dash">–</span><b id="sc-n1" class="sc-num"></b>
-        <div class="sc-side"><canvas id="sc-f1" width="120" height="80"></canvas><small>Them</small></div>
+        <span id="sc-w1" class="who"><i id="sc-f1" class="face"></i><span id="sc-r1" class="rb r"></span></span>
       </div>
-      <p id="sc-how"></p>
-      <div id="sc-badges" hidden></div>
+      <div class="sc-foot"><span id="sc-how" class="mini"></span><span id="sc-badges" class="chips" hidden></span></div>
     </div>
   </div>
-  <!-- round-end flow: the taunt screen (the speaking leader's face, the quote in a bubble, the headline) -->
+  <!-- the taunt screen (the speaking leader's face, the quote in a bubble, the headline) -->
   <div id="tt" class="card" role="status" aria-labelledby="tt-q" hidden>
     <div class="tt-top"><i id="tt-face" class="face"></i><p id="tt-q"></p></div>
     <p id="tt-news"></p>
+  </div>
+  <!-- the match-over card: the winner's face and the score, Again / Leave, the rematch status; the awards, the theme message and the rematch taunt beside it -->
+  <div id="fin" class="card" role="status" aria-label="Match over" hidden>
+    <div class="fin-l">
+      <p class="over">Match</p>
+      <p id="fin-t"></p>
+      <div class="fin-board"><span id="fin-w0" class="who"><i id="fin-f0" class="face"></i><span id="fin-r0" class="rb l"></span></span><b id="fin-score"></b><span id="fin-w1" class="who"><i id="fin-f1" class="face"></i><span id="fin-r1" class="rb r"></span></span></div>
+      <div id="rc-buttons">
+        <button id="rc-again" class="btn" type="button" data-ic="again" data-s="16">Again</button>
+        <button id="rc-leave" class="btn secondary" type="button" data-ic="leave" data-s="16">Leave</button>
+      </div>
+      <span id="fin-st" class="mini"></span>
+    </div>
+    <div id="rc-extra">
+      <div id="rc-awards" hidden></div>
+      <p id="rc-theme" hidden></p>
+      <p id="rc-taunt" hidden></p>
+    </div>
   </div>
 </div>
 
@@ -781,51 +856,52 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=r3-1",
-  "./js/assist.js": "./js/assist.js?v=r3-1",
-  "./js/bubble.js": "./js/bubble.js?v=r3-1",
-  "./js/camera.js": "./js/camera.js?v=r3-1",
-  "./js/cornermap.js": "./js/cornermap.js?v=r3-1",
-  "./js/effects.js": "./js/effects.js?v=r3-1",
-  "./js/eggs.js": "./js/eggs.js?v=r3-1",
-  "./js/fans.js": "./js/fans.js?v=r3-1",
-  "./js/flags.js": "./js/flags.js?v=r3-1",
-  "./js/input.js": "./js/input.js?v=r3-1",
-  "./js/lamps.js": "./js/lamps.js?v=r3-1",
-  "./js/leaders.js": "./js/leaders.js?v=r3-1",
-  "./js/lines.js": "./js/lines.js?v=r3-1",
-  "./js/lobby.js": "./js/lobby.js?v=r3-1",
-  "./js/main.js": "./js/main.js?v=r3-1",
-  "./js/map.js": "./js/map.js?v=r3-1",
-  "./js/menu.js": "./js/menu.js?v=r3-1",
-  "./js/models.js": "./js/models.js?v=r3-1",
-  "./js/net.js": "./js/net.js?v=r3-1",
-  "./js/picker.js": "./js/picker.js?v=r3-1",
-  "./js/props.js": "./js/props.js?v=r3-1",
-  "./js/rules.js": "./js/rules.js?v=r3-1",
-  "./js/screen.js": "./js/screen.js?v=r3-1",
-  "./js/secret.js": "./js/secret.js?v=r3-1",
-  "./js/settings.js": "./js/settings.js?v=r3-1",
-  "./js/shots.js": "./js/shots.js?v=r3-1",
-  "./js/sound.js": "./js/sound.js?v=r3-1",
-  "./js/tank.js": "./js/tank.js?v=r3-1",
-  "./js/textures.js": "./js/textures.js?v=r3-1",
-  "./js/theme.js": "./js/theme.js?v=r3-1",
-  "./js/tips.js": "./js/tips.js?v=r3-1",
-  "./js/vision.js": "./js/vision.js?v=r3-1",
-  "./js/wallart.js": "./js/wallart.js?v=r3-1",
-  "./js/wallart_draw.js": "./js/wallart_draw.js?v=r3-1",
-  "./js/weather.js": "./js/weather.js?v=r3-1",
-  "./js/world.js": "./js/world.js?v=r3-1",
-  "./lib/three.module.js": "./lib/three.module.js?v=r3-1",
-  "./lib/three.core.js": "./lib/three.core.js?v=r3-1",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=r3-1",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=r3-1",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=r3-1",
-  "three": "./lib/three.module.js?v=r3-1"
+  "./js/arena.js": "./js/arena.js?v=r4-1",
+  "./js/assist.js": "./js/assist.js?v=r4-1",
+  "./js/bubble.js": "./js/bubble.js?v=r4-1",
+  "./js/camera.js": "./js/camera.js?v=r4-1",
+  "./js/cornermap.js": "./js/cornermap.js?v=r4-1",
+  "./js/effects.js": "./js/effects.js?v=r4-1",
+  "./js/eggs.js": "./js/eggs.js?v=r4-1",
+  "./js/fans.js": "./js/fans.js?v=r4-1",
+  "./js/flags.js": "./js/flags.js?v=r4-1",
+  "./js/icons.js": "./js/icons.js?v=r4-1",
+  "./js/input.js": "./js/input.js?v=r4-1",
+  "./js/lamps.js": "./js/lamps.js?v=r4-1",
+  "./js/leaders.js": "./js/leaders.js?v=r4-1",
+  "./js/lines.js": "./js/lines.js?v=r4-1",
+  "./js/lobby.js": "./js/lobby.js?v=r4-1",
+  "./js/main.js": "./js/main.js?v=r4-1",
+  "./js/map.js": "./js/map.js?v=r4-1",
+  "./js/menu.js": "./js/menu.js?v=r4-1",
+  "./js/models.js": "./js/models.js?v=r4-1",
+  "./js/net.js": "./js/net.js?v=r4-1",
+  "./js/picker.js": "./js/picker.js?v=r4-1",
+  "./js/props.js": "./js/props.js?v=r4-1",
+  "./js/rules.js": "./js/rules.js?v=r4-1",
+  "./js/screen.js": "./js/screen.js?v=r4-1",
+  "./js/secret.js": "./js/secret.js?v=r4-1",
+  "./js/settings.js": "./js/settings.js?v=r4-1",
+  "./js/shots.js": "./js/shots.js?v=r4-1",
+  "./js/sound.js": "./js/sound.js?v=r4-1",
+  "./js/tank.js": "./js/tank.js?v=r4-1",
+  "./js/textures.js": "./js/textures.js?v=r4-1",
+  "./js/theme.js": "./js/theme.js?v=r4-1",
+  "./js/tips.js": "./js/tips.js?v=r4-1",
+  "./js/vision.js": "./js/vision.js?v=r4-1",
+  "./js/wallart.js": "./js/wallart.js?v=r4-1",
+  "./js/wallart_draw.js": "./js/wallart_draw.js?v=r4-1",
+  "./js/weather.js": "./js/weather.js?v=r4-1",
+  "./js/world.js": "./js/world.js?v=r4-1",
+  "./lib/three.module.js": "./lib/three.module.js?v=r4-1",
+  "./lib/three.core.js": "./lib/three.core.js?v=r4-1",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=r4-1",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=r4-1",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=r4-1",
+  "three": "./lib/three.module.js?v=r4-1"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=r3-1"></script>
-<script type="module" src="./js/main.js?v=r3-1"></script>
+<script src="lib/peerjs.min.js?v=r4-1"></script>
+<script type="module" src="./js/main.js?v=r4-1"></script>
 </body>
 </html>

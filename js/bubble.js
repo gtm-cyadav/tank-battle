@@ -1,7 +1,7 @@
 // Stage 3B (Chetan, 2026-10-01): the "watching" speech bubble. Once at the start of a round, on your own screen only, a small
 // bubble near the top for 4 seconds, then gone. It never takes touches. It is placed where it covers nothing: it looks for
-// the highest spot (then the most central) that clears the round chip and its ping-text slot, the corner map, the room
-// label, the top-right buttons, a notice, the action button and the two sliders or the ring, and stays inside the
+// the highest spot (then the most central) that clears the edge HUD, its tag slot and the big ping number's slot (R4), the corner map, the keyboard
+// hint, the top-right buttons, a notice, the action button and the two sliders or the ring, and stays inside the
 // notch margins. If a very cramped layout leaves no clear spot (the biggest button and sliders at once on a small phone), it
 // takes the least bad one and says so in data-clear="no" (testing only).
 const $ = id => document.getElementById(id);
@@ -20,15 +20,21 @@ const hit = (a, c) => !(a.r <= c.l || c.r <= a.l || a.b <= c.t || c.b <= a.t);
 // every rectangle the bubble must stay clear of (the ping text's slot is kept free even while it is empty)
 export function obstacles() {
   const out = [], add = (id, ok = true) => { const el = $(id); if (ok && visible(el)) { const b = box(el); if (b) out.push(b); } };
-  const chip = $('rh').querySelector('.chip');
-  if (visible($('rh')) && chip) {
-    const c = box(chip);
+  // R4: the edge HUD (faces, clock chip, weather tag), the slot under it for its one tag (head-start lock, "Hit"), and the slot of the big ping
+  // number (kept free even while empty, so a ping can never land under a bubble); the round-start flash and the map's ping ring while they show
+  const top = $('rh').querySelector('.rh-top');
+  if (visible($('rh')) && top) {
+    const c = box(top);
     if (c) {
       out.push(c);
       const cx = (c.l + c.r) / 2, note = $('rh-note'), nb = note.textContent ? box(note) : null;
-      out.push(nb ? { l: Math.min(nb.l, cx - 165), r: Math.max(nb.r, cx + 165), t: c.b, b: Math.max(nb.b, c.b + 36), w: HARD } : { l: cx - 165, r: cx + 165, t: c.b, b: c.b + 36, w: HARD });
+      out.push(nb ? { l: Math.min(nb.l, cx - 60), r: Math.max(nb.r, cx + 60), t: c.b, b: Math.max(nb.b, c.b + 34), w: HARD } : { l: cx - 60, r: cx + 60, t: c.b, b: c.b + 34, w: HARD });
+      const big = box($('bign'));   // its place even while hidden: measured from the CSS (top of the HUD + 86 px, about 64 px tall)
+      const bt = c.t + 86 - 2;
+      out.push(big || { l: cx - 30, r: cx + 30, t: bt, b: bt + 66, w: HARD });
     }
   }
+  add('flash'); add('cmap-ping');
   add('cmap'); add('menu-btn'); add('gear'); add('fs-again'); add('action');
   add('steer'); add('stick'); add('ring-pad');   // the sliders and the ring are fixed controls (only the chosen ones are visible)
   const soft = (id, ok = true) => { const el = $(id); if (ok && visible(el)) { const b = box(el, SOFT); if (b) out.push(b); } };
@@ -107,3 +113,13 @@ export function hideBubble() {
   el.hidden = true;
 }
 export const bubbleShowing = () => { const el = $('bubble'); return !!el && !el.hidden; };
+
+// R4 (Chetan, 2026-10-03): the Chatter setting for the leaders' speech bubbles (watching, bump, poke). Full = exactly as before (the default);
+// Short = the watching line only in round 1 of a match, a bump shows only the first leader's line, a poke still answers (the player asked);
+// Off = none of the three. The texts never change: this only says how many lines of that bubble show (0 = no bubble).
+export function chatter(kind, setting, round = 1) {
+  if (setting === 'off') return 0;
+  if (setting !== 'short') return kind === 'bump' ? 2 : 1;
+  if (kind === 'watch') return round === 1 ? 1 : 0;
+  return 1;   // bump: the first line only; poke: answers
+}

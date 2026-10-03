@@ -7,10 +7,11 @@
 // the game closes it. Esc opens and closes it on a computer. It is never saved, so a refresh comes back with it closed.
 import { isPlaying, refreshScreen } from './screen.js';
 import { openSettings } from './settings.js';
+import { icon } from './icons.js';
 
 const $ = id => document.getElementById(id);
 const root = document.documentElement;
-// hooks from main.js: solo() (driving alone), canGiveUp() (a match to give up), over() (match-over card), giveUp(), leave()
+// hooks from main.js: solo() (driving alone), canGiveUp() (a match to give up), over() (match-over card), giveUp(), leave(), room() (the room code)
 let game = null;
 let asking = null;   // null (the menu itself) | 'surrender' | 'leave': the "are you sure" question showing
 
@@ -31,7 +32,10 @@ function render() {
     $('ask-t').textContent = t; $('ask-p').textContent = p; $('ask-yes').textContent = yes;
     return;
   }
-  $('menu-p').textContent = solo ? 'Your tank waits until you resume.' : game.over() ? 'The match is over.' : 'The clock keeps running. Your tank waits until you resume.';
+  // R4 (2026-10-03): icon buttons with tiny labels; on top the room code (moved here from the HUD) and, in a running match, "Clock runs"
+  const room = game.room?.() || '';
+  $('menu-room').innerHTML = room ? icon('room', 16) : ''; if (room) $('menu-room').append(room);
+  $('menu-p').innerHTML = solo ? '' : game.over() ? 'Match over' : icon('clock', 15) + 'Clock runs';
   $('menu-surrender').hidden = solo || !game.canGiveUp();
   $('menu-leave').hidden = solo;
   $('menu-quit').hidden = !solo;

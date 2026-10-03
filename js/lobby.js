@@ -5,6 +5,7 @@ import { createLink, randomToken } from './net.js';
 import { startPlaying, showStart, leaveToStart, enterFullscreen, refreshScreen, device } from './screen.js';
 import { randomWeather } from './weather.js';
 import { tipOn, tipOff } from './tips.js';
+import { icon } from './icons.js';
 
 const $ = id => document.getElementById(id);
 const WAIT = 60;                         // seconds a dropped player gets to come back
@@ -64,12 +65,12 @@ const link = createLink({
       game.start({ mode: room.role, code: room.code, pos: back ? room.pos : null, match: back ? room.match : null });
       startPlaying(false);
       saveRoom();
-      toast(back ? `Back in room ${room.code}.` : `Both tanks are in. Room ${room.code}.`);
+      toast(back ? 'Back' : 'In', icon(back ? 'signal' : 'ready', 16));   // R4: an icon and one word (the room code is in the menu)
     } else if (stage === 'playing' && !first) {
       const mine = downReason === 'offline' || downWasOffline;   // it was this phone that lost the signal
       hideCard();
       game.paused(false);
-      toast(mine ? 'Signal back.' : 'The other player is back.');
+      toast('Back', mine ? icon('signal', 16) : game.otherFace?.() || icon('ready', 16));   // R4: their face and "Back"
     }
   },
   down(reason) {
@@ -264,9 +265,11 @@ function endMatch(title, text) {
 }
 
 let toastTimer = 0;
-export function toast(text) {
+// R4: a notice is an icon (or a face) and at most one word; `ic` is the icon's page text from icons.js or main.js (never typed text)
+export function toast(text, ic = '') {
   const el = $('toast');
-  el.textContent = text;
+  el.innerHTML = ic;
+  el.append(text);
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);

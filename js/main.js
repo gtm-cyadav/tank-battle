@@ -4,13 +4,15 @@ import { buildArena, useRenderer } from './arena.js';
 import { makeTank, driveTank, blockByTank, paintTank, kick, settleBarrel, setFade, setFog, setTrim, setAura, bobble, shakeHead, waveFlag, COLORS, TANK_RADIUS } from './tank.js';
 import { loadTank, applyTank, setLeader, clearLeader, setDuck, READY } from './models.js';
 import { initPicker, openPicker, closePicker, pickerOpen, pickerSync, savedChoice } from './picker.js';
-import { nameOf, shortName, LEADERS } from './leaders.js';
+import { nameOf, shortName } from './leaders.js';
 import { drawFlag } from './flags.js';
 import { quoteFor, watchLine, tagline, bumpPair, pokeLine, headlineFor, awardsFor, nudgeLine, CLUCK, SORRY, REMATCH, QUACK, DUCK_ROUND } from './lines.js';
+
 import { createProps, setSweat } from './props.js';
 import { touristAt, BADGE_NAMES, chickenSpot, chickenLedge, HONK_RANGE } from './eggs.js';
 import { assistYaw } from './assist.js';
-import { showBubble, hideBubble } from './bubble.js';
+import { showBubble, hideBubble, chatter } from './bubble.js';
+import { icon, weatherIcon, fillIcons } from './icons.js';
 import { makeChaseCamera } from './camera.js';
 import { readInput, clearTaps, setInputEnabled, inputEnabled, setSliderBlocker } from './input.js';
 import { initScreen, refreshScreen, device, isPlaying } from './screen.js';
@@ -27,10 +29,11 @@ import { smogAt, inSight, fade, VIEW } from './vision.js';
 import { createCornerMap } from './cornermap.js';
 import { createEffects } from './effects.js';
 import { play, frame as soundFrame, setMuted, byDistance, soundState } from './sound.js';
-import { WEATHERS, DEFAULT_WEATHER, weatherLine } from './weather.js';
+import { WEATHERS, DEFAULT_WEATHER } from './weather.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 const $ = id => document.getElementById(id);
+fillIcons();   // R4: the icons in the page's buttons and rows (icons.js, drawn in code)
 
 const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true, powerPreference: 'high-performance' });
 renderer.shadowMap.enabled = settings.graphics === 'high';
@@ -59,13 +62,8 @@ function useWeather(name) {
   VIEW.range = w.view; VIEW.fadeFrom = w.fade;
   fx.setWeather(w);
   otherFade = -1;   // re-fade the other tank with the new distances
-  showRoom();
 }
-let roomCode = '';
-function showRoom() {
-  const w = WEATHERS[weather] || WEATHERS[DEFAULT_WEATHER];
-  $('hud-room').textContent = [roomCode ? `Room ${roomCode}` : '', nameOf(myLeader), `${w.label} ${w.view} m`].filter(Boolean).join(' · ');
-}
+let roomCode = '';   // shown in the menu (R4); the HUD draws the weather and the faces itself
 useWeather(DEFAULT_WEATHER);
 
 function place(tank, spawn) {
@@ -94,7 +92,6 @@ const wearLeader = (tank, n) => setLeader(tank, n, tank === other ? 1.3 : 1).the
 function dressLeaders(me, them) {
   if (me !== myLeader) { myLeader = me; if (me) wearLeader(player, me); else clearLeader(player); }
   if (them !== otherLeader) { otherLeader = them; if (them) wearLeader(other, them); else clearLeader(other); }
-  showRoom();
 }
 
 const follow = makeChaseCamera(camera);
@@ -162,7 +159,7 @@ initScreen(setInputEnabled, leaveMatch);
 initSettings(refreshScreen);
 initSecretBox();   // Stage 4B: the Secret box on the start screen (theme.js)
 if (device.ipad) $('rotate-1').textContent = 'Turn your iPad sideways.';
-$('spec').textContent = `Build ${VERSION} · Yard 156 x 104 m · Best of 3`;
+$('spec').textContent = `Build ${VERSION}`;   // R4: the build only (the yard size and "best of 3" were extra words)
 
 let flagT = 0;   // seconds, for the flags' waving
 let taps = 0;   // action presses so far (testing only)
@@ -191,7 +188,6 @@ function startMatch({ mode: m, code, pos, match, role, weather: wx, me: pickMe, 
   roomCode = code || '';
   if (mode === 'solo') useWeather(WX_TEST || weatherPick || DEFAULT_WEATHER);
   else if (match?.wx) useWeather(match.wx);
-  showRoom();
   $('leave-p').textContent = mode === 'solo' ? "You'll go back to the start screen." : 'The other player will be told you left.';
   Object.assign(remote, { have: false, vis: false, paused: false });   // the other tank appears with its first position update
   // Drive alone: the picker's two choices (Random drawn now). Two players: nobody yet, the leaders come with the coin toss.
@@ -199,7 +195,7 @@ function startMatch({ mode: m, code, pos, match, role, weather: wx, me: pickMe, 
   if (mode === 'solo') dressLeaders(pickMe || randomLeader(), pickOther || randomLeader());
   else dressLeaders(0, 0);
   hideBubble();
-  if (mode === 'solo') { const n = myLeader, role = soloRole; setTimeout(() => { if (mode === 'solo' && myLeader === n && soloRole === role) showBubble(watchLine(n, role)); }, 500); }   // a preview of the line (Drive alone has no rounds)
+  if (mode === 'solo' && chatter('watch', settings.chatter, 1)) { const n = myLeader, role = soloRole; setTimeout(() => { if (mode === 'solo' && myLeader === n && soloRole === role) showBubble(watchLine(n, role)); }, 500); }   // a preview of the line (Drive alone has no rounds)
   sendClock = 0;
   if (mode === 'solo') { rules.stop(); delete root.dataset.match; }
   else { root.dataset.match = ''; restoring = !!pos; rules.start(mode, match || null); if (mode === 'guest' && getArmed()) rules.armTheme(getArmed()); }
@@ -214,7 +210,6 @@ function endMatch() {
   roomCode = '';
   fx.clear(); wreck = null; clearEggs();
   disarm();   // Stage 4B: leaving ends the secret theme; type the phrase again for the next match
-  showRoom();
 }
 function onRemote(m) {
   if (mode === 'solo' || rules.onMessage(m)) return;
@@ -348,8 +343,8 @@ function eggsChanged(m, before) {
   else if (m.silver && !before.silver) { if (myRole() === 'hider') { props.cluck(); showBubble(CLUCK); } }   // only on the hider's own phone: the hunter must not learn where the hider is
   else if ((m.sorry | 0) > (before.sorry | 0)) showBubble(SORRY);
   else if ((m.bump | 0) > (before.bump | 0)) {
-    const pair = bumpPair(m.lead, rules.hunterSide());
-    if (pair) showBubble(pair.map(p => `${shortName(p.who)}: “${p.text}”`).join('\n'));
+    const pair = bumpPair(m.lead, rules.hunterSide()), lines = chatter('bump', settings.chatter);   // R4 Chatter: Full both lines, Short the first, Off none
+    if (pair && lines) showBubble(pair.slice(0, lines).map(p => `${shortName(p.who)}: “${p.text}”`).join('\n'));
   }
 }
 const THEME_BUBBLE = 8000;   // ms the themed start message stays
@@ -381,16 +376,16 @@ function phaseChanged(m, before) {
   }
   showRoles(!fresh && m.result?.how === 'hit');
   if (before && m.phase === 'play' && before.phase !== 'play') {
-    toast(`Round ${m.round}. You are the ${myRole()}.`);
+    flashRole(myRole(), m.round);   // R4: the role icon and the round dashes for 1.5 s (was "Round N. You are the hunter.")
     // Stage 3B: the leader on your tank says why it is watching you, once, on your screen only. Only at the start of the round
     // (a phone that comes back late into a round, or refreshes, never replays it).
     if (m.t < 2) {
-      const th = m.theme, mid = m.mid, round = m.round;
+      const th = m.theme, mid = m.mid, round = m.round, say = chatter('watch', settings.chatter, round) > 0;   // R4 Chatter: Short = round 1 only, Off = never
       // Stage 4B: the first round of a themed room opens with the theme's message (both phones, about 8 s of the head start); the watching line follows it
       if (th?.s && mid === 1 && round === 1) {
         showBubble(th.s, { ms: THEME_BUBBLE, theme: th.k });
-        setTimeout(() => { const c = rules.match; if (mode !== 'solo' && c && c.mid === mid && c.round === round && c.phase === 'play') showBubble(watchLine(rules.leaders()?.me, myRole())); }, THEME_BUBBLE + 700);
-      } else showBubble(watchLine(rules.leaders()?.me, myRole()));
+        if (say) setTimeout(() => { const c = rules.match; if (mode !== 'solo' && c && c.mid === mid && c.round === round && c.phase === 'play') showBubble(watchLine(rules.leaders()?.me, myRole())); }, THEME_BUBBLE + 700);
+      } else if (say) showBubble(watchLine(rules.leaders()?.me, myRole()));
     }
   }
 }
@@ -481,26 +476,31 @@ function drawRound() {
   if (Math.abs(p - ringP) > 0.004) { ringP = p; $('action').querySelector('.ring').style.setProperty('--p', p.toFixed(3)); }
   if (off !== btnOff) { btnOff = off; $('action').classList.toggle('off', off); }
 
-  show('rh', !!m);
-  if (!m) { if (show('round', false)) { delete root.dataset.card; refreshScreen(); } return; }
+  show('rh', !!m || mode === 'solo');   // R4: Drive alone shows your face and the weather (no clock, no score)
+  drawHud(m, me);
+  if (!m) { show('bign', false); show('cmap-ping', false); if (show('round', false)) { delete root.dataset.card; refreshScreen(); } return; }
   const them = otherSide(me);
-  const role = myRole(), left = m.phase === 'play' ? RULES.round - m.t : m.result && m.phase !== 'toss' ? m.result.left : RULES.round;
-  text('rh-role', role === 'hunter' ? 'Hunter' : 'Hider');
+  const role = rules.role() || myRole(), left = m.phase === 'play' ? RULES.round - m.t : m.result && m.phase !== 'toss' ? m.result.left : RULES.round;   // in a match the role is the match's
   text('rh-clock', clock(left));
   const lastTen = m.phase === 'play' && left <= 10 && left > 0;
   $('rh-clock').classList.toggle('low', lastTen);
   if (lastTen) $('rh-clock').style.setProperty('--beat', (0.95 - 0.35 * (10 - left) / 10).toFixed(2) + 's');
-  text('rh-round', `Round ${m.round}`);
-  text('rh-score', `You ${m.score[me]} – ${m.score[them]} Them`);
   // Round-end flow (2026-10-02): which screen shows comes from the match's clock (rules.js cardView), so both phones show the same one.
   // After a hit, a short beat to see the wreck before the score screen covers it.
   const view = cardView(m), beat = view === 'beat';
   const wait = Math.ceil(RULES.headStart - m.t - 1e-6);
-  const pv = rules.pingView();   // hunter ping: the hider's countdown, then the circle on both maps
-  const ping = !pv ? '' : pv.warn ? `Ping in ${pv.warn}.` : role === 'hider' ? 'Pinged. The hunter sees this circle.'
-    : pv.circle ? 'Ping. The hider is somewhere in the circle.' : '';
-  text('rh-note', m.phase === 'play' && wait > 0 ? (role === 'hunter' ? `You can fire in ${wait} s.` : `The hunter can fire in ${wait} s.`)
-    : beat ? (role === 'hunter' ? 'Direct hit.' : 'You were hit.') : ping);
+  // R4: the one small tag under the HUD: the head-start lock and its seconds (both players), or "Hit" in the wreck's beat
+  const note = m.phase === 'play' && wait > 0 ? 'lock' + wait : beat ? 'hit' + role : '';
+  if (note !== noteKey) {
+    noteKey = note;
+    $('rh-note').className = 'tagc' + (beat ? ' hit' + (role === 'hider' ? ' me' : '') : '');
+    $('rh-note').innerHTML = !note ? '' : beat ? icon('hit', 16) + 'Hit' : icon('lock', 15) + wait;
+  }
+  // R4: the ping. The hider's countdown is one big red number (the red edges stay); while the circle shows, a ring sits at the corner map's corner (both players)
+  const pv = rules.pingView(), big = role === 'hider' && pv?.warn ? String(pv.warn) : '';
+  show('bign', !!big); text('bign', big);
+  if (root.hasAttribute('data-bign') !== !!big) root.toggleAttribute('data-bign', !!big);   // the ping number wins: a notice steps aside while it shows
+  show('cmap-ping', !!pv && !pv.warn);
 
   const card = !!view && !beat;
   const blockChanged = show('round', card);
@@ -508,20 +508,50 @@ function drawRound() {
   if (card) drawCard(m, view, me, them);
   if (blockChanged) refreshScreen();   // the card stops the controls while it shows
 }
-// How the round ended, from this player's side
-function howLine(r, iHunted) {
-  if (!r) return '';
-  return r.how === 'hit' ? (iHunted ? `Direct hit with ${clock(r.left)} left.` : `You were hit with ${clock(r.left)} left.`)
-    : (iHunted ? 'Time ran out. No hit.' : `You stayed hidden for the full ${clock(RULES.round)}.`);
+// ---- R4 declutter (Chetan, 2026-10-03): the edge HUD (layout B, faces out) and the icon-first cards ---------------------------------
+// Faces, roles, pips and the weather come from the match both phones share (rules.leaders(), the score, the round, the round's weather), so no
+// message is added and both phones always draw the same.
+let noteKey = null;
+const htmlK = (id, h) => { const el = $(id); if (el.__h !== h) { el.__h = h; el.innerHTML = h; } };
+const wxTag = (name, size) => { const w = WEATHERS[name] || WEATHERS[DEFAULT_WEATHER]; return icon(weatherIcon(name), size) + w.view; };
+// the round dashes (done, now, to come) and the score pips (rounds won of the two needed)
+function rounds(id, round) { const el = $(id); if (el.__k === round) return; el.__k = round; [...el.children].forEach((b, i) => { b.className = i + 1 < round ? 'done' : i + 1 === round ? 'now' : ''; }); }
+function pips(id, won) { const el = $(id); if (el.__k === won) return; el.__k = won; [...el.children].forEach((b, i) => { b.className = i < won ? 'on' : ''; }); }
+// a face with its role ring and badge: <pre>-w<i> (the frame), -f<i> (the face), -r<i> (the badge)
+function whoOn(pre, i, n, role) {
+  const w = $(`${pre}-w${i}`);
+  if (w.dataset.role !== role) { w.dataset.role = role; $(`${pre}-r${i}`).innerHTML = icon(role, 13); }
+  if (n > 0) faceOn($(`${pre}-f${i}`), n);
 }
-// A leader's face in a round frame: one cell of the picker's picture, zoomed 1.12x onto the head (the same crop at any frame size)
+function winLose(pre, won) { $(`${pre}-w0`).classList.toggle('win', won); $(`${pre}-w0`).classList.toggle('lose', !won); $(`${pre}-w1`).classList.toggle('win', !won); $(`${pre}-w1`).classList.toggle('lose', won); }
+function drawHud(m, me) {
+  // in a match the roles and faces come from the match itself; Drive alone from the picker's two choices
+  const role = (m && rules.role()) || myRole(), L = m ? rules.leaders() || { me: 0, them: 0 } : { me: myLeader, them: otherLeader };
+  whoOn('rh', 0, L.me, role); whoOn('rh', 1, L.them, opposite(role));
+  if (m) { pips('rh-s0', m.score[me] | 0); pips('rh-s1', m.score[otherSide(me)] | 0); rounds('rh-rp', m.round); }
+  htmlK('rh-wx', wxTag(weather, 16));
+}
+// the round-start flash: the role icon in a disc and the round dashes, 1.5 s (in place of "Round 2. You are the hunter.")
+let flashT = 0;
+function flashRole(role, round) {
+  const el = $('flash');
+  el.dataset.role = role;
+  el.innerHTML = `<span class="disc">${icon(role, 34)}</span><span class="rp">${[1, 2, 3].map(i => `<b class="${i < round ? 'done' : i === round ? 'now' : ''}"></b>`).join('')}</span>`;
+  el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  root.toggleAttribute('data-flash', true);   // while it shows, the head-start tag and a notice step aside (index.html), so nothing piles up under the HUD
+  clearTimeout(flashT); flashT = setTimeout(() => { el.hidden = true; root.toggleAttribute('data-flash', false); }, 1550);
+}
+$('cmap-ping').innerHTML = icon('ping', 18);
+// A leader's face in a round frame:// A leader's face in a round frame: one cell of the picker's picture, zoomed 1.12x onto the head (the same crop at any frame size)
 const faceShown = new WeakMap();
+const facePos = n => { const i = n - 1, col = i % 6, row = Math.floor(i / 6); return `${((1.12 * col + 0.06) / 5.72 * 100).toFixed(3)}% ${((1.12 * row - 0.0296) / 5.72 * 100).toFixed(3)}%`; };
 function faceOn(el, n) {
   if (!n || faceShown.get(el) === n) return;
   faceShown.set(el, n);
-  const i = n - 1, col = i % 6, row = Math.floor(i / 6);
-  el.style.backgroundPosition = `${((1.12 * col + 0.06) / 5.72 * 100).toFixed(3)}% ${((1.12 * row - 0.0296) / 5.72 * 100).toFixed(3)}%`;
+  el.style.backgroundPosition = facePos(n);
 }
+// the same face as page text (the awards, the rematch status, a notice)
+const faceHtml = n => n > 0 ? `<i class="face" style="background-position:${facePos(n)}"></i>` : '';
 const flagShown = {};
 function flagOn(id, n) { if (n && flagShown[id] !== n) { flagShown[id] = n; drawFlag($(id), n); } }
 function chips(id, list) {
@@ -529,8 +559,9 @@ function chips(id, list) {
   if ($(id).dataset.k === key) return;
   $(id).dataset.k = key;
   $(id).hidden = !list.length;
-  $(id).replaceChildren(...list.map(b => { const e = document.createElement('span'); e.textContent = BADGE_NAMES[b] || b; return e; }));
+  $(id).replaceChildren(...list.map(b => { const e = document.createElement('span'); e.innerHTML = icon(b, 14); e.append(BADGE_NAMES[b] || b); return e; }));   // R4: the badge's icon, then its name (names unchanged)
 }
+const CARDS = ['ti', 'rdy', 'sc', 'tt', 'fin'];
 function drawCard(m, view, me, them) {
   const r = m.result, won = !!r && r.win === me, iHunted = rules.hunterSide() === me;
   const quote = (view === 'taunt' || view === 'score') && r?.how !== 'gaveup' ? quoteFor(r, m.lead) : null;   // who speaks comes from the match, so both phones read the same
@@ -538,68 +569,58 @@ function drawCard(m, view, me, them) {
   // the winner's role colour that round: orange if the hunter won, blue if the hider survived
   const winRole = r && r.how !== 'gaveup' ? (r.win === rules.hunterSide() ? 'hunter' : 'hider') : 'hunter';
   if ($('round').dataset.win !== winRole) $('round').dataset.win = winRole;
-  const main = $('round').querySelector('.card');
-  show('sc', view === 'score'); show('tt', view === 'taunt');
-  const mainOn = view !== 'score' && view !== 'taunt';
-  if (main.hidden === mainOn) main.hidden = !mainOn;
+  const L = rules.leaders() || { me: myLeader, them: otherLeader };
+  const card = view === 'toss' || view === 'intro' ? 'ti' : view === 'ready' ? 'rdy' : view === 'score' ? 'sc' : view === 'taunt' ? 'tt' : 'fin';
+  for (const id of CARDS) show(id, id === card);
 
-  if (view === 'score') {   // who won, how, the score (big), the round's badges (the referee wrote them into the result)
-    const over = m.phase === 'over';
-    text('sc-l', over ? 'Match over' : `Round ${m.round}`);
-    text('sc-t', over ? (won ? 'You win the match.' : 'They win the match.') : (won ? 'You win the round.' : 'They win the round.'));
+  if (card === 'ti') {   // R4: the coin toss and the intro are one card; who hunts round 1 shows as the role badges
+    whoOn('ti', 0, L.me, iHunted ? 'hunter' : 'hider'); whoOn('ti', 1, L.them, iHunted ? 'hider' : 'hunter');
+    flagOn('ti-fl0', L.me); flagOn('ti-fl1', L.them);
+    htmlK('ti-wx', wxTag(m.wx, 18));
+    rounds('ti-rp', 1);
+    htmlK('ti-n', icon('clock', 18) + Math.max(1, Math.ceil(RULES.toss - m.t)));
+    text('ti-duck', isDuckRound(m, 1) ? DUCK_ROUND : '');
+    return;
+  }
+  if (card === 'rdy') {   // the Ready card: faces, flags, names and taglines (the joke stays here), the next round's weather, Ready
+    const nextRound = m.round + 1, hunts = !iHunted;
+    rounds('rdy-rp', nextRound);
+    whoOn('rdy', 0, L.me, hunts ? 'hunter' : 'hider'); whoOn('rdy', 1, L.them, hunts ? 'hider' : 'hunter');
+    introSide(0, L.me); introSide(1, L.them);
+    text('rc-duck', isDuckRound(m, nextRound) ? DUCK_ROUND : '');   // Stage 4B: ducks next round (both phones read it from the match)
+    drawReady(m, nextRound, me, them);
+    return;
+  }
+  if (card === 'sc') {   // the score screen: the winner's face big, the score big, how (icon + time), the badges (the referee wrote them into the result)
+    const over = m.phase === 'over', mine = iHunted ? 'hunter' : 'hider';
+    text('sc-l', over ? 'Match' : '');
+    show('sc-rp', !over); rounds('sc-rp', m.round);
+    whoOn('sc', 0, L.me, mine); whoOn('sc', 1, L.them, opposite(mine)); winLose('sc', won);
     text('sc-n0', String(m.score[me])); text('sc-n1', String(m.score[them]));
     $('sc-n0').classList.toggle('w', won); $('sc-n1').classList.toggle('w', !won);
-    flagOn('sc-f0', myLeader); flagOn('sc-f1', otherLeader);
-    text('sc-how', howLine(r, iHunted));
+    // a hit: the burst and the time left (hunter's colour); time out: the eye and the full round (hider's colour)
+    const hit = r?.how === 'hit';
+    if ($('sc-how').dataset.k !== (hit ? 'hunter' : 'hider')) { $('sc-how').dataset.k = hit ? 'hunter' : 'hider'; $('sc-how').className = 'mini ' + (hit ? 'hunter' : 'hider'); }
+    htmlK('sc-how', !r ? '' : hit ? icon('hit', 18) + clock(r.left) : icon('hider', 18) + clock(RULES.round));
     chips('sc-badges', r?.badges || []);
     return;
   }
-  if (view === 'taunt') {   // the speaking leader's face, the quote in a bubble, the newspaper headline in small text
+  if (card === 'tt') {   // the speaking leader's face, the quote in a bubble, the newspaper headline in small text (unchanged)
     faceOn($('tt-face'), quote.who);
     text('tt-q', `“${quote.text}”`);
     text('tt-news', headlineFor(r, m.lead, rules.hunterSide(), m.mid, m.round, RULES.round - r.left - RULES.headStart) || '');
     return;
   }
-
-  // the coin toss, the intro card, the Ready card and the match-over card share one card
-  const intro = view === 'intro' || view === 'ready';
-  main.classList.toggle('intro', intro);
-  main.classList.toggle('ready', view === 'ready');
-  show('rd', view === 'ready');
-  if (intro) {
-    const nextRound = m.phase === 'toss' ? 1 : m.round + 1, hunts = m.phase === 'toss' ? iHunted : !iHunted, L = rules.leaders();
-    text('rc-over', `Round ${nextRound}`);
-    introSide(0, L?.me); introSide(1, L?.them);
-    text('rc-count', view === 'ready' ? `You ${hunts ? 'hunt' : 'hide'}.` : `Round ${nextRound} starts in ${Math.max(1, Math.ceil(RULES.toss - m.t))} s. You ${hunts ? 'hunt' : 'hide'}.`);
-    text('rc-wx', m.phase === 'toss' ? weatherLine(m.wx) : m.next ? weatherLine(m.next) : '');
-    const duck = isDuckRound(m, nextRound);   // Stage 4B: ducks next round (both phones read it from the match)
-    show('rc-duck', duck); text('rc-duck', duck ? DUCK_ROUND : '');
-    if (main.classList.contains('wide')) main.classList.remove('wide');
-    if (view === 'ready') drawReady(m, nextRound, me, them);
-    return;
-  }
-  show('rc-duck', false); text('rc-duck', '');
-  const score = `Score: you ${m.score[me]}, them ${m.score[them]}.`;
-  if (view === 'toss') {
-    text('rc-over', 'Coin toss');
-    text('rc-t', iHunted ? 'You hunt first.' : 'You hide first.');
-    text('rc-p', iHunted ? `The other player hides. They get a ${RULES.headStart}-second head start.` : `The other player hunts. You get a ${RULES.headStart}-second head start.`);
-    text('rc-who', `You are ${nameOf(myLeader)}. The other player is ${nameOf(otherLeader)}.`);
-    text('rc-score', 'Best of 3. Roles swap every round.');
-    text('rc-count', `Round 1 starts in ${Math.max(1, Math.ceil(RULES.toss - m.t))} s.`);
-    text('rc-wx', weatherLine(m.wx));
-  } else {   // the match-over card (view 'final'): after the score and taunt screens, or at once after a surrender (1f)
-    text('rc-over', 'Match over');
-    text('rc-t', r?.how === 'gaveup' ? (r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.') : won ? 'You win the match.' : 'They win the match.');
-    const how = howLine(r, iHunted);
-    text('rc-p', r?.how === 'gaveup' || !how ? '' : `Round ${m.round}: ${how.charAt(0).toLowerCase()}${how.slice(1)}`);
-    text('rc-who', `${nameOf(myLeader)} vs ${nameOf(otherLeader)}`);
-    text('rc-score', score);
-    text('rc-count', m.again[me] ? 'Waiting for the other player.' : m.again[them] ? 'The other player wants to play again.' : '');
-    text('rc-wx', '');
-  }
+  // the match-over card (view 'final'): after the score and taunt screens, or at once after a surrender (1f)
+  const gave = r?.how === 'gaveup', mine = iHunted ? 'hunter' : 'hider';
+  text('fin-t', gave ? (r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.') : '');   // rare: a full sentence
+  whoOn('fin', 0, L.me, mine); whoOn('fin', 1, L.them, opposite(mine)); winLose('fin', won);
+  htmlK('fin-score', `<span class="${won ? 'w' : ''}">${m.score[me]}</span><i> – </i><span class="${won ? '' : 'w'}">${m.score[them]}</span>`);
+  // who wants a rematch: their face with the "again" sign; after your own tap, their face with the hourglass
+  const st = m.again[them] ? 'again' : m.again[me] ? 'wait' : '';
+  htmlK('fin-st', st ? faceHtml(L.them) + icon(st, 14) : '');
   // Stage 4A: the rematch taunt for the loser. Stage 4B: the end-of-match awards (none after a surrender) and the secret theme's end message;
-  // all fixed functions of the match both phones share, so both phones print the same.
+  // all fixed functions of the match both phones share, so both phones print the same. R4: each award shows the leader's face, not the name.
   const over = m.phase === 'over';
   const taunt = over && r && r.how !== 'gaveup' && !won;
   if (show('rc-taunt', taunt) || taunt) text('rc-taunt', taunt ? REMATCH : '');
@@ -607,30 +628,30 @@ function drawCard(m, view, me, them) {
   show('rc-awards', !!aw);
   if (akey !== shownAwards) {
     shownAwards = akey;
-    $('rc-awards').replaceChildren(...(aw || []).map(a => { const p = document.createElement('p'), b = document.createElement('b'); b.textContent = a.name; p.append(b, nameOf(a.who)); return p; }));
+    $('rc-awards').replaceChildren(...(aw || []).map(a => { const p = document.createElement('p'), b = document.createElement('b'); b.textContent = a.name; p.innerHTML = faceHtml(a.who); p.append(b); return p; }));
   }
   const th = over ? m.theme : null, msg = th ? [won ? th.w : th.l, th.x].filter(Boolean).join('\n') : '';
   show('rc-theme', !!msg); text('rc-theme', msg);
-  // a match-over card with extras uses two columns (result on the left, extras on the right) so it stays short
+  // with extras (taunt, awards, theme message) the card has two columns: the result and the buttons on the left, the extras on the right
   const wide = over && (taunt || !!aw || !!msg);
-  if (main.classList.contains('wide') !== wide) main.classList.toggle('wide', wide);
-  show('rc-buttons', over);
+  if ($('fin').classList.contains('wide') !== wide) $('fin').classList.toggle('wide', wide);
   $('rc-again').disabled = !!m.again[me];
 }
-// The Ready card's row: Ready, who is Ready, the late countdown, Nudge (only for the player who is Ready), or a nudge just received
+// The Ready card's row: Ready, the next round's weather, the late countdown, Nudge (only for the player who is Ready), or a nudge just received.
+// Who is Ready shows as a badge on the faces: a green tick on a Ready player, the hourglass on the other player's face while you wait.
 let nudgeIn = null;   // { mid, r, n (the nudging leader), until (ms) }
 function drawReady(m, nextRound, me, them) {
   const mine = !!m.go?.[me], theirs = !!m.go?.[them], left = stallLeft(m);
-  const late = left <= RULES.stallShow ? `Starting anyway in ${Math.max(1, Math.ceil(left - 1e-6))} s.` : '';
   if ($('rd-go').disabled !== mine) $('rd-go').disabled = mine;
-  text('rd-st1', mine && theirs ? 'Both ready.' : mine ? 'Waiting for the other player.' : theirs ? 'The other player is ready.' : `Round ${nextRound} starts when you both tap Ready.`);
-  text('rd-st2', late || (!mine && theirs ? `Tap Ready to start round ${nextRound}.` : ''));
-  $('rd-st').classList.toggle('ok', !mine && theirs);
+  const badge = (id, k) => { if ($(id).__s !== k) { $(id).__s = k; $(id).className = 'st ' + k; $(id).innerHTML = k ? icon(k === 'ok' ? 'ready' : 'wait', k === 'ok' ? 18 : 15) : ''; } };
+  badge('rdy-s0', mine ? 'ok' : ''); badge('rdy-s1', theirs ? 'ok' : mine ? 'wait' : '');
+  htmlK('rd-wx', m.next ? wxTag(m.next, 18) : '');
+  htmlK('rd-late', left <= RULES.stallShow ? icon('clock', 17) + Math.max(1, Math.ceil(left - 1e-6)) : '');   // "starting anyway in N s"
   const canNudge = mine && !theirs;
   show('rd-nudge', canNudge);
-  if (canNudge) { const w = rules.nudgeWait > 0; if ($('rd-nudge').disabled !== w) $('rd-nudge').disabled = w; text('rd-nudge', w ? 'Nudged' : 'Nudge'); }
+  if (canNudge) { const w = rules.nudgeWait > 0; if ($('rd-nudge').disabled !== w) $('rd-nudge').disabled = w; htmlK('rd-nudge', icon('nudge', 16) + (w ? 'Nudged' : 'Nudge')); }
   const said = !!nudgeIn && nudgeIn.mid === m.mid && nudgeIn.r === m.round && !mine && performance.now() < nudgeIn.until;
-  show('rd-bub', said); show('rd-st', !said);
+  show('rd-bub', said); show('rd-wx', !said);
 }
 // The other player nudged (rules.js checked it is for this Ready card): a tick and their leader's line, inside the card, for 4 s
 function nudged(who) {
@@ -644,13 +665,13 @@ $('rd-go').addEventListener('click', () => rules.readyUp());
 $('rd-nudge').addEventListener('click', () => rules.nudge());
 $('rc-again').addEventListener('click', () => rules.playAgain());
 
-// The intro card's two columns (0 = you, 1 = the other player): flag, parody name, country / era as is, tagline (lines.js)
+// The Ready card's two columns (0 = you, 1 = the other player): flag, parody name, tagline (lines.js). R4: the country / era line went (the flag says it)
 const introShown = [0, 0];
 function introSide(i, n) {
-  if (!n || introShown[i] === n) return;
+  if (!(n > 0) || introShown[i] === n) return;
   introShown[i] = n;
   drawFlag($(`vs-f${i}`), n);
-  text(`vs-n${i}`, nameOf(n)); text(`vs-p${i}`, LEADERS[n].place); text(`vs-t${i}`, `“${tagline(n)}”`);
+  text(`vs-n${i}`, nameOf(n)); text(`vs-t${i}`, `“${tagline(n)}”`);
 }
 
 // Corner map: walls and your own tank only (never the other player), plus the ping circle while a ping shows.
@@ -688,7 +709,7 @@ function drawAlarm(pv) {
   if (a !== alarmA) { alarmA = a; $('alarm').style.opacity = a; }
   if (f !== alarmF) { alarmF = f; $('alarm').style.setProperty('--flash', f); }
   const on = a > 0;
-  if (on !== alarmOn) { alarmOn = on; $('rh-note').classList.toggle('alarm', on); $('cmap').classList.toggle('alarm', on); }
+  if (on !== alarmOn) { alarmOn = on; $('cmap').classList.toggle('alarm', on); }
 }
 $('rc-leave').addEventListener('click', leaveMatch);
 
@@ -699,6 +720,7 @@ initMenu({
   canGiveUp: () => mode !== 'solo' && !!rules.match && rules.match.phase !== 'over' && !rules.givingUp,
   giveUp: () => rules.giveUp(),
   leave: leaveMatch,
+  room: () => mode === 'solo' ? '' : roomCode,   // R4: the room code lives in the menu
 });
 
 // Leader picker (Stage 3A): ready(n, ok) is a two-player choice, start() begins Drive alone.
@@ -719,6 +741,7 @@ initLobby({
   end: endMatch,
   finish() { closePicker(); rules.stop(); shots.clear(); drawRound(); },   // the match ended early; the lobby shows why
   remote: onRemote,
+  otherFace: () => faceHtml(otherLeader),   // R4: "The other player is back." is their face and "Back"
   paused(on) { remote.paused = on; if (on) remote.speed = 0; rules.pause(on); },
   pos: () => ({ x: player.position.x, z: player.position.z, yaw: player.rotation.y }),
   snapshot: () => rules.snapshot(),
@@ -757,7 +780,7 @@ function frame(dt, draw = true, clockDt = dt) {
   if (other.visible) blockByTank(player, other, before, dt);
   // bullets before the clock: a hit in the same instant the clock reaches 0:00 still counts
   const hit = shots.update(dt, hiderTank(), mode === 'solo' && !(other.visible && otherFade > 0.5));
-  if (hit && mode === 'solo') { soloWreck = 1.5; paintTank(other, COLORS.hider, true); toast('Hit.'); boom({ x: other.position.x, z: other.position.z }, false); }
+  if (hit && mode === 'solo') { soloWreck = 1.5; paintTank(other, COLORS.hider, true); toast('Hit', icon('hit', 16)); boom({ x: other.position.x, z: other.position.z }, false); }
   else if (hit && myRole() === 'hider') rules.reportHit(rules.match.t, { x: player.position.x, z: player.position.z });   // the hider's phone tells the referee
   if (soloWreck > 0 && (soloWreck -= dt) <= 0) { paintTank(other, COLORS.hider); wreck = null; }
   rules.tick(clockDt);
@@ -897,7 +920,7 @@ addEventListener('pointerup', e => {
   const line = pokeLine(rules.leaders()?.me, pokeLast);
   if (!line) return;
   pokeAt = performance.now(); pokeLast = line;
-  showBubble(line);
+  if (chatter('poke', settings.chatter)) showBubble(line);   // R4 Chatter: Off = no bubble (the head still wobbles)
   shakeHead(player, 0.7);
   play('tick', 0.5, 0.85);
 }, true);
@@ -946,7 +969,7 @@ renderer.setAnimationLoop(now => {
   frame(Math.min(0.05, real), true, real);
 });
 
-window.__tb = { drawRound, setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+window.__tb = { drawRound, flashRole, setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },

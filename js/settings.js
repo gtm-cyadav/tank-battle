@@ -25,6 +25,7 @@ export const DEFAULTS = {
   graphics: 'high',     // Stage 2A: 'high' | 'low' (low: no shadows, lower sharpness, fewer effects, for slow phones)
   assist: 'on',         // aim assist for the hunter (assist.js): 'on' | 'off'
   assistStrength: 'medium',   // 'light' | 'medium' | 'strong': the cone, 3 / 6 / 10 degrees
+  chatter: 'full',      // R4: the leaders' speech bubbles (watching, bump, poke): 'full' (as before) | 'short' | 'off' (bubble.js chatter)
 };
 
 // Slider ranges and labels. Camera height tops out at 3.8 m: with the squeeze rise it still stays under the 4.5 m walls.
@@ -38,7 +39,7 @@ const SLIDERS = {
   camHeight: { min: 1.8, max: 3.8, step: 0.1, show: v => v.toFixed(1) + ' m' },
   camDistance: { min: 4, max: 10, step: 0.5, show: v => v.toFixed(1) + ' m' },
 };
-const CHOICES = { control: ['sliders', 'ring'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'] };
+const CHOICES = { control: ['sliders', 'ring'], stickSide: ['left', 'right'], map: ['on', 'off'], sound: ['on', 'off'], graphics: ['high', 'low'], assist: ['on', 'off'], assistStrength: ['light', 'medium', 'strong'], chatter: ['full', 'short', 'off'] };
 
 function load() {
   let saved = {};
@@ -87,6 +88,8 @@ export function initSettings(onOpenChange) {
     b.addEventListener('click', () => { settings[b.dataset.set] = b.dataset.value; changed(); });
   }
   $('set-reset').addEventListener('click', () => { Object.assign(settings, DEFAULTS); changed(); });
+  // R4: each row's long explanation sits behind a small "i" (closed until tapped; never saved)
+  for (const b of document.querySelectorAll('.ib[data-note]')) b.addEventListener('click', () => { const n = $(b.dataset.note); n.hidden = !n.hidden; b.setAttribute('aria-expanded', String(!n.hidden)); });
   const open = on => {
     $('settings').hidden = !on;
     document.documentElement.toggleAttribute('data-settings', on);
