@@ -1,4 +1,4 @@
-// Limited view (Stage 1e, brief section 3 "Vision"): the smog, who can see whom, and the hider's tank fading out at
+// Limited view: the smog, who can see whom, and the hider's tank fading out at
 // the edge of the hunter's view.
 // - The smog is measured flat along the ground from your own tank (not from the camera), so "25 m" means 25 m from
 //   the hunter in every direction, straight ahead or at the edge of the screen.
@@ -23,7 +23,7 @@ export const SMOGS = {
   greyfar: { color: 0xa9b1b4, top: 0xbfc6ca, near: 0, far: 70, max: 0.92 },
   dust: { color: 0xa39b8b, top: 0xb8b3a8, near: 0, far: 34, max: 1 },
   dark: { color: 0x737b77, top: 0x959c99, near: 0, far: 30, max: 1 },
-  none: { color: 0xa9b1b4, top: 0xbfc6ca, near: 28, far: 125, max: 1 },   // the 1d light haze, for comparison
+  none: { color: 0xa9b1b4, top: 0xbfc6ca, near: 28, far: 125, max: 1 },   // a light haze, for comparison
 };
 
 // ---- the smog: three.js fog, but measured flat from a centre point -------------------------------------------
@@ -56,8 +56,8 @@ export const smogAt = (x, z) => center.value.set(x, z);
 // ---- who can see whom ------------------------------------------------------------------------------------------
 // The walls are tall boxes and the camera stays under their tops, so "can the hunter see it" is a question on the flat
 // map: is there a clear straight line from where the hunter looks to any part of the hider's tank outline?
-// Answered exactly, not by trying a handful of points (a first version did, and missed the tank through thin slits
-// between two wall corners): if any part is visible, then some visible line either ends at a corner of the outline
+// Answered exactly, not by trying a handful of points (that can miss the tank through thin slits between two wall
+// corners): if any part is visible, then some visible line either ends at a corner of the outline
 // or just grazes a wall corner. So those are the only lines worth trying.
 
 // The hider's tank outline seen from above: hull and tracks 3.05 m wide, from 1.95 m behind the centre to the barrel

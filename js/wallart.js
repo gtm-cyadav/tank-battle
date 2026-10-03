@@ -1,14 +1,13 @@
-// Wall art everywhere (Chetan, 2026-10-01, a follow-up to Stage 4A): graffiti and fake movie posters on every wall face you can see from the floor.
+// Wall art everywhere: graffiti and fake movie posters on every wall face you can see from the floor.
 // This file is the DATA and the PLACEMENT only (no drawing, no three.js): props.js draws it. Everything here is a fixed function of the map, the lamps and
-// the 4A graffiti, with a seeded generator, so both phones always see the same walls. Nothing here is random on its own (the tests check the source for it).
-// All text was approved by Chetan in batches on 2026-10-01 (PROJECT.md section 19): parody titles and plain references only, no lyrics.
+// the fixed graffiti (eggs.js), with a seeded generator, so both phones always see the same walls. Nothing here is random on its own (the tests check the source for it).
+// All text: parody titles and plain references only, no lyrics.
 // Cosmetic only: nothing solid, nothing the sight rule, the hits, the map checker, the aim assist or the chicken's ledge reads.
-import { MAP, CELL } from './map.js';
 import { ROWS, COLS, isWallCell, cellX, cellZ } from './world.js';
 import { GRAFFITI, graffitiSpot, CHICKEN } from './eggs.js';
 
 // ---- the text ---------------------------------------------------------------------------------------------------------
-// The first 11 are the 4A lines (eggs.js GRAFFITI keeps their fixed places). Then 49 new ones (batches 1 to 3, approved). Every 5th new line (from the 3rd) is chalk.
+// The first 11 are the fixed lines (eggs.js GRAFFITI keeps their places). Then 49 more (NEW_GRAFFITI). Every 5th of those (from the 3rd) is chalk.
 export const NEW_GRAFFITI = [
   'This is fine.', 'It is Wednesday, my dudes.', 'One does not simply walk in.', 'Stonks. Only up.', 'Press F to pay respects.', 'Touch grass. There is no grass.',
   'Skill issue.', 'Error 404: exit not found.', 'Much wall. Very paint. Wow.', 'Reply all was a mistake.', 'Left on read since 1812.', 'Free hugs. Terms apply.',
@@ -22,7 +21,7 @@ export const NEW_GRAFFITI = [
   'Sad song playing in the next lane.', 'Believe it. The wall does not care.', 'Nani?! It was only a wall.', 'This wall is in its final form.',
   'The map is not to scale. Neither is the war.', 'Lost property: one tourist.', 'Roman roads lead here. They should not.',
 ];
-// The 60 lines in one list: index < GRAFFITI.length is a 4A line (fixed place), the rest are the generated ones.
+// The 60 lines in one list: index < GRAFFITI.length is a fixed line (eggs.js), the rest are the generated ones.
 export const POOL = [...GRAFFITI.map(g => g.text), ...NEW_GRAFFITI];
 export const isChalk = i => i >= GRAFFITI.length && (i - GRAFFITI.length) % 5 === 2;
 
@@ -89,7 +88,7 @@ const END = 0.45;      // m kept clear at each end of a face (corners)
 const LAMP = 1.0;      // m kept clear on each side of a lamp (its housing and glow)
 const GAP = 0.3;       // m between two pieces on the same face
 const NEAR = { graffiti: 30, poster: 45 };   // the same line or poster is not repeated within this many metres if it can be helped
-const POSTER_SHARE = 0.25;                   // about one face in four carries a poster (Chetan, 2026-10-01)
+const POSTER_SHARE = 0.25;                   // about one face in four carries a poster
 
 function rng(seed) {
   let a = seed >>> 0;
@@ -110,7 +109,7 @@ export function layoutWallArt(lamps) {
 function layoutFor(lamps) {
   const faces = wallFaces(), rand = rng(20261001), pieces = [], empty = [];
   const choc = { x: cellX(CHICKEN.c + 1), z0: cellZ(CHICKEN.r), z1: cellZ(CHICKEN.r + 1) };   // the chicken's face: the east side of its block, kept clear
-  // the fixed 4A graffiti first: their places never move
+  // the fixed graffiti first: their places never move
   GRAFFITI.forEach((g, i) => {
     const s = graffitiSpot(g), fi = faces.findIndex(f => f.nx === s.nx && f.nz === s.nz && Math.abs((f.nx ? s.x - f.at : s.z - f.at)) < 0.01 && (f.nx ? s.z : s.x) > f.u0 && (f.nx ? s.z : s.x) < f.u1);
     pieces.push({ kind: 'graffiti', item: i, x: s.x, z: s.z, nx: s.nx, nz: s.nz, w: 5.2, h: 1.3, y: GRAFFITI_Y, ink: graffitiSize(g.text).ink * 5.2 / graffitiSize(g.text).w, face: fi, fixed: true });

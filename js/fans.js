@@ -1,6 +1,5 @@
-// Fake industrial fans on the wall tops (Chetan, 2026-10-02, Part B of the round-end session; style A from three phone-size pictures): a square
-// box fan in a steel frame, standing on two feet on top of a wall, its five blades turning slowly (one turn in 5 s). Six of them: four on the
-// long walls round the plaza (mirrored like the map) and two on the outer wall, mid-west and mid-east.
+// Fake industrial fans on the wall tops: a square box fan in a steel frame, standing on two feet on top of a wall, its five blades turning slowly
+// (one turn in 5 s). Six of them: four on the long walls round the plaza (mirrored like the map) and two on the outer wall, mid-west and mid-east.
 // Cosmetic only. Nothing reads them: not the sight rule, the hits, the map checker, the corner map or the aim assist. They stand on the wall
 // tops inside the wall's own footprint, the frame starting 0.35 m above the top (4.85 m on an inner wall, 7.35 m on the outer wall), and the
 // camera never goes above 4.1 m, so no view line or shot (1.55 m) can reach them. They throw no shadows and make no sound.

@@ -1,6 +1,6 @@
-// Wall art everywhere (Chetan, 2026-10-01): the DRAWING of the graffiti and the fake posters, all in code (no downloads). wallart.js decides what goes where; this
-// file paints one atlas texture (every line of graffiti and every poster once) and builds ONE mesh of small quads that stand 3 cm off the walls: one draw call for all of it
-// (the 4A graffiti was already one). Low graphics paint the same atlas at half size: the same pieces in the same places on every phone, only less detailed.
+// Wall art everywhere: the DRAWING of the graffiti and the fake posters, all in code (no downloads). wallart.js decides what goes where; this
+// file paints one atlas texture (every line of graffiti and every poster once) and builds ONE mesh of small quads that stand 3 cm off the walls: one draw call for all of it.
+// Low graphics paint the same atlas at half size: the same pieces in the same places on every phone, only less detailed.
 // Muted on purpose: paper is faded and grimy, paint is a shade lighter than the wall, nothing shines.
 import * as THREE from '../lib/three.module.js';
 import { POOL, POSTERS, POSTER, CELL_W, CELL_H, graffitiSize, isChalk } from './wallart.js';
@@ -10,7 +10,7 @@ const FONT = (w, s) => `${w} ${s}px "Plex Mono", ui-monospace, Menlo, Consolas, 
 const seeded = n => { let s = (n * 7919 + 13) >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
 
 // ---- graffiti ----------------------------------------------------------------------------------------------------------------
-// stencil: faint pale writing with a hint of depth and a few runs of paint (the 4A look). chalk: thin, wobbly, each letter a little off, a smudge behind.
+// stencil: faint pale writing with a hint of depth and a few runs of paint. chalk: thin, wobbly, each letter a little off, a smudge behind.
 function drawGraffiti(g, text, i, x0, y0, k) {
   const CW = CELL_W * k, CH = CELL_H * k, { lines, px } = graffitiSize(text), size = px * k;
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -47,9 +47,19 @@ const PAL = {
 const circle = (g, x, y, r, fill) => { g.fillStyle = fill; g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill(); };
 const rect = (g, x, y, w, h, fill) => { g.fillStyle = fill; g.fillRect(x, y, w, h); };
 const poly = (g, pts, fill) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); };
-function burst(g, cx, cy, R, fill, n = 28) { g.fillStyle = fill; g.beginPath(); for (let i = 0; i < n; i++) { const r = i % 2 ? R * 0.52 : R, a = i / n * 6.2832; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); g.fill(); }
-function mug(g, x, y, w, h, fill, dark) { rect(g, x, y, w, h, fill); g.strokeStyle = fill; g.lineWidth = w * 0.12; g.beginPath(); g.arc(x + w, y + h * 0.45, h * 0.28, -1.4, 1.4); g.stroke(); rect(g, x, y, w, h * 0.12, dark); }
-function tankShape(g, x, y, s, fill) { rect(g, x - s * 0.5, y, s, s * 0.32, fill); rect(g, x - s * 0.28, y - s * 0.2, s * 0.5, s * 0.22, fill); rect(g, x + s * 0.2, y - s * 0.14, s * 0.55, s * 0.07, fill); }
+function burst(g, cx, cy, R, fill, n = 28) {
+  g.fillStyle = fill; g.beginPath();
+  for (let i = 0; i < n; i++) { const r = i % 2 ? R * 0.52 : R, a = i / n * 6.2832; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+  g.closePath(); g.fill();
+}
+function mug(g, x, y, w, h, fill, dark) {
+  rect(g, x, y, w, h, fill);
+  g.strokeStyle = fill; g.lineWidth = w * 0.12; g.beginPath(); g.arc(x + w, y + h * 0.45, h * 0.28, -1.4, 1.4); g.stroke();
+  rect(g, x, y, w, h * 0.12, dark);
+}
+function tankShape(g, x, y, s, fill) {
+  rect(g, x - s * 0.5, y, s, s * 0.32, fill); rect(g, x - s * 0.28, y - s * 0.2, s * 0.5, s * 0.22, fill); rect(g, x + s * 0.2, y - s * 0.14, s * 0.55, s * 0.07, fill);
+}
 
 // the artwork, in the top 58 per cent of the poster: art(g, W, H, p). Plain shapes only.
 const ART = {
@@ -78,7 +88,9 @@ const ART = {
   footprint(g, W, H, p) {
     g.strokeStyle = p.dark; g.lineWidth = W * 0.025; g.strokeRect(W * 0.2, H * 0.08, W * 0.6, H * 0.46);   // the parking bay
     rect(g, W * 0.46, H * 0.44, W * 0.08, H * 0.08, p.dark);
-    for (const [dx, dy, r] of [[-0.14, 0, 0.07], [0, -0.06, 0.08], [0.14, 0, 0.07]]) { g.fillStyle = p.a; g.beginPath(); g.ellipse(W * (0.5 + dx), H * (0.2 + dy), W * r * 0.8, H * r * 1.0, 0, 0, 6.2832); g.fill(); }
+    for (const [dx, dy, r] of [[-0.14, 0, 0.07], [0, -0.06, 0.08], [0.14, 0, 0.07]]) {
+      g.fillStyle = p.a; g.beginPath(); g.ellipse(W * (0.5 + dx), H * (0.2 + dy), W * r * 0.8, H * r * 1.0, 0, 0, 6.2832); g.fill();
+    }
     g.fillStyle = p.a; g.beginPath(); g.ellipse(W * 0.5, H * 0.33, W * 0.17, H * 0.1, 0, 0, 6.2832); g.fill();
   },
   planet(g, W, H, p) {
@@ -109,15 +121,21 @@ const ART = {
   },
   skyline(g, W, H, p) {
     circle(g, W * 0.64, H * 0.22, W * 0.2, p.light);
-    [[0, 0.5, 0.16], [0.14, 0.38, 0.12], [0.26, 0.46, 0.18], [0.44, 0.34, 0.1], [0.54, 0.44, 0.16], [0.7, 0.3, 0.12], [0.82, 0.42, 0.18]].forEach(([x, top, w]) => rect(g, W * x, H * top, W * w, H * (0.58 - top), p.dark));
+    [[0, 0.5, 0.16], [0.14, 0.38, 0.12], [0.26, 0.46, 0.18], [0.44, 0.34, 0.1], [0.54, 0.44, 0.16], [0.7, 0.3, 0.12], [0.82, 0.42, 0.18]]
+      .forEach(([x, top, w]) => rect(g, W * x, H * top, W * w, H * (0.58 - top), p.dark));
   },
   hourglass(g, W, H, p) {
-    poly(g, [[W * 0.28, H * 0.08], [W * 0.72, H * 0.08], [W * 0.54, H * 0.3], [W * 0.46, H * 0.3]], p.a); poly(g, [[W * 0.46, H * 0.3], [W * 0.54, H * 0.3], [W * 0.72, H * 0.52], [W * 0.28, H * 0.52]], p.b);
+    poly(g, [[W * 0.28, H * 0.08], [W * 0.72, H * 0.08], [W * 0.54, H * 0.3], [W * 0.46, H * 0.3]], p.a);
+    poly(g, [[W * 0.46, H * 0.3], [W * 0.54, H * 0.3], [W * 0.72, H * 0.52], [W * 0.28, H * 0.52]], p.b);
     g.strokeStyle = p.light; g.lineWidth = W * 0.02; g.beginPath(); g.moveTo(W * 0.26, H * 0.08); g.lineTo(W * 0.74, H * 0.08); g.moveTo(W * 0.26, H * 0.52); g.lineTo(W * 0.74, H * 0.52); g.stroke();
   },
   flamemug(g, W, H, p) {
     mug(g, W * 0.3, H * 0.36, W * 0.34, H * 0.17, p.dark, p.b);
-    for (const [dx, hh] of [[0.32, 0.16], [0.46, 0.22], [0.58, 0.14]]) { g.fillStyle = p.a; g.beginPath(); g.moveTo(W * dx, H * 0.36); g.quadraticCurveTo(W * (dx - 0.07), H * (0.36 - hh * 0.5), W * (dx + 0.02), H * (0.36 - hh)); g.quadraticCurveTo(W * (dx + 0.09), H * (0.36 - hh * 0.4), W * (dx + 0.07), H * 0.36); g.fill(); }
+    for (const [dx, hh] of [[0.32, 0.16], [0.46, 0.22], [0.58, 0.14]]) {
+      g.fillStyle = p.a; g.beginPath(); g.moveTo(W * dx, H * 0.36);
+      g.quadraticCurveTo(W * (dx - 0.07), H * (0.36 - hh * 0.5), W * (dx + 0.02), H * (0.36 - hh));
+      g.quadraticCurveTo(W * (dx + 0.09), H * (0.36 - hh * 0.4), W * (dx + 0.07), H * 0.36); g.fill();
+    }
   },
 };
 
@@ -150,7 +168,9 @@ function drawPoster(g, def, W, H, n) {
   for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(70,55,35,${rand() * 0.07})`; g.beginPath(); g.arc(rand() * W, rand() * H, (1.5 + rand() * 7) * k, 0, 6.2832); g.fill(); }
   g.strokeStyle = 'rgba(0,0,0,0.16)'; g.lineWidth = Math.max(1, k * 0.8); g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.moveTo(W / 2, 0); g.lineTo(W / 2, H); g.stroke();   // fold lines
   g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(0, H / 2 + 1, W, Math.max(1, k * 0.8));
-  const fade = g.createLinearGradient(0, 0, 0, H); fade.addColorStop(0, 'rgba(130,140,135,0.16)'); fade.addColorStop(1, 'rgba(60,66,62,0.26)'); g.fillStyle = fade; g.fillRect(0, 0, W, H);   // sun-faded top, grimy bottom
+  // sun-faded top, grimy bottom
+  const fade = g.createLinearGradient(0, 0, 0, H); fade.addColorStop(0, 'rgba(130,140,135,0.16)'); fade.addColorStop(1, 'rgba(60,66,62,0.26)');
+  g.fillStyle = fade; g.fillRect(0, 0, W, H);
   if (def.style === 'B') { g.fillStyle = 'rgba(118,124,120,0.14)'; g.fillRect(0, 0, W, H); }   // the painted ones are the loudest, so they get an extra veil of grey
   g.save(); g.globalCompositeOperation = 'destination-out'; poly(g, [[W, H], [W - 0.2 * W, H], [W, H - 0.15 * H]], '#000'); g.restore();   // a torn corner
 }
@@ -174,7 +194,9 @@ export function makeWallArt(layout, quality = 'high') {
   paint();
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  document.fonts?.load('500 40px "Plex Mono"').then(() => Promise.all([document.fonts.load('700 40px "Plex Mono"'), document.fonts.load('400 40px "Plex Mono"')])).then(() => { paint(); tex.needsUpdate = true; }).catch(() => {});
+  document.fonts?.load('500 40px "Plex Mono"')
+    .then(() => Promise.all([document.fonts.load('700 40px "Plex Mono"'), document.fonts.load('400 40px "Plex Mono"')]))
+    .then(() => { paint(); tex.needsUpdate = true; }).catch(() => {});
   const pos = [], uv = [], nrm = [], idx = [];
   for (const q of layout.pieces) {
     const rx = q.nz, rz = -q.nx, base = pos.length / 3, cx = q.x + q.nx * 0.03, cz = q.z + q.nz * 0.03;

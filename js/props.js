@@ -1,11 +1,11 @@
-// Stage 4A (Chetan, 2026-10-01): the things the easter eggs put in the yard, drawn in code (no downloads, no models).
+// The things the easter eggs put in the yard, drawn in code (no downloads, no models).
 //   - the stone chicken on top of one wall block (a single merged mesh: one draw call),
 //   - the wall art: graffiti and fake posters on every wall face (wallart.js, wallart_draw.js; one mesh, one atlas texture, one draw call),
 //   - the lost tourist (three meshes while he is on screen, one on Low graphics; hidden when he is not in the round),
 //   - the sweat drops on the hider's bobblehead in the last ten seconds.
 // None of it is solid, none of it is known to the sight rule, the hits or the map checker, and each draws exactly what the
 // shared match says (main.js feeds it the round clock), so both phones show the same thing.
-// The look is Chetan's pick "A. quiet and worn" (2026-10-01): a weathered stone chicken, a tourist in a beige jacket with a red
+// The look is "quiet and worn": a weathered stone chicken, a tourist in a beige jacket with a red
 // cap, faint stencil writing a shade lighter than the wall.
 import * as THREE from '../lib/three.module.js';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
@@ -87,7 +87,7 @@ function makeArrow(quality) {
   return mesh;
 }
 
-// (the graffiti and the posters live in wallart.js and wallart_draw.js since the wall-art follow-up)
+// (the graffiti and the posters live in wallart.js and wallart_draw.js)
 
 // ---- the tourist --------------------------------------------------------------------------------------------------
 function makeTourist(quality) {

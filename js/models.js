@@ -1,9 +1,9 @@
-// Stage 2B: the Blender-made tank and the leaders' bobbleheads (models/*.glb, built by scripts in Blender).
+// The Blender-made tank and the leaders' bobbleheads (models/*.glb, built by scripts in Blender).
 // - models/tank.glb: the tank body (paint + dark steel) and the barrel (its own piece, so it can kick back).
-// - models/bNN.glb, NN = the leader's number in the brief's list: 'fig_body' (the figure below the neck, origin at
+// - models/bNN.glb, NN = the leader's number (leaders.js): 'fig_body' (the figure below the neck, origin at
 //   the hatch), 'fig_head' (origin at the neck, so it can wobble), 'fig_props' (things fixed to the tank: teacup,
 //   flag, trim), and if needed 'fig_barrel' (props riding on the barrel) and 'fig_float' (props over the turret).
-//   The figure is modelled facing forward; here it is turned round to face the player (Chetan, 2026-09-30) and the
+//   The figure is modelled facing forward; here it is turned round to face the player and the
 //   other player's figure is drawn bigger (1.3 m instead of 1.0 m, so it can be told apart further away); props
 //   are never turned or grown.
 // Colours are painted into the models as vertex colours; each tank gets its own few materials (paint, dark steel,
@@ -17,9 +17,8 @@ const V = new URL(import.meta.url).searchParams.get('v') || 'local';
 const url = name => new URL(`../models/${name}.glb?v=${V}`, import.meta.url).href;
 const loader = new GLTFLoader();
 
-// The leaders built so far (numbers from the brief's section 6). Stage 3 replaces the temporary test picking.
-export const READY = Array.from({ length: 36 }, (_, i) => i + 1);   // all 36 built (2026-09-30)
-export const LEADER_COUNT = 36;
+// The leaders a random pick can choose from: all 36.
+export const READY = Array.from({ length: 36 }, (_, i) => i + 1);
 
 let tankModel = null, tankPromise = null;
 export function loadTank() {
@@ -68,7 +67,7 @@ export function applyTank(tank) {
   return true;
 }
 
-// ---- the rubber duck (Stage 4B, Chetan 2026-10-01): models/duck.glb, built by tools/blender/build_duck.py -----------------------
+// ---- the rubber duck: models/duck.glb ----------------------------------------------------------------------------------------
 // A duck round draws every tank as this duck instead of the tank body. Nothing else changes: the collision circle, the outline the sight
 // rule and the bullets use, and the barrel's pivot and tip are the tank's (the duck's bill IS the barrel: it takes the barrel's place, so
 // the recoil, the muzzle flash and the shots come from the same spot). The duck's body wears the tank's paint (orange hunter, blue hider),
@@ -132,12 +131,12 @@ export function clearLeader(tank) {
   u.figure = []; u.head = u.float = null; u.leader = 0; u.leaderScene = null; u.changed = true;
 }
 
-// ---- the flag (Stage 3A): a short mast at the back of the tank with a waving cloth showing the leader's flag ------
+// ---- the flag: a short mast at the back of the tank with a waving cloth showing the leader's flag ------
 // The mast stands at the rear right corner and the cloth flies inwards across the deck, facing backwards (so the chaser
 // reads it). Everything stays inside the tank's outline that bullets and the sight rule use (x within +-1.525 m, not
 // further than 1.95 m behind the centre), waves included, so the flag can never show through a wall. The cloth is one of
 // the tank's own materials, so it fades and takes the smog with the rest of the tank.
-// (3a-2, Chetan: the first size, 1.0 x 0.67 m, took away from the game: now about 70% of it)
+// (kept small, 0.7 x 0.47 m: a bigger flag takes attention away from the game)
 export const FLAG = { mastX: 1.42, mastZ: -1.72, mastBase: 0.95, mastTop: 2.36, w: 0.7, h: 0.467, cols: 8, rows: 3, amp: 0.085 };
 const flagTex = new Map();
 function flagTexture(n) {
@@ -202,16 +201,4 @@ function attachLeader(tank, n, scene) {
   u.headRest = head ? head.position.clone() : null;
   u.floatRest = float ? float.position.clone() : null;
   u.changed = true;
-}
-
-// Count what a tank draws (testing and the performance report).
-export function tankStats(tank) {
-  let tris = 0, draws = 0;
-  tank.traverseVisible(o => {
-    if (!o.isMesh || o.userData.ghost) return;
-    const g = o.geometry, n = g.index ? g.index.count : g.attributes.position.count;
-    const groups = g.groups.length || 1;
-    tris += n / 3; draws += groups;
-  });
-  return { tris, draws };
 }

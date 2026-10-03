@@ -1,4 +1,4 @@
-// Everything about the phone screen itself (brief section 3, "Full screen"):
+// Everything about the phone screen itself:
 // start screen with the right full-screen hint per device (its buttons live in lobby.js), turn-your-phone-sideways message,
 // "Leave the game?" prompt on back-swipe, and blocking browser zoom / pull-to-refresh / long-press menus.
 const $ = id => document.getElementById(id);

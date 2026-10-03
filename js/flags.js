@@ -1,8 +1,8 @@
-// Stage 3A: the flag (or, for eras with no flag, the banner or symbol) of each of the 36 leaders, drawn in code on a
+// The flag (or, for eras with no flag, the banner or symbol) of each of the 36 leaders, drawn in code on a
 // canvas. No pictures are downloaded. The same drawing is used on the picker's cards and as the cloth on the tank's
 // mast (tank.js / models.js). Every flag is drawn in a 60 x 40 box (3:2); a flag can leave a corner clear
 // (draw with alpha) and it stays see-through there (the Maratha pennant).
-// Content lines (brief section 4): no swastika or hate symbol, no eagle, no protected emblem (no red cross or red
+// Content lines: no swastika or hate symbol, no eagle, no protected emblem (no red cross or red
 // crescent), and no sacred script (the Iraqi flag is drawn without its lettering rather than drawn wrongly).
 
 const TAU = Math.PI * 2;
@@ -11,7 +11,10 @@ const TAU = Math.PI * 2;
 const rect = (g, c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
 const disc = (g, c, x, y, r) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); };
 const ring = (g, c, x, y, r, w) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke(); };
-const line = (g, c, w, ...p) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]); g.stroke(); };
+const line = (g, c, w, ...p) => {
+  g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]); g.stroke();
+};
 const poly = (g, c, ...p) => { g.fillStyle = c; g.beginPath(); g.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]); g.closePath(); g.fill(); };
 // a star with `n` points, outer radius r, inner radius r * k, one point at angle `a` (0 = pointing up)
 function star(g, c, x, y, r, n = 5, k = 0.382, a = 0) {
@@ -24,13 +27,17 @@ function star(g, c, x, y, r, n = 5, k = 0.382, a = 0) {
 }
 const hbands = (g, ...cols) => cols.forEach((c, i) => rect(g, c, 0, (40 / cols.length) * i - 0.01, 60, 40 / cols.length + 0.02));
 const vbands = (g, ...cols) => cols.forEach((c, i) => rect(g, c, (60 / cols.length) * i - 0.01, 0, 60 / cols.length + 0.02, 40));
-function spokes(g, c, x, y, r0, r1, n, w) { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'butt'; g.beginPath(); for (let i = 0; i < n; i++) { const t = (i / n) * TAU; g.moveTo(x + Math.cos(t) * r0, y + Math.sin(t) * r0); g.lineTo(x + Math.cos(t) * r1, y + Math.sin(t) * r1); } g.stroke(); }
+function spokes(g, c, x, y, r0, r1, n, w) {
+  g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'butt'; g.beginPath();
+  for (let i = 0; i < n; i++) { const t = (i / n) * TAU; g.moveTo(x + Math.cos(t) * r0, y + Math.sin(t) * r0); g.lineTo(x + Math.cos(t) * r1, y + Math.sin(t) * r1); }
+  g.stroke();
+}
 const path = (g, c, d, x = 0, y = 0, s = 1) => { g.save(); g.translate(x, y); g.scale(s, s); g.fillStyle = c; g.fill(new Path2D(d)); g.restore(); };
 const FLEUR = 'M0,-9 C3.2,-5.5 3.2,-1.5 0,3 C-3.2,-1.5 -3.2,-5.5 0,-9Z M-1,1.5 C-6,-6 -11.5,-3 -9.5,2.5 C-8.3,5.7 -4,6 -2,4.2Z M1,1.5 C6,-6 11.5,-3 9.5,2.5 C8.3,5.7 4,6 2,4.2Z M-5.2,4.6 h10.4 v1.9 h-10.4Z M-2.2,7 L0,11 L2.2,7Z';
 
 // ---- the 36 ----------------------------------------------------------------------------------------------------
 // what: 'flag' (a real national flag), 'symbol' (a banner or emblem for an era with no flag), 'invented' (a made-up state)
-// note: what the picture is, in plain words (for the approval sheet)
+// note: what the picture is, in plain words
 const UJ_CLIP = 'M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z';
 function unionJack(g) {
   g.save(); g.scale(1, 40 / 30);
@@ -63,8 +70,10 @@ function ussr(g) {
 function italyKingdom(g) {
   vbands(g, '#008c45', '#f4f5f0', '#cd212a');
   const x = 30, y = 20;
-  g.fillStyle = '#f4f5f0'; g.beginPath(); g.moveTo(x - 7, y - 8); g.lineTo(x + 7, y - 8); g.lineTo(x + 7, y + 3); g.quadraticCurveTo(x + 7, y + 10, x, y + 12); g.quadraticCurveTo(x - 7, y + 10, x - 7, y + 3); g.closePath(); g.fill();
-  g.save(); g.beginPath(); g.moveTo(x - 6, y - 7); g.lineTo(x + 6, y - 7); g.lineTo(x + 6, y + 3); g.quadraticCurveTo(x + 6, y + 9, x, y + 11); g.quadraticCurveTo(x - 6, y + 9, x - 6, y + 3); g.closePath(); g.clip();
+  g.fillStyle = '#f4f5f0'; g.beginPath(); g.moveTo(x - 7, y - 8); g.lineTo(x + 7, y - 8); g.lineTo(x + 7, y + 3);
+  g.quadraticCurveTo(x + 7, y + 10, x, y + 12); g.quadraticCurveTo(x - 7, y + 10, x - 7, y + 3); g.closePath(); g.fill();
+  g.save(); g.beginPath(); g.moveTo(x - 6, y - 7); g.lineTo(x + 6, y - 7); g.lineTo(x + 6, y + 3);
+  g.quadraticCurveTo(x + 6, y + 9, x, y + 11); g.quadraticCurveTo(x - 6, y + 9, x - 6, y + 3); g.closePath(); g.clip();
   rect(g, '#cd212a', x - 7, y - 8, 14, 21); rect(g, '#f4f5f0', x - 1.2, y - 8, 2.4, 21); rect(g, '#f4f5f0', x - 7, y - 2.2, 14, 2.4); g.restore();
   poly(g, '#e0a800', x - 4.5, y - 9, x - 4.5, y - 13, x - 2.2, y - 11, x, y - 14, x + 2.2, y - 11, x + 4.5, y - 13, x + 4.5, y - 9);   // crown
 }
@@ -83,7 +92,8 @@ function vergina(g) {
   g.fillStyle = '#e8b923';
   for (let i = 0; i < 16; i++) {
     const a = (i / 16) * TAU, r = i % 2 ? 11 : 15.5, w = 0.2;
-    g.beginPath(); g.moveTo(30 + Math.cos(a - w) * 4.5, 20 + Math.sin(a - w) * 4.5); g.lineTo(30 + Math.cos(a) * r, 20 + Math.sin(a) * r); g.lineTo(30 + Math.cos(a + w) * 4.5, 20 + Math.sin(a + w) * 4.5); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(30 + Math.cos(a - w) * 4.5, 20 + Math.sin(a - w) * 4.5); g.lineTo(30 + Math.cos(a) * r, 20 + Math.sin(a) * r);
+    g.lineTo(30 + Math.cos(a + w) * 4.5, 20 + Math.sin(a + w) * 4.5); g.closePath(); g.fill();
   }
   disc(g, '#e8b923', 30, 20, 5.2); ring(g, '#b4121b', 30, 20, 2.6, 1.1);
 }
@@ -117,7 +127,10 @@ function neoAntarctica(g) {
 }
 function aiCouncil(g) {
   rect(g, '#0b0d10', 0, 0, 60, 40);
-  g.strokeStyle = '#1e242c'; g.lineWidth = 0.6; g.beginPath(); for (let i = 1; i < 12; i++) { g.moveTo(i * 5, 0); g.lineTo(i * 5, 40); } for (let i = 1; i < 8; i++) { g.moveTo(0, i * 5); g.lineTo(60, i * 5); } g.stroke();
+  g.strokeStyle = '#1e242c'; g.lineWidth = 0.6; g.beginPath();
+  for (let i = 1; i < 12; i++) { g.moveTo(i * 5, 0); g.lineTo(i * 5, 40); }
+  for (let i = 1; i < 8; i++) { g.moveTo(0, i * 5); g.lineTo(60, i * 5); }
+  g.stroke();
   ring(g, '#c4161c', 30, 20, 14, 1.8); ring(g, '#c4161c', 30, 20, 9.6, 1.2);
   disc(g, '#e02a2a', 30, 20, 6.4); disc(g, '#0b0d10', 30, 20, 2.6);
   for (const [x, y] of [[8, 8], [52, 8], [8, 32], [52, 32]]) disc(g, '#c4161c', x, y, 1.1);
@@ -135,7 +148,11 @@ function egyptEye(g) {
 function mongol(g) {
   rect(g, '#121212', 0, 0, 60, 40);
   ring(g, '#c9a227', 30, 9, 3.6, 1.4);
-  for (let i = 0; i < 9; i++) { const x = 30 + (i - 4) * 5.2; g.strokeStyle = '#f0f0ec'; g.lineWidth = 1.8; g.lineCap = 'round'; g.beginPath(); g.moveTo(30 + (i - 4) * 0.9, 12); g.quadraticCurveTo(30 + (i - 4) * 3.2, 22, x, 34); g.stroke(); }
+  for (let i = 0; i < 9; i++) {
+    const x = 30 + (i - 4) * 5.2;
+    g.strokeStyle = '#f0f0ec'; g.lineWidth = 1.8; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(30 + (i - 4) * 0.9, 12); g.quadraticCurveTo(30 + (i - 4) * 3.2, 22, x, 34); g.stroke();
+  }
   line(g, '#c9a227', 1.2, 26.5, 12.2, 33.5, 12.2);
 }
 function ashokaChakra(g) {
@@ -215,7 +232,10 @@ function zulu(g) {
   poly(g, '#c9c2b0', 49, 3.5, 55, 4.5, 51.5, 9.5);                          // spearhead
   g.fillStyle = '#efe6d2'; g.beginPath(); g.ellipse(30, 21, 9.4, 15, 0, 0, TAU); g.fill();     // the shield
   g.save(); g.beginPath(); g.ellipse(30, 21, 9.4, 15, 0, 0, TAU); g.clip();
-  g.fillStyle = '#6b3d21'; g.beginPath(); g.ellipse(24.5, 14, 4, 6, 0.3, 0, TAU); g.fill(); g.beginPath(); g.ellipse(35.5, 28, 4.5, 6.5, 0.2, 0, TAU); g.fill(); g.beginPath(); g.ellipse(32, 9, 3, 3, 0, 0, TAU); g.fill();
+  g.fillStyle = '#6b3d21';
+  g.beginPath(); g.ellipse(24.5, 14, 4, 6, 0.3, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(35.5, 28, 4.5, 6.5, 0.2, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(32, 9, 3, 3, 0, 0, TAU); g.fill();
   g.restore();
   line(g, '#3a2414', 1.3, 30, 5, 30, 37); line(g, '#3a2414', 1, 27.5, 12, 27.5, 30);
 }
@@ -246,11 +266,15 @@ function mughal(g) {
   rect(g, '#0d5a34', 0, 0, 60, 40);
   const gold = '#e2b93d';
   g.fillStyle = gold;
-  for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU, w = 0.16; g.beginPath(); g.moveTo(30 + Math.cos(a - w) * 8.4, 20 + Math.sin(a - w) * 8.4); g.lineTo(30 + Math.cos(a) * 15.4, 20 + Math.sin(a) * 15.4); g.lineTo(30 + Math.cos(a + w) * 8.4, 20 + Math.sin(a + w) * 8.4); g.closePath(); g.fill(); }
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * TAU, w = 0.16;
+    g.beginPath(); g.moveTo(30 + Math.cos(a - w) * 8.4, 20 + Math.sin(a - w) * 8.4); g.lineTo(30 + Math.cos(a) * 15.4, 20 + Math.sin(a) * 15.4);
+    g.lineTo(30 + Math.cos(a + w) * 8.4, 20 + Math.sin(a + w) * 8.4); g.closePath(); g.fill();
+  }
   disc(g, gold, 30, 20, 8); ring(g, '#0d5a34', 30, 20, 5, 1);
 }
 
-export const FLAGS = [null,   // index = the leader's number in the brief's list
+export const FLAGS = [null,   // index = the leader's number (leaders.js)
   { draw: g => hbands(g, '#000000', '#ffffff', '#dd0000'), what: 'flag', note: 'Black-white-red, no symbol' },                   // 1 Germany, WW2
   { draw: unionJack, what: 'flag', note: 'Union Jack' },                                                                          // 2 Britain, WW2
   { draw: ussr, what: 'flag', note: 'Red flag, gold hammer, sickle and star' },                                                   // 3 Soviet Union
@@ -301,11 +325,4 @@ export function drawFlag(canvas, n) {
   f.draw(g);
   g.restore();
   return canvas;
-}
-const cache = new Map();
-// A flag as a small picture (a canvas made once and kept) for the picker's cards.
-export function flagCanvas(n, w = 96, h = 64) {
-  const key = `${n}/${w}`;
-  if (!cache.has(key)) { const c = document.createElement('canvas'); c.width = w; c.height = h; drawFlag(c, n); cache.set(key, c); }
-  return cache.get(key);
 }

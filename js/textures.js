@@ -1,4 +1,4 @@
-// Surfaces drawn in code (Stage 2A): concrete floor, painted precast wall panels with rust runs and grime, corrugated
+// Surfaces drawn in code: concrete floor, painted precast wall panels with rust runs and grime, corrugated
 // rusty outer walls, worn hazard stripes, and a whole-yard shading map (dark where the floor meets the walls, plus
 // big faint stains so the floor tiles don't visibly repeat). No downloads: all of it is made when the game loads.
 // Every texture is tileable and drawn from a fixed seed, so it looks the same on both phones and on every visit.

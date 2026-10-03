@@ -1,4 +1,4 @@
-// Stage 4A (Chetan, 2026-10-01): the in-match easter eggs, as plain functions of the match both phones already share.
+// The in-match easter eggs, as plain functions of the match both phones already share.
 // Nothing here draws anything (props.js does) and nothing here is random on its own: every "random" thing comes from a
 // seeded generator fed with the match number and round, so the two phones always work out the same answer.
 //   - the secret chicken on top of one wall block (shooting that block makes it cluck and turns the hunter's trim gold),
@@ -11,15 +11,14 @@ import { cellX, cellZ, rayToWall, toRow, toCol, WALL_H } from './world.js';
 
 // ---- the chicken ----------------------------------------------------------------------------------------------------
 // One end block of the wall at the mouth of the plaza (row 9, column 18). It stands on top of it, 4.5 m up. A bullet that
-// stops against that block (any of its faces) is "a shot at the chicken" (the chicken now stands on a ledge on the east face, see LEDGE).
+// stops against that block (any of its faces) is "a shot at the chicken" (the chicken stands on a ledge on the east face, see LEDGE).
 export const CHICKEN = { r: 9, c: 18 };
-export const HONK_RANGE = 6;   // m: a hider's tank this close to the chicken makes it cluck (Chetan, 2026-10-01: the hider's way to meet the egg)
-export const chickenSpot = () => ({ x: cellX(CHICKEN.c) + CELL / 2, z: cellZ(CHICKEN.r) + CELL / 2, y: WALL_H });   // the block's centre: the hider's honk is measured to this, unchanged
-// Chetan's fix (2026-10-01): the stone chicken stands on a small ledge on the block's EAST face (the end face towards the plaza), 0.55 m up (lowered, see LEDGE), so its body is in line with the
-// barrel (1.55 m) so a hunter can see what to shoot, and a faint "Shoot the chicken" arrow is painted above it, pointing down. Pure looks: nothing here is solid and no rule,
-// hit, sight or map check reads it; a shot that stops against ANY face of the block still counts, exactly as before.
-// Lowered 2026-10-01 (Chetan could not hit it without the aim assist): the ledge top is 0.55 m, so the chicken's body (1.1 to 2.2 m up) is at the height the bullets fly
-// (1.55 m) and a shot at it visibly hits it. The arrow moved above the chicken and points down at it (a ledge this low leaves no room under it).
+export const HONK_RANGE = 6;   // m: a hider's tank this close to the chicken makes it cluck (the hider's way to meet the egg)
+export const chickenSpot = () => ({ x: cellX(CHICKEN.c) + CELL / 2, z: cellZ(CHICKEN.r) + CELL / 2, y: WALL_H });   // the block's centre: the hider's honk is measured to this
+// The stone chicken stands on a small ledge on the block's EAST face (the end face towards the plaza). The ledge top is 0.55 m, so the chicken's body
+// (1.1 to 2.2 m up) is at the height the bullets fly (1.55 m): a hunter can see what to shoot, and a shot at it visibly hits it. A faint "Shoot the
+// chicken" arrow is painted above it, pointing down at it (a ledge this low leaves no room under it). Pure looks: nothing here is solid and no rule,
+// hit, sight or map check reads it; a shot that stops against ANY face of the block counts.
 export const LEDGE = { y: 0.55, out: 1.05, arrowY: 3.5, arrowW: 2.9, arrowH: 0.5 };   // m: ledge top above the floor, how far it juts out, the arrow's centre height and size
 export const chickenLedge = () => ({ x: cellX(CHICKEN.c) + CELL, z: cellZ(CHICKEN.r) + CELL / 2, y: LEDGE.y, nx: 1, nz: 0 });   // the middle of the block's east face
 
@@ -37,7 +36,7 @@ export function seeded(mid, round, salt = 0) {
 
 // ---- the lost tourist -----------------------------------------------------------------------------------------------
 // He walks along the foot of one wall in a long lane, 1.2 m from it, stops twice for a photo, and is gone at the end of
-// the lane. Chetan chose a lane floor (2026-10-01) over the wall tops: tanks drive straight through him (nothing is
+// the lane. He walks on the lane floor, not the wall tops: tanks drive straight through him (nothing is
 // solid), so he can never block a lane, and nothing about the sight rule, the hits or the map checker knows he exists.
 // Lanes are cells of the map: H = along a row (side N: the wall is above, S: below), V = along a column (W / E).
 export const ROUTES = [
@@ -146,10 +145,9 @@ export function badgesOf(how, left, seen, lastShot, rules) {
 export const BADGE_NAMES = { speedrun: 'Speedrun', cinematic: 'Cinematic escape', ghost: 'Ghost' };
 
 // ---- the wall graffiti ----------------------------------------------------------------------------------------------
-// The first three lines are Chetan's; the rest were approved with the Stage 4A texts (see the brief, section 16).
 // Each placement: which wall face (N / S / W / E = the side of the wall block that faces floor), the first cell of that
-// run of wall, and how many cells along the run the centre of the writing sits. The map test (tools/test_eggs.js) checks that every one
-// stands on a real, exposed wall face at least 5.2 m long.
+// run of wall, and how many cells along the run the centre of the writing sits. Every one must stand on a real, exposed
+// wall face at least 5.2 m long (the tests check it).
 export const GRAFFITI = [
   { text: 'Nothing to see here', face: 'E', r: 9, c: 38, along: 4.5 },
   { text: 'The Ides of March was a Tuesday', face: 'W', r: 9, c: 9, along: 9.5 },
@@ -157,7 +155,7 @@ export const GRAFFITI = [
   { text: 'Tea is at four. The war can wait.', face: 'N', r: 25, c: 16, along: 3 },
   { text: 'Birbal was here. He explained everything.', face: 'S', r: 25, c: 15, along: 3.5 },
   { text: 'Elephants: please do not feed.', face: 'N', r: 6, c: 26, along: 3.5 },
-  { text: 'Mountain forts. Zero Wi-Fi.', face: 'W', r: 12, c: 3, along: 3.6 },   // moved 1.3 m along its face (was 4) in the wall-art follow-up: the writing used to run over a lamp
+  { text: 'Mountain forts. Zero Wi-Fi.', face: 'W', r: 12, c: 3, along: 3.6 },   // 3.6, not 4: at 4 the writing would run over a lamp
   { text: 'Wet paint. Possibly since 44 BC.', face: 'E', r: 12, c: 44, along: 4 },
   { text: 'Free carpet. Roll it yourself.', face: 'N', r: 28, c: 21, along: 3 },
   { text: 'Look up. No, higher.', face: 'S', r: 9, c: 16, along: 1.5 },

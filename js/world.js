@@ -83,7 +83,7 @@ export function pushOutOfWalls(p, radius) {
 }
 
 // Walk along the grid from (x0, z0) towards (x1, z1). Returns the distance to the first wall,
-// or the full distance if the line is clear. Used by the camera now; bullets and sight lines later.
+// or the full distance if the line is clear. Used by the camera, the bullets and the sight lines.
 export function rayToWall(x0, z0, x1, z1) {
   const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
   if (len < 1e-6) return 0;

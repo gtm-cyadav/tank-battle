@@ -1,6 +1,6 @@
-// Stage 3B (Chetan, 2026-10-01): the "watching" speech bubble. Once at the start of a round, on your own screen only, a small
+// The "watching" speech bubble. Once at the start of a round, on your own screen only, a small
 // bubble near the top for 4 seconds, then gone. It never takes touches. It is placed where it covers nothing: it looks for
-// the highest spot (then the most central) that clears the edge HUD, its tag slot and the big ping number's slot (R4), the corner map, the keyboard
+// the highest spot (then the most central) that clears the edge HUD, its tag slot and the big ping number's slot, the corner map, the keyboard
 // hint, the top-right buttons, a notice, the action button and the two sliders or the ring, and stays inside the
 // notch margins. If a very cramped layout leaves no clear spot (the biggest button and sliders at once on a small phone), it
 // takes the least bad one and says so in data-clear="no" (testing only).
@@ -12,7 +12,7 @@ const SHOW = 4000, GAP = 6;   // ms on screen; px of air kept round every other 
 // covered when no spot clears everything, which happens only with the biggest button and sliders pushed well into the screen.
 export const HARD = 100, SOFT = 1;
 
-let shown = 0;   // which bubble is drawn (R4 Part B: the queue asks whether its own bubble is still up)
+let shown = 0;   // which bubble is drawn (the queue asks whether its own bubble is still up)
 
 const visible = el => el && !el.hidden && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
 const box = (el, w = HARD) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? { l: r.left, t: r.top, r: r.right, b: r.bottom, w } : null; };
@@ -21,7 +21,7 @@ const hit = (a, c) => !(a.r <= c.l || c.r <= a.l || a.b <= c.t || c.b <= a.t);
 // every rectangle the bubble must stay clear of (the ping text's slot is kept free even while it is empty)
 export function obstacles() {
   const out = [], add = (id, ok = true) => { const el = $(id); if (ok && visible(el)) { const b = box(el); if (b) out.push(b); } };
-  // R4: the edge HUD (faces, clock chip, weather tag), the slot under it for its one tag (head-start lock, "Hit"), and the slot of the big ping
+  // the edge HUD (faces, clock chip, weather tag), the slot under it for its one tag (head-start lock, "Hit"), and the slot of the big ping
   // number (kept free even while empty, so a ping can never land under a bubble); the round-start flash and the map's ping ring while they show
   const top = $('rh').querySelector('.rh-top');
   if (visible($('rh')) && top) {
@@ -68,7 +68,7 @@ function place(w, h, avoid, m, low = 0.55) {
   return best && { ...best, clear: false };
 }
 
-// opt (Stage 4B): { ms: how long it stays, theme: 'love' | 'hate' for the themed start message }; R4 Part B: { still: () => false drops it while it waits,
+// opt: { ms: how long it stays, theme: 'love' | 'hate' for the themed start message, still: () => false drops it while it waits,
 // pri: 1.5 for the poke's answer (the player's own tap: it cuts in on another bubble, never on a notice, the flash or the ping number) }
 // It goes through the one-message queue (say.js): it shows at once unless a notice is up, the ping counts down or the round flash shows; then it waits.
 export function showBubble(text, opt = {}) {
@@ -94,7 +94,7 @@ function drawBubble(el, text, opt) {
     if (s && (!spot || (s.clear && !spot.clear) || (!s.clear && !spot.clear && s.area < spot.area))) { spot = s; size = r; }
     if (spot?.clear) break;
   }
-  if (!spot?.clear) {   // Stage 4A: the two-leader bump bubble is taller; if nothing near the top clears everything, look further down the screen too
+  if (!spot?.clear) {   // the two-leader bump bubble is taller; if nothing near the top clears everything, look further down the screen too
     for (const maxw of [280, 230, 185]) {
       el.style.maxWidth = Math.min(maxw, room) + 'px';
       el.style.left = '0px'; el.style.top = '0px';
@@ -121,9 +121,8 @@ export function hideBubble() {
   el.classList.remove('show');
   el.hidden = true;
 }
-export const bubbleShowing = () => { const el = $('bubble'); return !!el && !el.hidden; };
 
-// R4 (Chetan, 2026-10-03): the Chatter setting for the leaders' speech bubbles (watching, bump, poke). Full = exactly as before (the default);
+// The Chatter setting for the leaders' speech bubbles (watching, bump, poke). Full = every line (the default);
 // Short = the watching line only in round 1 of a match, a bump shows only the first leader's line, a poke still answers (the player asked);
 // Off = none of the three. The texts never change: this only says how many lines of that bubble show (0 = no bubble).
 export function chatter(kind, setting, round = 1) {

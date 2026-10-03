@@ -1,8 +1,8 @@
-// Sound (Stage 2A): a light set of short CC0 clips (audio/, list in the brief's asset log), played through Web Audio.
+// Sound: a light set of short CC0 clips (audio/), played through Web Audio.
 // - Nothing plays, and no audio is even set up, before the player's first tap or key press (browsers, iPhone above
 //   all, only allow sound to start from a tap; the first tap also "unlocks" it on iOS).
 // - Mute switch in Settings. Silent whenever the game is out of sight (switched app, screen locked, other tab).
-// - Hearing follows sight (Chetan, 2026-09-29, "only what you see"): the other tank's engine is heard only while it is
+// - Hearing follows sight ("only what you see"): the other tank's engine is heard only while it is
 //   in view; the hunter's shots are heard on both phones, louder when close, but with no left/right direction.
 // Loops (engine, sprint, rain, lamp hum, heartbeat) are set every frame by frame(); one-off sounds by play().
 
@@ -108,7 +108,7 @@ export const byDistance = (d, far = 70, floor = 0) => Math.max(floor, Math.pow(M
 //   speed (own tank, m/s), throttle (0..1), sprint (true while sprinting),
 //   other: null or { speed, dist, pan, fade } (only while the other tank is in view),
 //   rain (0/1), lamp: { d, level } nearest lamp, heart (0 = off, else 0..1 how close to 0:00), quiet (true between rounds, cards),
-//   off (true on the start screen: every loop stops, e.g. after Quit to menu, 1f) }
+//   off (true on the start screen: every loop stops, e.g. after Quit to menu) }
 export function frame(s) {
   if (!ctx || ctx.state !== 'running') return;
   const on = s.off ? 0 : 1, q = on * (s.quiet ? 0.35 : 1);

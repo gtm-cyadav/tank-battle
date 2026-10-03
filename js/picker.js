@@ -1,4 +1,4 @@
-// The leader picker (Stage 3A, Chetan 2026-09-30): a full-screen list of all 36 leaders grouped by era, plus one Random
+// The leader picker: a full-screen list of all 36 leaders grouped by era, plus one Random
 // card at the top. Each card shows a small look at the figure (a slice of one picture, models/faces.webp), the flag,
 // the parody name and the country / era. Shown before each two-player match (after both phones are in, before the
 // coin toss) and before Drive alone (where you also choose the parked tank's leader).
@@ -98,7 +98,7 @@ function render() {
   go.textContent = solo ? 'Start' : locked ? 'Change' : 'Ready';
   go.classList.toggle('secondary', !solo && locked);
   $('pk-status').textContent = solo ? '' : locked ? (theirs ? 'Both ready.' : 'Waiting for the other player.') : theirs ? 'The other player is ready.' : '';
-  (!solo && locked && !theirs ? tipOn : tipOff)($('pk-tip'));   // Stage 4B: a loading tip while waiting for the other player
+  (!solo && locked && !theirs ? tipOn : tipOff)($('pk-tip'));   // a loading tip while waiting for the other player
   for (const t of $('pk-tabs').querySelectorAll('button')) t.setAttribute('aria-pressed', t.dataset.who === who);
 }
 
@@ -135,7 +135,6 @@ export function pickerSync(other) {
   theirs = other;
   if (pickerOpen()) render();
 }
-export const pickerChoice = () => ({ ...choice });
 
 export function initPicker(h) {
   hooks = h;

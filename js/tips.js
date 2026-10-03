@@ -1,5 +1,5 @@
-// Stage 4B (egg 10, Chetan 2026-10-01): loading tips. A quiet line of silly text under the status while a phone connects, waits for the other
-// player or waits for the models to load. The texts are in lines.js (TIPS, all approved). They are random and local to each phone: they carry
+// Loading tips. A quiet line of silly text under the status while a phone connects, waits for the other
+// player or waits for the models to load. The texts are in lines.js (TIPS). They are random and local to each phone: they carry
 // no game information, so the two phones need not agree. One shuffled bag feeds every line that is showing, so a tip never repeats before all have shown.
 import { tipBag } from './lines.js';
 
@@ -29,4 +29,3 @@ export function tipOff(el) {
   el.classList.remove('swap');
   if (!active.size && timer) { clearInterval(timer); timer = 0; }
 }
-export const tipsShowing = () => active.size;
