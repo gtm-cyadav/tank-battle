@@ -60,7 +60,7 @@ function place(pill, r, sides, avoid) {
   }
   best ||= fallback;
   if (!best) return;
-  pill.className = 'hint ' + { above: 'dn', below: 'up', left: 'rt', right: 'lf' }[best.side];
+  pill.className = 'hpill ' + { above: 'dn', below: 'up', left: 'rt', right: 'lf' }[best.side];
   pill.style.left = best.x + 'px'; pill.style.top = best.y + 'px';
   pill.style.setProperty('--tx', Math.max(12, Math.min(pw - 12, cx - best.x)) + 'px');
   pill.style.setProperty('--ty', Math.max(10, Math.min(ph - 10, cy - best.y)) + 'px');
@@ -76,7 +76,7 @@ export function offerHint(id, parts, still = () => true) {
     kind: 'hint', pri: 0, ms: HINT_MS, key: 'hint:' + id, wait: 6000,
     still: () => !seen[id] && still(),
     show() {
-      box.replaceChildren(...parts.map(p => { const el = document.createElement('span'); el.className = 'hint'; el.innerHTML = icon(p.ic, 15); el.append(p.text); return el; }));
+      box.replaceChildren(...parts.map(p => { const el = document.createElement('span'); el.className = 'hpill'; el.innerHTML = icon(p.ic, 15); el.append(p.text); return el; }));
       box.hidden = false;
       parts.forEach((p, i) => {
         const a = p.at(), r = a?.getBoundingClientRect?.(), el = box.children[i];
