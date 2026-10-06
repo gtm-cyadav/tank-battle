@@ -270,6 +270,7 @@
   .code-in:focus { border-color: var(--hunter); }
   .code-in:disabled { opacity: 0.6; }
   .lobby .row { display: flex; gap: 10px; }
+  #join-ask { margin-bottom: 10px; }   /* security Stage 3: the host's "Let in?" buttons, a little air above Invite / Cancel */
   .btn.small { min-width: 110px; padding: 12px 18px; }
   .btn:disabled { opacity: 0.4; cursor: default; }
   @media (max-height: 340px) { .rule { margin: 10px 0 14px; } .hint { font-size: 12px; } .code { font-size: 38px; } }
@@ -662,6 +663,10 @@
         <p id="create-text" class="say"></p>
         <p id="create-note" class="say error"></p>
         <p id="create-tip" class="tip" aria-live="off"></p>
+        <div id="join-ask" class="row" hidden>
+          <button id="ask-allow" class="btn small" type="button">Let in</button>
+          <button id="ask-deny" class="btn secondary small" type="button">Not now</button>
+        </div>
         <div class="row">
           <button id="invite" class="btn ico small" type="button" data-ic="invite" data-s="18" hidden>Invite</button>
           <button id="create-cancel" class="btn secondary small" type="button">Cancel</button>

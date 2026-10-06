@@ -52,6 +52,7 @@ addEventListener('pagehide', saveRoom);   // the clock to the moment of a refres
 const link = createLink({
   hosting(code) {
     room.code = code;
+    room.key = link.key;
     saveRoom();
     if (stage === 'creating') showCode(code);
   },
@@ -108,6 +109,14 @@ const link = createLink({
       stage = 'ended';
     }
   },
+  // security Stage 3: someone with only the room code asks to join; the host decides (the invite link's key skips this question)
+  request() {
+    if (stage !== 'creating') { link.deny(); return; }
+    $('create-text').textContent = 'Someone wants to join with the code. Let them in?';
+    $('join-ask').hidden = false;
+  },
+  requestGone() { askDone(); },
+  asking() { if (stage === 'joining') $('join-msg').textContent = 'Asking the host to let you in. Keep this open.'; },
   note(kind) {
     if (kind === 'version' && stage === 'creating') $('create-note').textContent = 'Someone tried to join with a different version of the game. Reload the page on both phones.';
   },
@@ -121,6 +130,7 @@ const JOIN_ERRORS = {
   noconnect: () => 'Found the room, but no answer from the other phone. Check the game is open on it, then try again. If it keeps failing, switch one phone between Wi-Fi and mobile data.',
   server: () => 'Could not reach the game server. Check the internet connection and try again.',
   replaced: () => 'This game carried on in another tab or window.',
+  denied: c => `The host of room ${c} did not let you in. Ask them for the invite link.`,
 };
 
 // ---- start-screen panels -------------------------------------------------------------------------------------
@@ -144,6 +154,11 @@ function toHome() {
   showStart();
   panel('home');
 }
+// the host's "Let in?" question is over (answered, timed out or the player left): the waiting text comes back
+function askDone() {
+  $('join-ask').hidden = true;
+  if (stage === 'creating' && room?.code) $('create-text').textContent = 'Send the invite or say the code. Keep the game open.';
+}
 function showCode(code) {
   $('room-code').textContent = code;
   $('room-code').classList.remove('pending');
@@ -152,12 +167,15 @@ function showCode(code) {
 }
 // ---- R4 Part B (Chetan, 2026-10-03): the invite link. The room code goes in the part after "#" (never sent to any server, nothing else in it: no
 // names). One tap: the phone's share sheet where it has one, else the link is copied. Opening the link fills in the code; the friend only taps Join.
-export const inviteLink = code => `${location.origin}${location.pathname}#join=${code}`;
-export const codeFromLink = hash => (/^#join=([A-HJ-NP-Z]{4})$/i.exec(hash || '') || [])[1]?.toUpperCase() || null;   // room codes never use I or O
+// Security Stage 3: the link also carries the room key ("#join=ABCD.k3x9..."): a friend who opens it is let in without the host having to say yes. The key is in the part
+// after "#" too, so it is never sent to any server.
+export const inviteLink = (code, key) => `${location.origin}${location.pathname}#join=${code}${key ? '.' + key : ''}`;
+export const codeFromLink = hash => (/^#join=([A-HJ-NP-Z]{4})(?:\.[0-9a-z]{3,40})?$/i.exec(hash || '') || [])[1]?.toUpperCase() || null;   // room codes never use I or O
+export const keyFromLink = hash => (/^#join=[A-HJ-NP-Z]{4}\.([0-9a-z]{3,40})$/i.exec(hash || '') || [])[1]?.toLowerCase() || null;
 let inviteT = 0;
 // share the link (the phone's share sheet), else copy it: 'shared' | 'closed' (the share sheet was closed) | 'copied' | 'failed'
-export async function shareInvite(code) {
-  const url = inviteLink(code);
+export async function shareInvite(code, key) {
+  const url = inviteLink(code, key);
   if (navigator.share) {
     try { await navigator.share({ title: 'Tank Battle', text: `Tank Battle · ${code}`, url }); return 'shared'; }
     catch (e) { if (e?.name === 'AbortError') return 'closed'; }   // anything else: copy instead
@@ -174,16 +192,18 @@ export async function shareInvite(code) {
 async function invite() {
   const code = room?.code;
   if (!code || stage !== 'creating') return;
-  const how = await shareInvite(code), b = $('invite');
+  const how = await shareInvite(code, room?.key), b = $('invite');
   if (how !== 'copied' && how !== 'failed') return;
   b.innerHTML = how === 'copied' ? icon('ready', 18) : icon('room', 18); b.append(how === 'copied' ? 'Copied' : code);   // copied: a tick; no way to copy: the code to say
   clearTimeout(inviteT); inviteT = setTimeout(() => { b.innerHTML = icon('invite', 18); b.append('Invite'); }, 2200);
 }
 // the link opened this page (or was opened in this tab while on the start screen): the Join panel with the code filled in, the address cleaned up
+let linkCode = null, linkKey = null;   // the room code and key the opened invite link carried (a typed code has no key)
 function joinFromLink() {
-  const code = codeFromLink(location.hash);
+  const code = codeFromLink(location.hash), key = keyFromLink(location.hash);
   if (location.hash.startsWith('#join=')) { try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { /* keep it */ } }
   if (!code || stage !== 'home') return false;
+  linkCode = code; linkKey = key;
   $('code-in').value = code;
   showJoin();
   return true;
@@ -215,6 +235,7 @@ function create() {
   $('room-code').textContent = '····';
   $('room-code').classList.add('pending');
   $('invite').hidden = true;
+  $('join-ask').hidden = true;
   $('create-text').textContent = 'Opening a room.';
   $('create-note').textContent = '';
   link.host();
@@ -225,10 +246,11 @@ function join() {
   if (/[IO]/.test(code)) { showJoin('Room codes never use the letters I or O. Check it with the other player.'); return; }
   if (wantFullscreen()) enterFullscreen();
   input.blur();
-  room = { code, role: 'guest', token: randomToken(), guestToken: null, phase: 'waiting' };
+  const key = linkKey && code === linkCode ? linkKey : null;   // the key belongs to the linked code only
+  room = { code, role: 'guest', token: randomToken(), key, guestToken: null, phase: 'waiting' };
   stage = 'joining';
   showJoin();
-  link.join({ code, token: room.token });
+  link.join({ code, token: room.token, key });
 }
 // Drive alone: the weather the player picked on the panel ('random' draws one each time)
 let soloWx = 'random';
@@ -248,7 +270,7 @@ function rejoin(r) {
     panel('create');
     showCode(r.code);
     $('create-note').textContent = '';
-    link.host({ code: r.code, rejoin: true });
+    link.host({ code: r.code, key: r.key, rejoin: true });
     return;
   }
   stage = 'rejoining';
@@ -259,8 +281,8 @@ function rejoin(r) {
     stage = 'ended';
     showBusy(`Could not get back into room ${code}. The match is over.`, null, 'back');
   }, 'leave');
-  if (r.role === 'host') link.host({ code: r.code, guestToken: r.guestToken, rejoin: true });
-  else link.join({ code: r.code, token: r.token, rejoin: true });
+  if (r.role === 'host') link.host({ code: r.code, key: r.key, guestToken: r.guestToken, rejoin: true });
+  else link.join({ code: r.code, token: r.token, key: r.key, rejoin: true });
 }
 
 // ---- in-game card (link lost, match over) and toasts ---------------------------------------------------------
@@ -377,12 +399,15 @@ export function initLobby(hooks) {
   showSoloWx();
   $('create-cancel').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
   $('invite').addEventListener('click', invite);
+  $('ask-allow').addEventListener('click', () => { link.allow(); askDone(); });
+  $('ask-deny').addEventListener('click', () => { link.deny(); askDone(); });
   addEventListener('hashchange', joinFromLink);
   $('join-back').addEventListener('click', () => { link.close(); forgetRoom(); toHome(); });
   $('join-go').addEventListener('click', join);
   const input = $('code-in');
   input.addEventListener('input', () => {
     input.value = input.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (input.value !== linkCode) linkKey = null;   // a different code was typed: the link's key no longer applies
     showJoin();
   });
   input.addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
