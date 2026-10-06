@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <!-- Security Stage 1 (SECURITY_FIX_LOG.md): Content-Security-Policy. Only this site's own scripts run (plus the one inline import map, allowed by its
-     hash: when the import map below changes, e.g. a version bump, run `node tests/check-csp.mjs` and paste the hash it prints). Inline event handlers and
+     hash: when the import map below changes, e.g. a version bump or a new module, run `node tests/check-csp.mjs --fix`; otherwise the page stays blank). Inline event handlers and
      injected <script> text cannot run. Inline styles stay allowed (the game sets style attributes). Network: this site, and the PeerJS broker. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-L/xyvwHG9diZaw0+vyUCi1QLRYvlkwNiMxiPPeFmiyE='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-uSETmokS7pc671wUisdPkcgJobPGe57dsLRUEhztdSE='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Tank Battle</title>
 <!-- Home-screen install (iPhone gets full screen only this way; Android and iPad also use the Play full screen button) -->
@@ -911,13 +911,16 @@
   "./js/cornermap.js": "./js/cornermap.js?v=r4-4",
   "./js/effects.js": "./js/effects.js?v=r4-4",
   "./js/eggs.js": "./js/eggs.js?v=r4-4",
+  "./js/debug.js": "./js/debug.js?v=r4-4",
   "./js/fans.js": "./js/fans.js?v=r4-4",
   "./js/flags.js": "./js/flags.js?v=r4-4",
+  "./js/guard.js": "./js/guard.js?v=r4-4",
   "./js/hints.js": "./js/hints.js?v=r4-4",
   "./js/icons.js": "./js/icons.js?v=r4-4",
   "./js/input.js": "./js/input.js?v=r4-4",
   "./js/lamps.js": "./js/lamps.js?v=r4-4",
   "./js/leaders.js": "./js/leaders.js?v=r4-4",
+  "./js/limits.js": "./js/limits.js?v=r4-4",
   "./js/lines.js": "./js/lines.js?v=r4-4",
   "./js/lobby.js": "./js/lobby.js?v=r4-4",
   "./js/main.js": "./js/main.js?v=r4-4",

@@ -101,7 +101,7 @@ test('positions: non-numbers refused, huge or infinite values clamped to the yar
   // huge but finite numbers are pulled back to the yard (this is what used to be able to hang the other phone's game loop)
   const c = cleanMessage(JSON.parse('{"t":"s","k":"1/1","x":1e300,"z":-1e300,"y":1e300,"v":1e9}'), RULES);
   assert.ok(c); for (const k of ['x', 'z', 'y', 'v']) assert.ok(Number.isFinite(c[k]), k + ' not finite');
-  assert.ok(Math.abs(c.x) < 100 && Math.abs(c.z) < 100 && Math.abs(c.v) <= 60);
+  assert.ok(Math.abs(c.x) < 100 && Math.abs(c.z) < 100 && Math.abs(c.v) <= 20);
 });
 test('a garbage theme in a match is neutralised to "no theme" (never kept)', () => {
   const m = base(); m.theme = 'x'; assert.equal(cleanMatch(m, RULES).theme, null);

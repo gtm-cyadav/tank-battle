@@ -6,6 +6,7 @@
 //     nothing from the queue shows; the one that was showing is paused and carries on afterwards. main.js calls pump() when either changes.
 //   - A message that waited too long (its `wait`, default 8 s) is dropped; `still()` false drops it too (a bubble whose round is over).
 // Each item: { kind, pri, ms, show(), hide(), on() (still on screen? false once something else took it down), still?(), key?, wait?, done?(ms shown) }.
+import { TESTING } from './debug.js';
 const root = document.documentElement;
 const now = () => performance.now();
 let cur = null;            // the item on screen, or paused: { ...item, left (ms to go), since (when it last went up), up (on screen now), shownFor (ms) }
@@ -85,4 +86,4 @@ export function drop(kind) {
 export function end(key) { if (cur?.key === key) { cur.left = 0; close(); pump(); } }
 export const showing = () => cur?.up ? cur.kind : null;
 export const waiting = () => queue.map(q => q.kind);
-window.__say = { showing, waiting, pump };   // testing only
+if (TESTING) window.__say = { showing, waiting, pump };   // testing only (security Stage 4: not on the real site, see debug.js)

@@ -7,6 +7,7 @@ import { randomWeather } from './weather.js';
 import { tipOn, tipOff } from './tips.js';
 import { icon } from './icons.js';
 import { say, end } from './say.js';
+import { TESTING } from './debug.js';
 
 const $ = id => document.getElementById(id);
 const WAIT = 60;                         // seconds a dropped player gets to come back
@@ -385,7 +386,7 @@ document.addEventListener('visibilitychange', () => link.send({ t: document.hidd
 
 export const sendState = m => link.send(m);
 export const isOnline = () => link.up;
-window.__tbLink = link;   // testing only
+if (TESTING) window.__tbLink = link;   // testing only (security Stage 4: not on the real site, see debug.js)
 
 export function initLobby(hooks) {
   game = hooks;

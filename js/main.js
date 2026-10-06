@@ -21,6 +21,8 @@ import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
 import { VERSION } from './net.js';
 import { createRules, RULES, isDuckRound, nextRoundOf, cardView, stallLeft } from './rules.js';
 import { cleanMessage } from './guard.js';   // security Stage 1: every message from the other phone is rebuilt and checked before anything reads it
+import { createStepLimiter, cameraOk, createShotGate } from './limits.js';   // security Stage 4: what is believed about the other tank
+import { TESTING } from './debug.js';   // security Stage 4: the window.__ test hooks exist only when testing (localhost, a file, or ?debug)
 import { initSecretBox, getArmed, disarm, buildHearts, flashAt } from './theme.js';
 import { tipOn, tipOff } from './tips.js';
 import { createShots } from './shots.js';
@@ -217,15 +219,24 @@ function endMatch() {
 }
 function onRemote(raw) {
   const m = mode === 'solo' ? null : cleanMessage(raw, RULES);   // security Stage 1: a message that does not fit its shape is dropped here
-  if (!m || rules.onMessage(m)) return;
+  if (!m) return;
+  // security Stage 4: only the hider's phone ever needs the hunter's shots, and it only believes shots that are possible (head start, reload, from the hunter's tank)
+  if (m.t === 'f' && (myRole() !== 'hider' || !shotGate.allow(m, rules.match?.t, remote.have ? { x: remote.x, z: remote.z } : null))) return;
+  if (rules.onMessage(m)) return;
   if (m.t === 'f') { incoming(m); return; }
   if (m.t !== 's') return;
   if (m.h) { remote.vis = false; return; }   // the hider's phone: the hunter can't see it (no position sent)
   if (m.k !== posKey()) return;   // sent before one phone moved on to the next round (roles may have swapped)
   const jump = !remote.have || !remote.vis;   // first news, or back in sight: put it straight there
-  Object.assign(remote, { x: m.x, z: m.z, yaw: m.y, speed: m.v, cx: m.cx, cz: m.cz, at: performance.now(), have: true, vis: true });
-  if (jump) { other.position.set(m.x, 0, m.z); other.rotation.y = m.y; }
+  const now = performance.now();
+  // security Stage 4: after the first news, a tank cannot jump: it only gets as far as it could have driven since the last message
+  let at = { x: m.x, z: m.z };
+  if (jump) stepper.reset(now / 1000); else at = stepper.step(remote, m, now / 1000);
+  const cam = m.cx !== undefined && cameraOk(at, { x: m.cx, z: m.cz });   // and the hunter's camera must be near its tank
+  Object.assign(remote, { x: at.x, z: at.z, yaw: m.y, speed: m.v, cx: cam ? m.cx : NaN, cz: cam ? m.cz : NaN, at: now, have: true, vis: true });
+  if (jump) { other.position.set(at.x, 0, at.z); other.rotation.y = m.y; }
 }
+const shotGate = createShotGate(RULES), stepper = createStepLimiter();
 const posKey = () => rules.match ? `${rules.match.mid}/${rules.match.round}` : '';
 const pose = t => ({ x: t.position.x, z: t.position.z, yaw: t.rotation.y });
 // Show the other tank smoothly: guess a little ahead from its last known speed, then glide towards that.
@@ -1081,7 +1092,7 @@ renderer.setAnimationLoop(now => {
   autoLowFrame(real);
 });
 
-window.__tb = { drawRound, flashRole, skipCard, autoLowFrame, autoLow, get viewOn() { return viewOn; }, get skipTo() { return skipTo; }, get againAt() { return againAt; }, get clockT() { return clockT; }, setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+if (TESTING) window.__tb = { drawRound, flashRole, skipCard, autoLowFrame, autoLow, get viewOn() { return viewOn; }, get skipTo() { return skipTo; }, get againAt() { return againAt; }, get clockT() { return clockT; }, setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },

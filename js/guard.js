@@ -96,7 +96,7 @@ const TYPES = {
   m: (m, lim) => { const mm = cleanMatch(m.m, lim); return mm ? { t: 'm', m: mm, run: m.run === true } : undefined; },
   s: m => {   // the other tank's place: or just { h: 1 } (the hider's phone: "you can't see me")
     if (m.h) return { t: 's', h: 1 };
-    const k = typeof m.k === 'string' && m.k.length <= 32 ? m.k : undefined, x = px(m.x), z = pz(m.z), y = yaw(m.y), v = num(m.v, -60, 60);
+    const k = typeof m.k === 'string' && m.k.length <= 32 ? m.k : undefined, x = px(m.x), z = pz(m.z), y = yaw(m.y), v = num(m.v, -20, 20);   // (the fastest tank, a sprinting hider, is about 16 m/s)
     if (!ok(k, x, z, y, v)) return undefined;
     const out = { t: 's', k, x, z, y, v };
     if (m.cx !== undefined || m.cz !== undefined) { const cx = px(m.cx), cz = pz(m.cz); if (!ok(cx, cz)) return undefined; out.cx = cx; out.cz = cz; }
