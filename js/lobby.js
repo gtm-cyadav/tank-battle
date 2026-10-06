@@ -111,7 +111,7 @@ const link = createLink({
   note(kind) {
     if (kind === 'version' && stage === 'creating') $('create-note').textContent = 'Someone tried to join with a different version of the game. Reload the page on both phones.';
   },
-  message(m) { game.remote(m); },
+  message(m) { try { game.remote(m); } catch (e) { console.warn('Ignored a message that could not be handled.', e); } },   // security Stage 2: one bad message never breaks the game loop or the link
 });
 
 const JOIN_ERRORS = {

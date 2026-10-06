@@ -17,6 +17,7 @@ const RECYCLE = 5000;        // guest: a link this quiet is dead; drop it and kn
 const RETRY = 2500;          // ms between reconnect attempts
 const OPEN_TIMEOUT = 12000;  // ms to wait for the other phone to answer a knock
 const CHANNEL = { reliable: true, serialization: 'json' };
+const MAX_PER_SEC = 150;     // security Stage 2: messages one link may send per second (a real game sends about 25); the rest are dropped
 
 export const randomCode = () => Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('');
 export const randomToken = () => Array.from(crypto.getRandomValues(new Uint32Array(3)), n => n.toString(36)).join('');
@@ -97,9 +98,20 @@ export function createLink(on) {
     c.on('error', () => { if (c === conn) linkDown('closed'); });
   }
 
+  // security Stage 2: a budget per connection (so a stranger flooding the host cannot use up the real guest's)
+  const budgets = new WeakMap();
+  function overBudget(c) {
+    const now = performance.now();
+    let b = budgets.get(c);
+    if (!b) budgets.set(c, b = { from: now, n: 0 });
+    if (now - b.from >= 1000) { b.from = now; b.n = 0; }
+    return ++b.n > MAX_PER_SEC;
+  }
+
   function onData(c, m) {
     if (closed || L.mute || !m || typeof m !== 'object') return;
-    if (m.t !== 'p' && m.t !== 's') trace('got', m.t, c === conn ? '' : '(other link)');
+    if (overBudget(c)) { if (L.role === 'host' && c !== conn) c.close(); return; }   // too many messages: dropped (a stranger is hung up on)
+    if (m.t !== 'p' && m.t !== 's') trace('got', String(m.t).slice(0, 16), c === conn ? '' : '(other link)');   // (cut short: the other phone chooses this text)
     if (L.role === 'host' && c !== conn) {   // a knock from a phone that isn't (yet) our guest
       if (m.t !== 'hello') return;
       const refuse = kind => { safeSend(c, { t: kind }); setTimeout(() => c.close(), 500); };

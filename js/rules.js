@@ -395,7 +395,7 @@ export function createRules(hooks) {
       return true;
     }
     if (m.t === 'ping' && referee()) { hooks.send({ t: 'pong', k: m.k }); return true; }
-    if (m.t === 'pong') { delay = delay * 0.7 + Math.min(0.3, (performance.now() - m.k) / 2000) * 0.3; return true; }
+    if (m.t === 'pong') { delay = delay * 0.7 + Math.max(0, Math.min(0.3, (performance.now() - m.k) / 2000)) * 0.3; return true; }   // security Stage 2: never negative (a made-up reply could otherwise push the referee's clock copy back)
     if (m.t === 'h' && referee()) { if (match && hunterSide() === 'host') judgeHit(m); return true; }   // only the hider's phone reports hits
     if (m.t === 'a' && referee()) { playAgain('guest', m.mid); return true; }
     if (m.t === 'rd') { if (referee() && match && m.mid === match.mid && m.r === match.round) goReady('guest'); return true; }   // the other phone is Ready
