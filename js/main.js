@@ -20,6 +20,7 @@ import { initMenu, closeMenu, menuFrame } from './menu.js';
 import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
 import { VERSION } from './net.js';
 import { createRules, RULES, isDuckRound, nextRoundOf, cardView, stallLeft } from './rules.js';
+import { cleanMessage } from './guard.js';   // security Stage 1: every message from the other phone is rebuilt and checked before anything reads it
 import { initSecretBox, getArmed, disarm, buildHearts, flashAt } from './theme.js';
 import { tipOn, tipOff } from './tips.js';
 import { createShots } from './shots.js';
@@ -58,7 +59,7 @@ let weather = null;
 let myLeader = 0, otherLeader = 0;   // the leader numbers on the two tanks (0 = none yet)
 let otherFade = 1;
 function useWeather(name) {
-  if (!(name in WEATHERS)) name = DEFAULT_WEATHER;
+  if (!Object.hasOwn(WEATHERS, name)) name = DEFAULT_WEATHER;   // (hasOwn: `in` also accepts inherited names such as "constructor")
   if (name === weather) return;
   weather = name;
   const w = arena.setWeather(name);
@@ -214,8 +215,9 @@ function endMatch() {
   fx.clear(); wreck = null; clearEggs();
   disarm();   // Stage 4B: leaving ends the secret theme; type the phrase again for the next match
 }
-function onRemote(m) {
-  if (mode === 'solo' || rules.onMessage(m)) return;
+function onRemote(raw) {
+  const m = mode === 'solo' ? null : cleanMessage(raw, RULES);   // security Stage 1: a message that does not fit its shape is dropped here
+  if (!m || rules.onMessage(m)) return;
   if (m.t === 'f') { incoming(m); return; }
   if (m.t !== 's') return;
   if (m.h) { remote.vis = false; return; }   // the hider's phone: the hunter can't see it (no position sent)
@@ -596,7 +598,7 @@ function hintsNow(m, view) {
 // message is added and both phones always draw the same.
 let noteKey = null;
 const htmlK = (id, h) => { const el = $(id); if (el.__h !== h) { el.__h = h; el.innerHTML = h; } };
-const wxTag = (name, size) => { const w = WEATHERS[name] || WEATHERS[DEFAULT_WEATHER]; return icon(weatherIcon(name), size) + w.view; };
+const wxTag = (name, size) => { const w = (Object.hasOwn(WEATHERS, name) && WEATHERS[name]) || WEATHERS[DEFAULT_WEATHER]; return icon(weatherIcon(name), size) + w.view; };
 // the round dashes (done, now, to come) and the score pips (rounds won of the two needed)
 function rounds(id, round) { const el = $(id); if (el.__k === round) return; el.__k = round; [...el.children].forEach((b, i) => { b.className = i + 1 < round ? 'done' : i + 1 === round ? 'now' : ''; }); }
 function pips(id, won) { const el = $(id); if (el.__k === won) return; el.__k = won; [...el.children].forEach((b, i) => { b.className = i < won ? 'on' : ''; }); }
@@ -699,7 +701,7 @@ function drawCard(m, view, me, them) {
   const gave = r?.how === 'gaveup', mine = iHunted ? 'hunter' : 'hider';
   text('fin-t', gave ? (r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.') : '');   // rare: a full sentence
   whoOn('fin', 0, L.me, mine); whoOn('fin', 1, L.them, opposite(mine)); winLose('fin', won);
-  htmlK('fin-score', `<span class="${won ? 'w' : ''}">${m.score[me]}</span><i> – </i><span class="${won ? '' : 'w'}">${m.score[them]}</span>`);
+  htmlK('fin-score', `<span class="${won ? 'w' : ''}">${m.score[me] | 0}</span><i> – </i><span class="${won ? '' : 'w'}">${m.score[them] | 0}</span>`);   // security Stage 1: `| 0` makes sure only a number can ever reach innerHTML here
   // who wants a rematch: their face with the "again" sign; after your own tap, their face with the hourglass
   const early = againAt === m.mid;   // R4 Part B: Again tapped before the usual 10 s (tap to skip); sent when the clock gets there
   const st = m.again[them] ? 'again' : m.again[me] || early ? 'wait' : '';

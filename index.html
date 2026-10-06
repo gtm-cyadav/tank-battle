@@ -2,6 +2,10 @@
 <html lang="en" data-state="start" data-loading>
 <head>
 <meta charset="utf-8">
+<!-- Security Stage 1 (SECURITY_FIX_LOG.md): Content-Security-Policy. Only this site's own scripts run (plus the one inline import map, allowed by its
+     hash: when the import map below changes, e.g. a version bump, run `node tests/check-csp.mjs` and paste the hash it prints). Inline event handlers and
+     injected <script> text cannot run. Inline styles stay allowed (the game sets style attributes). Network: this site, and the PeerJS broker. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-L/xyvwHG9diZaw0+vyUCi1QLRYvlkwNiMxiPPeFmiyE='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Tank Battle</title>
 <!-- Home-screen install (iPhone gets full screen only this way; Android and iPad also use the Play full screen button) -->
