@@ -121,6 +121,7 @@ export function createLink(on, tune = {}) {
   // host: this connection is our guest now
   function seat(c, m) {
     strangers.delete(c);
+    if (pending && pending.c !== c) { const p = pending; clearTimeout(p.timer); pending = null; safeSend(p.c, { t: 'full' }); setTimeout(() => p.c.close(), 500); emit('requestGone'); }   // the seat is taken now: the player who was waiting is told, the question goes away
     L.guestToken = m.token;
     if (conn && conn !== c) { const old = conn; safeSend(old, { t: 'replaced' }); setTimeout(() => old.close(), 500); }
     conn = c; linked = true; away = !!m.away;
@@ -138,7 +139,7 @@ export function createLink(on, tune = {}) {
     const p = pending;
     if (!p) return false;
     clearTimeout(p.timer); pending = null;
-    if (yes && p.c.open) seat(p.c, { token: p.token, away: p.away });
+    if (yes && p.c.open && !L.guestToken) seat(p.c, { token: p.token, away: p.away });   // (only if the seat is still free)
     else { safeSend(p.c, { t: 'denied' }); setTimeout(() => p.c.close(), 500); }
     return true;
   }
@@ -200,7 +201,13 @@ export function createLink(on, tune = {}) {
     peer.on('open', () => { registered = true; emit('hosting', L.code); });
     peer.on('connection', c => {
       trace('host: incoming link');
-      if (strangers.size >= T.maxStrangers) { c.close(); return; }   // security Stage 3: too many unanswered connections at once
+      // security Stage 3: only a few unanswered connections at once. A full house drops the OLDEST silent one (never the player being asked about), so a
+      // flood of silent connections can never keep a real player out: the newest connection always gets a place.
+      if (strangers.size >= T.maxStrangers) {
+        const oldest = [...strangers].find(s => s !== pending?.c);
+        if (!oldest) { c.close(); return; }
+        strangers.delete(oldest); oldest.close();
+      }
       strangers.add(c);
       setTimeout(() => { if (c !== conn && pending?.c !== c) c.close(); }, T.helloTimeout);   // and none may sit there without saying hello
       wire(c);

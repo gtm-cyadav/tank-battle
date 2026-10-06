@@ -131,12 +131,26 @@ await test('a token that is not a plain id (number, object, too short, odd chara
   }
   assert.equal(h.link.guestToken, null, 'a bad token was stored as the guest token'); assert.equal(h.ev.requests, 0); assert.equal(h.ev.up, 0);
 });
-await test('a stranger that never says hello is hung up on; too many open strangers are refused at once', async () => {
-  const h = host({ helloTimeout: 250, maxStrangers: 2 }); await h.ready();
+await test('a stranger that never says hello is hung up on; a full house drops the OLDEST silent one, so the newest always gets in', async () => {
+  const h = host({ helloTimeout: 400, maxStrangers: 2 }); await h.ready();
   const a = await raw(), b = await raw(), c = await raw(), d = await raw();
-  await until(() => c.closed && d.closed, 'the extra strangers to be closed');
-  assert.equal(a.closed, false); assert.equal(b.closed, false);
-  await until(() => a.closed && b.closed, 'silent strangers to time out');
+  await until(() => a.closed && b.closed, 'the oldest silent strangers to be dropped to make room');
+  assert.equal(c.closed, false, 'the newest-but-one was dropped'); assert.equal(d.closed, false, 'the newest was dropped');
+  await until(() => c.closed && d.closed, 'silent strangers to time out');
+});
+await test('a flood of silent connections cannot keep a real player out (the key-holder still gets in)', async () => {
+  const h = host({ helloTimeout: 5000, maxStrangers: 2 }); await h.ready();
+  await raw(); await raw(); await raw(); await raw();   // four silent connections, two slots
+  const g = guest(GOOD, h.link.key);
+  await until(() => g.ev.up === 1 && h.ev.up === 1, 'the real player to get in despite the flood');
+});
+await test('a player who is waiting for the host\'s answer cannot take the seat from someone who got in with the key meanwhile', async () => {
+  const h = host(); await h.ready();
+  const waiting = guest('waiter111', null); await until(() => h.ev.requests === 1, 'asked');
+  const keyed = guest(GOOD, h.link.key); await until(() => keyed.ev.up === 1, 'the key-holder to get in');
+  await until(() => waiting.ev.failed.includes('full') && h.ev.gone === 1, 'the waiting player to be told the seat is taken, and the question to go away');
+  assert.equal(h.link.allow(), false, 'allow() must do nothing now');
+  assert.equal(h.link.guestToken, GOOD, 'the seat changed hands');
 });
 await test('a stranger who floods the host is hung up on; the real guest is not affected', async () => {
   const h = host(); await h.ready();
