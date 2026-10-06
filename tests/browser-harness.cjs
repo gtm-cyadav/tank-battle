@@ -33,7 +33,7 @@ module.exports = async function harness(url) {
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch({ args: ['--no-sandbox', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
   const pages = [], results = []; let failed = 0;
-  const h = {
+  const h = global.__harness = {
     pages, browser, url,
     check(name, ok, extra = '') { results.push(`${ok ? '  ok  ' : 'FAIL  '}${name}${ok ? '' : '  ' + extra}`); if (!ok) failed++; },
     async phone(role) {   // a fresh browser context = a fresh phone
@@ -52,6 +52,8 @@ module.exports = async function harness(url) {
     visible: (p, sel) => p.evaluate(s => { const e = document.querySelector(s); return !!e && !e.hidden && getComputedStyle(e).display !== 'none'; }, sel),
     wait: (p, fn, arg, ms = 15000) => p.waitForFunction(fn, arg, { timeout: ms }).then(() => true, () => false),
     async makeRoom(host) { await h.open(host); await host.click('#create'); await host.waitForSelector('#invite:not([hidden])', { timeout: 20000 }); return (await host.textContent('#room-code')).trim(); },
+    async close(...ps) { for (const p of ps) { const i = pages.indexOf(p); if (i >= 0) pages.splice(i, 1); await p.context().close().catch(() => {}); } },   // free a finished section's phones (software rendering is slow)
+    dump() { console.log(results.join('\n')); },   // what has been checked so far (used when a script stops with an error)
     async finish() {
       for (const p of pages) if (p.errors.length) { failed++; results.push('FAIL  problems on the ' + p.role + ' phone: ' + p.errors.slice(0, 3).join(' | ')); }
       console.log(results.join('\n') + `\n\n${failed ? failed + ' PROBLEM(S)' : 'all end-to-end checks passed'}`);

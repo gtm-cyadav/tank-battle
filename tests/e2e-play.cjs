@@ -55,4 +55,4 @@ const harness = require('./browser-harness.cjs');
   check('the hunter\'s clock still runs', (await clockLeft(hunter)) < left0);
   check('both phones still show the same round clock (within 2 s)', Math.abs(await clockLeft(A) - await clockLeft(B)) <= 2, `${await clockLeft(A)} vs ${await clockLeft(B)}`);
   await h.finish();
-})().catch(e => { console.error('SCRIPT ERROR', e); process.exit(2); });
+})().catch(e => { global.__harness?.dump(); console.error('SCRIPT ERROR', e); process.exit(2); });

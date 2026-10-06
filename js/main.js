@@ -38,6 +38,13 @@ import { play, frame as soundFrame, setMuted, byDistance, soundState } from './s
 import { WEATHERS, DEFAULT_WEATHER } from './weather.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
+// security Stage 5: clickjacking. The site cannot send an X-Frame-Options header (static hosting), so the page itself refuses to be shown inside another page
+// (an invisible frame over someone else's buttons). Not when testing (localhost, a file, ?debug): test set-ups may use frames.
+if (!TESTING) {
+  let framed = false;
+  try { framed = window.top !== window.self; } catch (e) { framed = true; }   // (a parent page from another site can make even this throw)
+  if (framed) { document.documentElement.style.display = 'none'; throw new Error('Tank Battle does not run inside another page.'); }   // nothing is drawn, nothing starts
+}
 const $ = id => document.getElementById(id);
 fillIcons();   // R4: the icons in the page's buttons and rows (icons.js, drawn in code)
 

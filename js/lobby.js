@@ -8,6 +8,7 @@ import { tipOn, tipOff } from './tips.js';
 import { icon } from './icons.js';
 import { say, end } from './say.js';
 import { TESTING } from './debug.js';
+import { cleanRoom } from './guard.js';
 
 const $ = id => document.getElementById(id);
 const WAIT = 60;                         // seconds a dropped player gets to come back
@@ -23,7 +24,7 @@ let downReason = null, downWasOffline = false;   // why the link is down; whethe
 
 // ---- remembering the room, so a refresh or reopen can rejoin -------------------------------------------------
 const store = (s, k, v) => { try { if (v === null) s.removeItem(k); else s.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked */ } };
-const recall = (s, k) => { try { return JSON.parse(s.getItem(k)); } catch (e) { return null; } };
+const recall = (s, k) => { try { return cleanRoom(JSON.parse(s.getItem(k))); } catch (e) { return null; } };   // security Stage 5: a stored record is checked before it is used
 function saveRoom() {
   if (!room?.code || stage === 'rejoining' || stage === 'ended') return;
   if (room.role === 'guest' && room.phase !== 'playing') return;   // not in until the host says so

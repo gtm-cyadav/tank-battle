@@ -5,6 +5,7 @@
 //   cleanMessage(m, lim)  one message from the link ({ t: 'm' | 's' | 'f' | ... }) -> a clean copy, or null
 //   cleanMatch(m, lim)    the referee's match state (also used for a match saved in the browser) -> a clean copy, or null
 //   cleanTheme(p)         the love / hate theme: plain, length-limited text only
+//   cleanRoom(r)          the room record the lobby keeps in the browser (for a refresh / reopen): a clean copy, or null
 // lim: the RULES object from rules.js (round, rounds, wins, leaders, bumpMax). It is passed in so this file imports nothing from rules.js.
 import { WEATHER_NAMES } from './weather.js';
 import { BADGE_NAMES } from './eggs.js';
@@ -44,6 +45,22 @@ const text = v => typeof v === 'string' ? v.replace(TEXT_BAD, '').slice(0, 240) 
 export function cleanTheme(p) {
   if (!isObj(p) || (p.k !== 'love' && p.k !== 'hate')) return null;
   return { k: p.k, s: text(p.s), w: text(p.w), l: text(p.l), x: text(p.x) };
+}
+
+// ---- the room record kept in the browser (lobby.js: sessionStorage / localStorage), used to rejoin after a refresh ------------------------------------------
+// Same-origin data, but anything that can write to the page's storage must not be able to steer the game: the code, the tokens, the position and the saved
+// match are all checked before they are used. (The match inside is rebuilt by cleanMatch when the rules start.)
+const TOKEN = /^[0-9a-z]{3,40}$/;
+export function cleanRoom(r) {
+  if (!isObj(r)) return null;
+  const tok = v => v === null || v === undefined ? null : typeof v === 'string' && TOKEN.test(v) ? v : undefined;
+  const code = typeof r.code === 'string' && /^[A-HJ-NP-Z]{4}$/.test(r.code) ? r.code : undefined;
+  const role = side(r.role), phase = oneOf(new Set(['waiting', 'playing']))(r.phase), t = num(r.t, 0, 1e15);
+  const token = tok(r.token), key = tok(r.key), guestToken = tok(r.guestToken);
+  const pos = r.pos === null || r.pos === undefined ? null : isObj(r.pos) ? (() => { const x = px(r.pos.x), z = pz(r.pos.z), y = yaw(r.pos.yaw); return ok(x, z, y) ? { x, z, yaw: y } : undefined; })() : undefined;
+  const match = r.match === null || r.match === undefined ? null : isObj(r.match) ? r.match : undefined;   // (rebuilt by cleanMatch later)
+  if (!ok(code, role, phase, t, token, key, guestToken, pos, match)) return null;
+  return { code, role, phase, t, token, key, guestToken, pos, match };
 }
 
 // ---- the referee's match ----------------------------------------------------------------------------------------------

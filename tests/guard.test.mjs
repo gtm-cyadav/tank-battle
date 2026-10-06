@@ -3,7 +3,7 @@
 //    validator would be throwing away something the game really uses, and a real game would break.)
 // 2. HOSTILE INPUT: malformed or oversized values, odd types and odd keys are rejected or neutralised.
 import assert from 'node:assert/strict';
-import { cleanMatch, cleanMessage, cleanTheme } from '../js/guard.js';
+import { cleanMatch, cleanMessage, cleanTheme, cleanRoom } from '../js/guard.js';
 import { createRules, RULES } from '../js/rules.js';
 
 let passed = 0;
@@ -137,6 +137,19 @@ test('rules.js ignores a hostile match on the guest side and keeps its own', () 
   guest.onMessage({ t: 'm', m: evil, run: true });
   assert.equal(guest.match.phase, real.phase, 'the hostile match replaced the real one');
   assert.equal(typeof guest.match.score.guest, 'number');
+});
+
+test('the room record kept in the browser: a real one passes unchanged, a tampered one is refused', () => {
+  const real = { code: 'WXYZ', role: 'guest', phase: 'playing', t: Date.now(), token: 'abc123def456', key: 'k3x9m2p8q1', guestToken: null, pos: { x: 1.5, z: -2.5, yaw: 0.7 }, match: null };
+  assert.deepEqual(cleanRoom(JSON.parse(JSON.stringify(real))), real);
+  const waiting = { code: 'ABCD', role: 'host', phase: 'waiting', t: 5, token: null, key: 'k3x9m2p8q1', guestToken: null, pos: null, match: null };
+  assert.deepEqual(cleanRoom(waiting), waiting);
+  const bad = [r => { r.code = 'ABCDE'; }, r => { r.code = 'IOIO'; }, r => { r.code = '<b>'; }, r => { r.role = 'admin'; }, r => { r.phase = 'x'; }, r => { r.token = 5; }, r => { r.token = '<img>'; },
+    r => { r.key = 'a'.repeat(99); }, r => { r.guestToken = {}; }, r => { r.pos = { x: 'a', z: 1, yaw: 0 }; }, r => { r.pos = 5; }, r => { r.t = 'now'; }, r => { r.match = 'x'; }];
+  for (const f of bad) { const r = JSON.parse(JSON.stringify(real)); f(r); assert.equal(cleanRoom(r), null, f.toString()); }
+  for (const v of [null, undefined, 'x', 5, []]) assert.equal(cleanRoom(v), null);
+  const far = JSON.parse(JSON.stringify(real)); far.pos = { x: 1e300, z: -1e300, yaw: 0 };
+  assert.ok(Math.abs(cleanRoom(far).pos.x) < 100, 'a huge stored position must be pulled back into the yard');
 });
 
 console.log(`\n${passed} tests passed` + (process.exitCode ? ', SOME FAILED' : ''));
