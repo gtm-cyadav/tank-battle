@@ -2,9 +2,16 @@
 // RUN THIS AFTER ANY EDIT TO THE IMPORT MAP (every version bump, every new module):  node tests/check-csp.mjs --fix
 //   without --fix it only checks (exit code 1 = the hash is stale: the browser would refuse the import map and the page would stay BLANK);
 //   with --fix it rewrites the hash in index.html for you.
+//   with --git it checks the copy git commits (`git show :index.html`: what is committed, or staged to be) instead of the file on disk; it never writes.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+const fromGit = process.argv.includes('--git');
+if (fromGit && process.argv.includes('--fix')) { console.error('FAIL: --fix writes the file on disk; run it without --git, then git add index.html'); process.exit(1); }
+const html = fromGit ? execFileSync('git', ['show', ':index.html'], { cwd: fileURLToPath(new URL('..', import.meta.url)), encoding: 'utf8' })
+                     : readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const where = fromGit ? 'the copy of index.html in git' : 'index.html';
 const map = /<script type="importmap">([\s\S]*?)<\/script>/.exec(html);
 const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html);
 if (!map) { console.error('FAIL: no import map found in index.html'); process.exit(1); }
@@ -20,7 +27,7 @@ if (!csp[1].includes(`'${hash}'`)) {
     writeFileSync(new URL('../index.html', import.meta.url), fixed);
     console.log('fixed: the CSP now has the import map hash ' + hash); process.exit(0);
   }
-  console.error(`FAIL: the CSP does not contain the import map's hash (the page would stay blank). Run:  node tests/check-csp.mjs --fix\n  or put this in script-src:  '${hash}'`);
+  console.error(`FAIL: the CSP in ${where} does not contain the import map's hash (the page would stay blank). Run:  node tests/check-csp.mjs --fix` + (fromGit ? ', then git add index.html' : '') + `\n  or put this in script-src:  '${hash}'`);
   process.exit(1);
 }
-console.log('ok: the CSP allows the import map (' + hash + ')');
+console.log('ok: the CSP allows the import map (' + hash + ')' + (fromGit ? ' in ' + where : ''));
