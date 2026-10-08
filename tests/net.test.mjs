@@ -105,6 +105,17 @@ await test('an unanswered question counts as "no" after the time limit and the h
   await until(() => g.ev.failed.includes('denied') && h.ev.gone === 1, 'timeout -> denied and requestGone');
   assert.equal(h.link.guestToken, null);
 });
+await test('the "Let in?" window by default: the host\'s question lasts 75 s, the guest waits 80 s (so the guest never gives up first)', async () => {
+  const real = globalThis.setTimeout, delays = [];
+  globalThis.setTimeout = (fn, ms, ...a) => { delays.push(ms); return real(fn, ms, ...a); };   // records every timer net.js sets
+  try {
+    const h = host(); await h.ready();
+    const g = guest(GOOD, null);
+    await until(() => h.ev.requests === 1 && g.ev.asking >= 1, 'the host asked and the guest told to wait');
+  } finally { globalThis.setTimeout = real; }
+  assert.ok(delays.includes(75000), 'the host\'s question does not last 75 s');
+  assert.ok(delays.includes(80000), 'the guest does not wait 80 s');
+});
 await test('a wrong room key is refused at once, with no question to the host', async () => {
   const h = host(); await h.ready();
   const g = guest(GOOD, 'wrongkey123');

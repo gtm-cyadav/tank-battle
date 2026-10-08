@@ -108,7 +108,7 @@ Line numbers are for the final commit.
 - **`js/net.js`**
   - A new player needs **either the room key** (random, 96 bits, carried only in the invite link after `#`) **or the host's tap on "Let in"** (`createLink`, line 39; key check line 171; `ask`/`answer`/`seat`, lines 122-145).
   - A player who already holds the seat (same token) comes straight back in (refresh, reconnect).
-  - A wrong key is refused at once. A token must look like `[0-9a-z]{3,40}` (`TOKEN`, line 23). One question at a time. An unanswered question counts as "no" after 40 s.
+  - A wrong key is refused at once. A token must look like `[0-9a-z]{3,40}` (`TOKEN`, line 23). One question at a time. An unanswered question counts as "no" after 75 s (it was 40 s; raised on review, 2026-10-08: the host is often in a chat app sending the code); the guest waits 80 s, so it never gives up before the host's question is over.
   - Connections that do not say hello within 10 s are closed; at most 4 silent connections are held (`peer.on('connection')`, line 202). When full, the **oldest** silent one is dropped so a flood can never keep a real player out.
   - The guest waits patiently while the host is asked (line 183).
 - **`js/lobby.js`**: invite link is now `#join=CODE.key` (`inviteLink`, line 174; `keyFromLink`, line 176). The key is read **before** the address bar is cleaned (line 203 on). A typed code carries no key (line 251). Host and guest keep the key in their saved room so a refresh works (lines 275, 286). Host sees the question through `request()` (line 115) and `askDone()` (line 160); guest message "did not let you in" (line 135).
@@ -189,8 +189,8 @@ Needs Node 22+ (no install). Run from the repo root.
 | `node tests/guard.test.mjs` | Validator accepts every real match/message, refuses hostile ones; room record check | 13 |
 | `node tests/world.test.mjs` | Absurd coordinates cannot hang the game (child process with time limit) | 3 |
 | `node tests/limits.test.mjs` | Real driving/shooting never throttled; cheats refused | 17 |
-| `node tests/net.test.mjs` | Join rules, limits and timeouts of the real `net.js` (in-memory PeerJS) | 15 |
-| `node tests/check-csp.mjs [--fix]` | The CSP matches the import map | 1 |
+| `node tests/net.test.mjs` | Join rules, limits and timeouts of the real `net.js` (in-memory PeerJS), including the 75 s / 80 s "Let in?" window | 16 |
+| `node tests/check-csp.mjs [--fix]` | The CSP matches the import map (line endings normalised as the browser does, so a Windows CR LF checkout gives the right answer) | 1 |
 | `node tests/e2e-join.cjs <url>` | Real lobby on two real browser phones: key, approval, refresh, framing | 18 |
 | `node tests/e2e-play.cjs <url>` | A real match on two real phones; cheat shots refused, real shot works | 11 |
 

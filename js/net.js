@@ -22,7 +22,7 @@ const OPEN_TIMEOUT = 12000;  // ms to wait for the other phone to answer a knock
 const CHANNEL = { reliable: true, serialization: 'json' };
 const TOKEN = /^[0-9a-z]{3,40}$/;   // what a player token or a room key looks like (randomToken makes these); anything else is not a player
 const HELLO_TIMEOUT = 10000; // host: a connection that has not said hello (or been let in) in this long is closed
-const APPROVE_TIMEOUT = 40000; // host: how long a "Let in?" question waits before it counts as "no"
+const APPROVE_TIMEOUT = 75000; // host: how long a "Let in?" question waits before it counts as "no" (75 s: the host may be in a chat app sending the code)
 const MAX_STRANGERS = 4;     // host: connections that are not our guest, open at once, at most
 const MAX_PER_SEC = 150;     // security Stage 2: messages one link may send per second (a real game sends about 25); the rest are dropped
 
@@ -182,7 +182,7 @@ export function createLink(on, tune = {}) {
       else if (m.t === 'full' || m.t === 'version' || m.t === 'denied') fail(m.t);
       else if (m.t === 'wait') {   // security Stage 3: the host is being asked to let us in; keep waiting for the answer
         clearTimeout(openTimer);
-        openTimer = setTimeout(() => { if (c !== conn || linked) return; conn = null; c.close(); fail('noconnect'); }, T.approveTimeout + 5000);
+        openTimer = setTimeout(() => { if (c !== conn || linked) return; conn = null; c.close(); fail('noconnect'); }, T.approveTimeout + 5000);   // 80 s: always 5 s longer than the host's question, so the guest never gives up first
         emit('asking');
       }
       return;
