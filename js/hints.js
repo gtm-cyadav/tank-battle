@@ -1,4 +1,4 @@
-// R4 Part B (Chetan, 2026-10-03, "teach once, then never again"): tiny first-time hints. Four moments, each shown once per phone and never again:
+// Tiny first-time hints ("teach once, then never again"). Four moments, each shown once per phone and never again:
 //   drive  - the two sliders (or the ring) the first time you drive (touch screens only),
 //   hunter / hider - your goal in your first round as hunter, and as hider,
 //   ping   - the first ping (the hider: "They see roughly here"; the hunter: "Hider is in the circle"),
@@ -13,7 +13,6 @@ import { TESTING } from './debug.js';
 
 const KEY = 'tank-battle.hints.v1';
 export const HINT_MS = 4000, SEEN_AFTER = 2000;
-export const HINT_IDS = ['drive', 'hunter', 'hider', 'ping', 'ready'];
 const $ = id => document.getElementById(id);
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
 let seen = load();

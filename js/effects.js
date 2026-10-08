@@ -1,4 +1,4 @@
-// Visual effects (Stage 2A): muzzle flash and smoke, sparks and dust where a shot hits a wall, the explosion when the
+// Visual effects: muzzle flash and smoke, sparks and dust where a shot hits a wall, the explosion when the
 // hider is hit (flash, fireball, sparks, a column of dark smoke that keeps rising off the wreck), dust behind moving
 // tanks, a few big drifting banks of smoke round the player, and screen shake.
 // Cheap on phones: every particle is a point sprite; all the glowing ones are one draw call, all the smoky ones another.
@@ -127,7 +127,7 @@ export function createEffects(scene, camera, quality = 'high') {
       vx: nx * R(0.5, 2.5) + R(-0.5, 0.5), vy: R(0.1, 0.8), vz: nz * R(0.5, 2.5) + R(-0.5, 0.5), drag: 1.5,
       life: R(1, 1.8), s0: 0.6, s1: R(2.2, 3.4), a: R(0.35, 0.5), c0: dustCol.value });
   }
-  // Chetan's fix (2026-10-01): a shot landed on the chicken's block. A bright flash on the block's face at barrel height (x, y, z) and a puff of pale
+  // a shot landed on the chicken's block. A bright flash on the block's face at barrel height (x, y, z) and a puff of pale
   // feathers from the chicken (fx, fy, fz) that drift down slowly. Looks only.
   function chickenHit(x, y, z, fx, fy, fz) {
     glow.add({ x, y, z, vx: 0, vy: 0, vz: 0, life: 0.2, s0: 3.4, s1: 5.2, a: 1.6, c0: [1, 0.93, 0.7], fadeIn: 0.01 });

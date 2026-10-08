@@ -46,7 +46,7 @@ if (!TESTING) {
   if (framed) { document.documentElement.style.display = 'none'; throw new Error('Tank Battle does not run inside another page.'); }   // nothing is drawn, nothing starts
 }
 const $ = id => document.getElementById(id);
-fillIcons();   // R4: the icons in the page's buttons and rows (icons.js, drawn in code)
+fillIcons();   // the icons in the page's buttons and rows (icons.js, drawn in code)
 
 const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true, powerPreference: 'high-performance' });
 renderer.shadowMap.enabled = settings.graphics === 'high';
@@ -54,14 +54,14 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 useRenderer(renderer);   // wall shadows drawn once per weather, not every frame (arena.js)
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);   // sees to the far corner of the arena (187 m)
-// Graphics High / Low (Settings, Stage 2A): surfaces are drawn once at load in the quality saved at that moment;
+// Graphics High / Low (Settings): surfaces are drawn once at load in the quality saved at that moment;
 // shadows, sharpness and the amount of effects follow the setting straight away.
 const arena = buildArena(scene, settings.graphics);
 const fx = createEffects(scene, camera, settings.graphics);
-// Stage 4A: the chicken, the wall graffiti and the lost tourist (props.js); what they do comes from the shared match
+// The chicken, the wall graffiti and the lost tourist (props.js); what they do comes from the shared match
 const props = createProps(scene, settings.graphics);
 
-// Weather (Stage 2A): the round's weather sets the look and how far the hunter sees (vision.js VIEW), the same on both
+// Weather: the round's weather sets the look and how far the hunter sees (vision.js VIEW), the same on both
 // phones (the referee draws it, rules.js). Drive alone: the player picks. ?weather=<name> forces one (testing only).
 const WX_TEST = new URLSearchParams(location.search).get('weather');
 let weather = null;
@@ -76,7 +76,7 @@ function useWeather(name) {
   fx.setWeather(w);
   otherFade = -1;   // re-fade the other tank with the new distances
 }
-let roomCode = '';   // shown in the menu (R4); the HUD draws the weather and the faces itself
+let roomCode = '';   // shown in the menu; the HUD draws the weather and the faces itself
 useWeather(DEFAULT_WEATHER);
 
 function place(tank, spawn) {
@@ -90,17 +90,17 @@ place(player, SPAWNS[0]);
 place(other, SPAWNS[1]);
 scene.add(player, other);
 
-// Stage 2B: the Blender tank replaces the plain boxes as soon as it has loaded; each tank carries a leader's bobblehead
-// and (Stage 3A) that leader's flag on a mast. Who wears what comes from the leader picker (picker.js): in a two-player
+// The Blender tank replaces the plain boxes as soon as it has loaded; each tank carries a leader's bobblehead
+// and that leader's flag on a mast. Who wears what comes from the leader picker (picker.js): in a two-player
 // match from the referee's match (rules.js `lead`, so both phones always agree); Drive alone from the picker's choice.
-// ?leader=N and ?other=N (N = the number in the brief's list) only set what Drive alone's picker starts on, for testing.
+// ?leader=N and ?other=N (N = the leader's number, leaders.js) only set what Drive alone's picker starts on, for testing.
 loadTank().then(() => { applyTank(player); applyTank(other); otherFade = -1; }).catch(e => console.warn('tank model', e));
-// Stage 4B (loading tips): a silly line on the start screen while the tank model and the surfaces are still loading (it appears only if that takes a moment)
+// Loading tips: a silly line on the start screen while the tank model and the surfaces are still loading (it appears only if that takes a moment)
 tipOn($('home-tip'));
 Promise.all([loadTank().catch(() => {}), arena.ready.catch(() => {})]).then(() => { tipOff($('home-tip')); document.documentElement.removeAttribute('data-loading'); });
 const QS = new URLSearchParams(location.search);
 const randomLeader = () => READY[Math.floor(Math.random() * READY.length)];
-// the other player's figure is drawn 1.3 m tall on this screen (Chetan, 2026-09-30), your own 1.0 m
+// the other player's figure is drawn 1.3 m tall on this screen, your own 1.0 m
 const wearLeader = (tank, n) => setLeader(tank, n, tank === other ? 1.3 : 1).then(() => { if (tank === other) otherFade = -1; }).catch(e => console.warn('leader model', n, e));
 function dressLeaders(me, them) {
   if (me !== myLeader) { myLeader = me; if (me) wearLeader(player, me); else clearLeader(player); }
@@ -123,7 +123,7 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 let quality = settings.graphics;
-const heartsOff = s => $('th-hearts').toggleAttribute('data-off', s.graphics !== 'high');   // Stage 4B: no floating hearts on Low graphics
+const heartsOff = s => $('th-hearts').toggleAttribute('data-off', s.graphics !== 'high');   // no floating hearts on Low graphics
 buildHearts(); heartsOff(settings);
 onSettings(s => {
   heartsOff(s);
@@ -135,7 +135,7 @@ onSettings(s => {
   scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });   // shadows on or off needs the shaders rebuilt
   fx.setQuality(quality);
   props.setQuality(quality);
-  arena.setQuality(quality);   // Part B: the extra lamps and the turning fans are High only
+  arena.setQuality(quality);   // the extra lamps and the turning fans are High only
   resize();
 });
 
@@ -170,14 +170,14 @@ if (DEBUG) {
 // rotate message or leave prompt).
 initScreen(setInputEnabled, leaveMatch);
 initSettings(refreshScreen);
-initSecretBox();   // Stage 4B: the Secret box on the start screen (theme.js)
+initSecretBox();   // the Secret box on the start screen (theme.js)
 if (device.ipad) $('rotate-1').textContent = 'Turn your iPad sideways.';
-$('spec').textContent = `Build ${VERSION}`;   // R4: the build only (the yard size and "best of 3" were extra words)
+$('spec').textContent = `Build ${VERSION}`;   // the build only
 
 let flagT = 0;   // seconds, for the flags' waving
 let taps = 0;   // action presses so far (testing only)
 
-// ---- two players (Stage 1c) ----------------------------------------------------------------------------------
+// ---- two players ---------------------------------------------------------------------------------------------
 // mode: 'solo' (drive alone, parked tank) | 'host' (created the room, starts top-left) | 'guest' (joined, bottom-right).
 // Hunter or hider comes from the match rules (js/rules.js); when driving alone the player picks.
 let mode = 'solo';
@@ -208,7 +208,10 @@ function startMatch({ mode: m, code, pos, match, role, weather: wx, me: pickMe, 
   if (mode === 'solo') dressLeaders(pickMe || randomLeader(), pickOther || randomLeader());
   else dressLeaders(0, 0);
   hideBubble();
-  if (mode === 'solo' && chatter('watch', settings.chatter, 1)) { const n = myLeader, role = soloRole, ok = () => mode === 'solo' && myLeader === n && soloRole === role; setTimeout(() => { if (ok()) showBubble(watchLine(n, role), { still: ok }); }, 500); }   // a preview of the line (Drive alone has no rounds)
+  if (mode === 'solo' && chatter('watch', settings.chatter, 1)) {   // a preview of the line (Drive alone has no rounds)
+    const n = myLeader, role = soloRole, ok = () => mode === 'solo' && myLeader === n && soloRole === role;
+    setTimeout(() => { if (ok()) showBubble(watchLine(n, role), { still: ok }); }, 500);
+  }
   sendClock = 0;
   if (mode === 'solo') { rules.stop(); delete root.dataset.match; }
   else { root.dataset.match = ''; restoring = !!pos; rules.start(mode, match || null); if (mode === 'guest' && getArmed()) rules.armTheme(getArmed()); }
@@ -222,7 +225,7 @@ function endMatch() {
   delete root.dataset.match;
   roomCode = '';
   fx.clear(); wreck = null; clearEggs();
-  disarm();   // Stage 4B: leaving ends the secret theme; type the phrase again for the next match
+  disarm();   // leaving ends the secret theme; type the phrase again for the next match
 }
 function onRemote(raw) {
   const m = mode === 'solo' ? null : cleanMessage(raw, RULES);   // security Stage 1: a message that does not fit its shape is dropped here
@@ -268,7 +271,7 @@ function sendMine(dt) {
   sendClock += dt;
   if (sendClock < SEND_EVERY) return;
   sendClock = 0;
-  // the hider: while the hunter can't see it, say so, and never where it is (brief: anti-cheat)
+  // the hider: while the hunter can't see it, say so, and never where it is (anti-cheat)
   const sees = myRole() === 'hider' && hunterSees();
   if (sees && rules.match?.phase === 'play' && !rules.paused) rules.noteSeen();   // Ghost badge: it was seen, even if only for a moment
   if (myRole() === 'hider' && !sees) { sendState({ t: 's', h: 1 }); return; }
@@ -304,14 +307,14 @@ function sight() {
 // On the hunter's screen the hider's tank fades out at the edge of the view. On the hider's screen the hunter's tank never fades in the smog.
 function dressOther(asHider) {
   setFog(other, asHider);
-  // (no tank throws a sun shadow since Stage 2A, see tank.js, so the hider's shadow can't give it away either)
+  // (no tank throws a sun shadow, see tank.js, so the hider's shadow can't give it away either)
   otherFade = 1; setFade(other, 1);
 }
 
-// ---- the rules: roles, firing, sprint, rounds (Stage 1d) -----------------------------------------------------
+// ---- the rules: roles, firing, sprint, rounds ----------------------------------------------------------------
 const root = document.documentElement;
 const rules = createRules({ send: sendState, changed: phaseChanged, eggs: eggsChanged, nudged, where: () => ({ x: player.position.x, z: player.position.z }), theme: () => getArmed() });
-// shots: flash, smoke, sparks (effects.js) and sounds. Hearing follows sight (Chetan, 2026-09-29): the other player's
+// shots: flash, smoke, sparks (effects.js) and sounds. Hearing follows sight: the other player's
 // shot is heard louder when close, but with no left/right direction.
 const shots = createShots(scene, {
   muzzle(x, y, z, dx, dz) { fx.muzzle(x, y, z, dx, dz); },
@@ -346,7 +349,7 @@ function showRoles(wreckHider = false) {
   dressOther(me === 'hunter');
   applyGold();
 }
-// ---- easter eggs (Stage 4A): all of it follows the shared match, nothing is decided on this phone except the poke ----------
+// ---- easter eggs: all of it follows the shared match, nothing is decided on this phone except the poke ----------
 // The gold trim: the hunter's tank, this round, once its shot has stopped against the chicken's block.
 // The hider's trim is silver once its tank has driven up to the chicken (checked by the hider's own phone, see honkCheck).
 function applyGold() {
@@ -362,23 +365,32 @@ function clearEggs() {
 function eggsChanged(m, before) {
   applyGold();
   if (!before || before.mid !== m.mid || before.round !== m.round || m.phase !== 'play') return;
-  const showBubble = text => roundBubble(text, sameRound(m));   // R4 Part B: a bubble that has to wait is dropped once the round is over
-  if (m.gold && !before.gold) { props.cluck(); const l = chickenLedge(); fx.chickenHit(l.x + 0.08, 1.55, l.z, l.x + 0.5, l.y + 1.3, l.z); showBubble(CLUCK); }   // the cue: a flash on the block and a puff of feathers (both phones)
+  const showBubble = text => roundBubble(text, sameRound(m));   // a bubble that has to wait is dropped once the round is over
+  if (m.gold && !before.gold) {   // the cue: a flash on the block and a puff of feathers (both phones)
+    props.cluck();
+    const l = chickenLedge();
+    fx.chickenHit(l.x + 0.08, 1.55, l.z, l.x + 0.5, l.y + 1.3, l.z);
+    showBubble(CLUCK);
+  }
   else if (m.silver && !before.silver) { if (myRole() === 'hider') { props.cluck(); showBubble(CLUCK); } }   // only on the hider's own phone: the hunter must not learn where the hider is
   else if ((m.sorry | 0) > (before.sorry | 0)) showBubble(SORRY);
   else if ((m.bump | 0) > (before.bump | 0)) {
-    const pair = bumpPair(m.lead, rules.hunterSide()), lines = chatter('bump', settings.chatter);   // R4 Chatter: Full both lines, Short the first, Off none
+    const pair = bumpPair(m.lead, rules.hunterSide()), lines = chatter('bump', settings.chatter);   // Chatter: Full both lines, Short the first, Off none
     if (pair && lines) showBubble(pair.slice(0, lines).map(p => `${shortName(p.who)}: “${p.text}”`).join('\n'));
   }
 }
 const THEME_BUBBLE = 8000;   // ms the themed start message stays
 const roundBubble = (text, still) => showBubble(text, { still });
-const sameRound = m => { const mid = m.mid, round = m.round; return () => { const c = rules.match; return !!c && c.mid === mid && c.round === round && c.phase === 'play'; }; };   // (the match, not the mode: Drive alone has none)
+// (the match, not the mode: Drive alone has none)
+const sameRound = m => {
+  const mid = m.mid, round = m.round;
+  return () => { const c = rules.match; return !!c && c.mid === mid && c.round === round && c.phase === 'play'; };
+};
 // The referee moved the match on (coin toss, new round, round over, rematch). Runs on both phones.
 function phaseChanged(m, before) {
   if (!m) return;
   if (m.phase !== 'play') { closeMenu(); hideBubble(); }   // a card is coming (coin toss, round result, match over): it replaces the menu
-  if (m.phase === 'pick') {   // Stage 3A: choose a leader before the coin toss (a refresh mid-pick keeps a Ready already given)
+  if (m.phase === 'pick') {   // choose a leader before the coin toss (a refresh mid-pick keeps a Ready already given)
     const ready = !!m.ready?.[rules.side];
     openPicker({ ready });
     if (ready) rules.choose(savedChoice().me, true);
@@ -402,13 +414,13 @@ function phaseChanged(m, before) {
   }
   showRoles(!fresh && m.result?.how === 'hit');
   if (before && m.phase === 'play' && before.phase !== 'play') {
-    flashRole(myRole(), m.round);   // R4: the role icon and the round dashes for 1.5 s (was "Round N. You are the hunter.")
-    // Stage 3B: the leader on your tank says why it is watching you, once, on your screen only. Only at the start of the round
+    flashRole(myRole(), m.round);   // the role icon and the round dashes for 1.5 s
+    // the leader on your tank says why it is watching you, once, on your screen only. Only at the start of the round
     // (a phone that comes back late into a round, or refreshes, never replays it).
     if (m.t < 2) {
-      const th = m.theme, mid = m.mid, round = m.round, talk = chatter('watch', settings.chatter, round) > 0, still = sameRound(m);   // R4 Chatter: Short = round 1 only, Off = never
-      // Stage 4B: the first round of a themed room opens with the theme's message (both phones, about 8 s of the head start); the watching line follows it
-      // (R4 Part B: both wait for the 1.5 s round flash in the one-message queue; the watching line queues behind the theme message)
+      const th = m.theme, mid = m.mid, round = m.round, talk = chatter('watch', settings.chatter, round) > 0, still = sameRound(m);   // Chatter: Short = round 1 only, Off = never
+      // the first round of a themed room opens with the theme's message (both phones, about 8 s of the head start); the watching line follows it
+      // (both wait for the 1.5 s round flash in the one-message queue; the watching line queues behind the theme message)
       if (th?.s && mid === 1 && round === 1) {
         showBubble(th.s, { ms: THEME_BUBBLE, theme: th.k, still, wait: 12000 });
         if (talk) setTimeout(() => { if (still()) showBubble(watchLine(rules.leaders()?.me, myRole()), { still, wait: 12000 }); }, THEME_BUBBLE + 700);
@@ -481,7 +493,7 @@ function sprint(inp, dt) {
   if (myRole() !== 'hider') return 1;
   if (!inp.action) spent = false;
   sprinting = inp.action && !spent && meter > 0 && inPlay() && drive.throttle > 0.05;
-  if (sprinting && rules.match && !hintSeen('hider')) hintDone('hider');   // R4 Part B: they found SPRINT
+  if (sprinting && rules.match && !hintSeen('hider')) hintDone('hider');   // they found SPRINT
   if (sprinting) {
     meter = Math.max(0, meter - dt / RULES.sprintTime);
     if (meter === 0) spent = true;
@@ -504,7 +516,7 @@ function drawRound() {
   if (Math.abs(p - ringP) > 0.004) { ringP = p; $('action').querySelector('.ring').style.setProperty('--p', p.toFixed(3)); }
   if (off !== btnOff) { btnOff = off; $('action').classList.toggle('off', off); }
 
-  show('rh', !!m || mode === 'solo');   // R4: Drive alone shows your face and the weather (no clock, no score)
+  show('rh', !!m || mode === 'solo');   // Drive alone shows your face and the weather (no clock, no score)
   drawHud(m, me);
   if (!m) {
     show('bign', false); show('cmap-ping', false); if (show('round', false)) { delete root.dataset.card; refreshScreen(); }
@@ -518,18 +530,18 @@ function drawRound() {
   const lastTen = m.phase === 'play' && left <= 10 && left > 0;
   $('rh-clock').classList.toggle('low', lastTen);
   if (lastTen) $('rh-clock').style.setProperty('--beat', (0.95 - 0.35 * (10 - left) / 10).toFixed(2) + 's');
-  // Round-end flow (2026-10-02): which screen shows comes from the match's clock (rules.js cardView), so both phones show the same one.
+  // Round-end flow: which screen shows comes from the match's clock (rules.js cardView), so both phones show the same one.
   // After a hit, a short beat to see the wreck before the score screen covers it.
-  const view = localView(m, cardView(m)), beat = view === 'beat';   // R4 Part B: this phone may have tapped on past the score or taunt screen
+  const view = localView(m, cardView(m)), beat = view === 'beat';   // this phone may have tapped on past the score or taunt screen
   const wait = Math.ceil(RULES.headStart - m.t - 1e-6);
-  // R4: the one small tag under the HUD: the head-start lock and its seconds (both players), or "Hit" in the wreck's beat
+  // the one small tag under the HUD: the head-start lock and its seconds (both players), or "Hit" in the wreck's beat
   const note = m.phase === 'play' && wait > 0 ? 'lock' + wait : beat ? 'hit' + role : '';
   if (note !== noteKey) {
     noteKey = note;
     $('rh-note').className = 'tagc' + (beat ? ' hit' + (role === 'hider' ? ' me' : '') : '');
     $('rh-note').innerHTML = !note ? '' : beat ? icon('hit', 16) + 'Hit' : icon('lock', 15) + wait;
   }
-  // R4: the ping. The hider's countdown is one big red number (the red edges stay); while the circle shows, a ring sits at the corner map's corner (both players)
+  // the ping. The hider's countdown is one big red number (the red edges stay); while the circle shows, a ring sits at the corner map's corner (both players)
   const pv = rules.pingView(), big = role === 'hider' && pv?.warn ? String(pv.warn) : '';
   show('bign', !!big); text('bign', big);
   if (root.hasAttribute('data-bign') !== !!big) { root.toggleAttribute('data-bign', !!big); pump(); }   // the ping number wins: the one-message queue pauses while it shows (say.js)
@@ -540,17 +552,17 @@ function drawRound() {
   if (blockChanged) { if (card) root.dataset.card = ''; else delete root.dataset.card; }
   const shownView = card ? drawCard(m, view, me, them) : view;
   if (blockChanged) refreshScreen();   // the card stops the controls while it shows
-  // R4 Part B, tap to skip: which screen this phone shows and since when; the "Tap >" mark after 1.5 s on the score or taunt screen
+  // tap to skip: which screen this phone shows and since when; the "Tap >" mark after 1.5 s on the score or taunt screen
   const vk = `${cardKey(m)}/${shownView || ''}`;
   if (vk !== viewOn.k) viewOn = { k: vk, view: shownView || '', at: clockT };
   show('sc-skip', shownView === 'score' && canSkip()); show('tt-skip', shownView === 'taunt' && canSkip());
-  // R4 Part B, the HUD fades when idle: anything the HUD shows changing wakes it; never in a ping, the head-start lock, the hit beat or the last ten seconds
+  // the HUD fades when idle: anything the HUD shows changing wakes it; never in a ping, the head-start lock, the hit beat or the last ten seconds
   const L = rules.leaders() || {};
   hudIdle(`${m.mid}|${m.round}|${m.phase}|${m.score[me]}-${m.score[them]}|${role}|${m.wx}|${L.me},${L.them}|${note}|${pv ? pv.warn || 'c' : ''}`,
     m.phase !== 'play' || wait > 0 || !!pv || lastTen || rules.paused);
   hintsNow(m, shownView);
 }
-// ---- R4 Part B (Chetan, 2026-10-03): HUD idle fade, tap to skip, first-time hints ---------------------------------------------------
+// ---- HUD idle fade, tap to skip, first-time hints --------------------------------------------------------------------------------
 const IDLE_AFTER = 5;   // s without a change before the faces and the weather tag fade (the clock stays)
 let hudSig = '', hudSince = 0;
 function hudIdle(sig, keepUp) {
@@ -560,7 +572,7 @@ function hudIdle(sig, keepUp) {
 }
 // Tap to skip: the score and taunt screens move on with a tap once they have shown for 1.5 s. Only this phone moves on (score -> taunt -> the Ready
 // card, or the match-over card); the shared match is untouched, so the next round still needs both Ready taps and never starts before the break's
-// usual 10 s (rules.js), and an early Again waits for those 10 s too (againAt). The Ready card itself is exactly as before.
+// usual 10 s (rules.js), and an early Again waits for those 10 s too (againAt). Tap to skip does not change the Ready card itself.
 const SKIP_AFTER = 1.5;
 const STEPS = ['score', 'taunt', 'ready', 'final'];
 const cardKey = m => `${m.mid}/${m.round}/${m.phase}`;
@@ -602,23 +614,30 @@ function hintsNow(m, view) {
   // 2. your goal, your first round as hunter and as hider
   if (m.phase === 'play' && !rules.paused) {
     if (role === 'hunter') offerHint('hunter', [{ text: 'Find them. One hit.', ic: 'hunter', at: () => $('rh'), sides: ['below'] }], () => rules.match?.phase === 'play' && rules.role() === 'hunter');
-    else if (touch) offerHint('hider', [{ text: 'Hold to sprint', ic: 'hider', at: () => $('action'), sides: settings.stickSide === 'right' ? ['right', 'above', 'below'] : ['left', 'above', 'below'] }],
+    else if (touch) offerHint('hider', [{ text: 'Hold to sprint', ic: 'hider', at: () => $('action'),
+      sides: settings.stickSide === 'right' ? ['right', 'above', 'below'] : ['left', 'above', 'below'] }],
       () => rules.match?.phase === 'play' && rules.role() === 'hider');
   }
   // 3. the first ping: the circle on the corner map
-  if (rules.pingView()?.circle) offerHint('ping', [{ text: role === 'hider' ? 'They see roughly here' : 'Hider is in the circle', ic: 'ping', at: () => $('cmap-ping'), sides: ['right', 'below'] }], () => !!rules.pingView()?.circle);
+  if (rules.pingView()?.circle) offerHint('ping', [{ text: role === 'hider' ? 'They see roughly here' : 'Hider is in the circle', ic: 'ping',
+    at: () => $('cmap-ping'), sides: ['right', 'below'] }], () => !!rules.pingView()?.circle);
   // 4. the first Ready card (this phone not Ready yet)
   if (view === 'ready' && !m.go?.[rules.side]) offerHint('ready', [{ text: 'Both tap Ready', ic: 'ready', at: () => $('rd-go'), sides: ['below', 'above', 'right'] }],
     () => !$('rdy').hidden && !$('round').hidden && !rules.match?.go?.[rules.side]);
 }
-// ---- R4 declutter (Chetan, 2026-10-03): the edge HUD (layout B, faces out) and the icon-first cards ---------------------------------
+// ---- the edge HUD (faces out) and the icon-first cards ------------------------------------------------------------------------------
 // Faces, roles, pips and the weather come from the match both phones share (rules.leaders(), the score, the round, the round's weather), so no
 // message is added and both phones always draw the same.
 let noteKey = null;
 const htmlK = (id, h) => { const el = $(id); if (el.__h !== h) { el.__h = h; el.innerHTML = h; } };
 const wxTag = (name, size) => { const w = (Object.hasOwn(WEATHERS, name) && WEATHERS[name]) || WEATHERS[DEFAULT_WEATHER]; return icon(weatherIcon(name), size) + w.view; };
 // the round dashes (done, now, to come) and the score pips (rounds won of the two needed)
-function rounds(id, round) { const el = $(id); if (el.__k === round) return; el.__k = round; [...el.children].forEach((b, i) => { b.className = i + 1 < round ? 'done' : i + 1 === round ? 'now' : ''; }); }
+function rounds(id, round) {
+  const el = $(id);
+  if (el.__k === round) return;
+  el.__k = round;
+  [...el.children].forEach((b, i) => { b.className = i + 1 < round ? 'done' : i + 1 === round ? 'now' : ''; });
+}
 function pips(id, won) { const el = $(id); if (el.__k === won) return; el.__k = won; [...el.children].forEach((b, i) => { b.className = i < won ? 'on' : ''; }); }
 // a face with its role ring and badge: <pre>-w<i> (the frame), -f<i> (the face), -r<i> (the badge)
 function whoOn(pre, i, n, role) {
@@ -626,7 +645,10 @@ function whoOn(pre, i, n, role) {
   if (w.dataset.role !== role) { w.dataset.role = role; $(`${pre}-r${i}`).innerHTML = icon(role, 13); }
   if (n > 0) faceOn($(`${pre}-f${i}`), n);
 }
-function winLose(pre, won) { $(`${pre}-w0`).classList.toggle('win', won); $(`${pre}-w0`).classList.toggle('lose', !won); $(`${pre}-w1`).classList.toggle('win', !won); $(`${pre}-w1`).classList.toggle('lose', won); }
+function winLose(pre, won) {
+  $(`${pre}-w0`).classList.toggle('win', won); $(`${pre}-w0`).classList.toggle('lose', !won);
+  $(`${pre}-w1`).classList.toggle('win', !won); $(`${pre}-w1`).classList.toggle('lose', won);
+}
 function drawHud(m, me) {
   // in a match the roles and faces come from the match itself; Drive alone from the picker's two choices
   const role = (m && rules.role()) || myRole(), L = m ? rules.leaders() || { me: 0, them: 0 } : { me: myLeader, them: otherLeader };
@@ -662,7 +684,7 @@ function chips(id, list) {
   if ($(id).dataset.k === key) return;
   $(id).dataset.k = key;
   $(id).hidden = !list.length;
-  $(id).replaceChildren(...list.map(b => { const e = document.createElement('span'); e.innerHTML = icon(b, 14); e.append(BADGE_NAMES[b] || b); return e; }));   // R4: the badge's icon, then its name (names unchanged)
+  $(id).replaceChildren(...list.map(b => { const e = document.createElement('span'); e.innerHTML = icon(b, 14); e.append(BADGE_NAMES[b] || b); return e; }));   // the badge's icon, then its name
 }
 const CARDS = ['ti', 'rdy', 'sc', 'tt', 'fin'];
 function drawCard(m, view, me, them) {
@@ -677,7 +699,7 @@ function drawCard(m, view, me, them) {
   for (const id of CARDS) show(id, id === card);
   const shown = { ti: view, rdy: 'ready', sc: 'score', tt: 'taunt', fin: 'final' }[card];
 
-  if (card === 'ti') {   // R4: the coin toss and the intro are one card; who hunts round 1 shows as the role badges
+  if (card === 'ti') {   // the coin toss and the intro are one card; who hunts round 1 shows as the role badges
     whoOn('ti', 0, L.me, iHunted ? 'hunter' : 'hider'); whoOn('ti', 1, L.them, iHunted ? 'hider' : 'hunter');
     flagOn('ti-fl0', L.me); flagOn('ti-fl1', L.them);
     htmlK('ti-wx', wxTag(m.wx, 18));
@@ -691,7 +713,7 @@ function drawCard(m, view, me, them) {
     rounds('rdy-rp', nextRound);
     whoOn('rdy', 0, L.me, hunts ? 'hunter' : 'hider'); whoOn('rdy', 1, L.them, hunts ? 'hider' : 'hunter');
     introSide(0, L.me); introSide(1, L.them);
-    text('rc-duck', isDuckRound(m, nextRound) ? DUCK_ROUND : '');   // Stage 4B: ducks next round (both phones read it from the match)
+    text('rc-duck', isDuckRound(m, nextRound) ? DUCK_ROUND : '');   // ducks next round (both phones read it from the match)
     drawReady(m, nextRound, me, them);
     return shown;
   }
@@ -715,17 +737,17 @@ function drawCard(m, view, me, them) {
     text('tt-news', headlineFor(r, m.lead, rules.hunterSide(), m.mid, m.round, RULES.round - r.left - RULES.headStart) || '');
     return shown;
   }
-  // the match-over card (view 'final'): after the score and taunt screens, or at once after a surrender (1f)
+  // the match-over card (view 'final'): after the score and taunt screens, or at once after a surrender
   const gave = r?.how === 'gaveup', mine = iHunted ? 'hunter' : 'hider';
   text('fin-t', gave ? (r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.') : '');   // rare: a full sentence
   whoOn('fin', 0, L.me, mine); whoOn('fin', 1, L.them, opposite(mine)); winLose('fin', won);
   htmlK('fin-score', `<span class="${won ? 'w' : ''}">${m.score[me] | 0}</span><i> – </i><span class="${won ? '' : 'w'}">${m.score[them] | 0}</span>`);   // security Stage 1: `| 0` makes sure only a number can ever reach innerHTML here
   // who wants a rematch: their face with the "again" sign; after your own tap, their face with the hourglass
-  const early = againAt === m.mid;   // R4 Part B: Again tapped before the usual 10 s (tap to skip); sent when the clock gets there
+  const early = againAt === m.mid;   // Again tapped before the usual 10 s (tap to skip); sent when the clock gets there
   const st = m.again[them] ? 'again' : m.again[me] || early ? 'wait' : '';
   htmlK('fin-st', st ? faceHtml(L.them) + icon(st, 14) : '');
-  // Stage 4A: the rematch taunt for the loser. Stage 4B: the end-of-match awards (none after a surrender) and the secret theme's end message;
-  // all fixed functions of the match both phones share, so both phones print the same. R4: each award shows the leader's face, not the name.
+  // the rematch taunt for the loser, the end-of-match awards (none after a surrender) and the secret theme's end message;
+  // all fixed functions of the match both phones share, so both phones print the same. Each award shows the leader's face, not the name.
   const over = m.phase === 'over';
   const taunt = over && r && r.how !== 'gaveup' && !won;
   if (show('rc-taunt', taunt) || taunt) text('rc-taunt', taunt ? REMATCH : '');
@@ -733,7 +755,11 @@ function drawCard(m, view, me, them) {
   show('rc-awards', !!aw);
   if (akey !== shownAwards) {
     shownAwards = akey;
-    $('rc-awards').replaceChildren(...(aw || []).map(a => { const p = document.createElement('p'), b = document.createElement('b'); b.textContent = a.name; p.innerHTML = faceHtml(a.who); p.append(b); return p; }));
+    $('rc-awards').replaceChildren(...(aw || []).map(a => {
+      const p = document.createElement('p'), b = document.createElement('b');
+      b.textContent = a.name; p.innerHTML = faceHtml(a.who); p.append(b);
+      return p;
+    }));
   }
   const th = over ? m.theme : null, msg = th ? [won ? th.w : th.l, th.x].filter(Boolean).join('\n') : '';
   show('rc-theme', !!msg); text('rc-theme', msg);
@@ -753,7 +779,7 @@ function drawReady(m, nextRound, me, them) {
   badge('rdy-s0', mine ? 'ok' : ''); badge('rdy-s1', theirs ? 'ok' : mine ? 'wait' : '');
   htmlK('rd-wx', m.next ? wxTag(m.next, 18) : '');
   htmlK('rd-late', left <= RULES.stallShow ? icon('clock', 17) + Math.max(1, Math.ceil(left - 1e-6)) : '');   // "starting anyway in N s"
-  const canNudge = mine && !theirs && m.t >= RULES.readyCard - 0.5;   // R4 Part B: a Ready card reached early by tap to skip has no Nudge until the usual time
+  const canNudge = mine && !theirs && m.t >= RULES.readyCard - 0.5;   // a Ready card reached early by tap to skip has no Nudge until the usual time
   show('rd-nudge', canNudge);
   if (canNudge) { const w = rules.nudgeWait > 0; if ($('rd-nudge').disabled !== w) $('rd-nudge').disabled = w; htmlK('rd-nudge', icon('nudge', 16) + (w ? 'Nudged' : 'Nudge')); }
   const said = !!nudgeIn && nudgeIn.mid === m.mid && nudgeIn.r === m.round && !mine && performance.now() < nudgeIn.until;
@@ -775,7 +801,7 @@ $('rc-again').addEventListener('click', () => {
   else rules.playAgain();
 });
 
-// The Ready card's two columns (0 = you, 1 = the other player): flag, parody name, tagline (lines.js). R4: the country / era line went (the flag says it)
+// The Ready card's two columns (0 = you, 1 = the other player): flag, parody name, tagline (lines.js). No country / era line: the flag says it
 const introShown = [0, 0];
 function introSide(i, n) {
   if (!(n > 0) || introShown[i] === n) return;
@@ -823,17 +849,17 @@ function drawAlarm(pv) {
 }
 $('rc-leave').addEventListener('click', leaveMatch);
 
-// In-game menu (1f): Resume, Settings, Surrender / Leave match (two players) or Quit to menu (drive alone).
+// In-game menu: Resume, Settings, Surrender / Leave match (two players) or Quit to menu (drive alone).
 initMenu({
   solo: () => mode === 'solo',
   over: () => rules.match?.phase === 'over',
   canGiveUp: () => mode !== 'solo' && !!rules.match && rules.match.phase !== 'over' && !rules.givingUp,
   giveUp: () => rules.giveUp(),
   leave: leaveMatch,
-  room: () => mode === 'solo' ? '' : roomCode,   // R4: the room code lives in the menu
+  room: () => mode === 'solo' ? '' : roomCode,   // the room code lives in the menu
 });
 
-// Leader picker (Stage 3A): ready(n, ok) is a two-player choice, start() begins Drive alone.
+// Leader picker: ready(n, ok) is a two-player choice, start() begins Drive alone.
 let soloGo = null;
 initPicker({
   ready: (n, ok) => rules.choose(n, ok),
@@ -851,7 +877,7 @@ initLobby({
   end: endMatch,
   finish() { closePicker(); rules.stop(); shots.clear(); drawRound(); },   // the match ended early; the lobby shows why
   remote: onRemote,
-  otherFace: () => faceHtml(otherLeader),   // R4: "The other player is back." is their face and "Back"
+  otherFace: () => faceHtml(otherLeader),   // "The other player is back." is their face and "Back"
   paused(on) { remote.paused = on; if (on) remote.speed = 0; rules.pause(on); },
   pos: () => ({ x: player.position.x, z: player.position.z, yaw: player.rotation.y }),
   snapshot: () => rules.snapshot(),
@@ -883,10 +909,10 @@ function frame(dt, draw = true, clockDt = dt) {
   const before = { x: player.position.x, z: player.position.z };
   const d = steer(inp);
   if (mode !== 'solo' && (rules.match?.phase !== 'play' || rules.givingUp)) { d.throttle = 0; d.turn = 0; }   // tanks wait between rounds (and after giving up)
-  if ((Math.abs(d.throttle) > 0.15 || Math.abs(d.turn) > 0.15) && root.classList.contains('touch') && !hintSeen('drive')) hintDone('drive');   // R4 Part B: they found the sliders
+  if ((Math.abs(d.throttle) > 0.15 || Math.abs(d.turn) > 0.15) && root.classList.contains('touch') && !hintSeen('drive')) hintDone('drive');   // they found the sliders
   const am = rules.match;
   if (againAt && (!am || am.phase !== 'over' || am.mid !== againAt)) againAt = 0;
-  else if (againAt && cardView(am) === 'final') { againAt = 0; rules.playAgain(); }   // R4 Part B: an early Again, now at the usual time
+  else if (againAt && cardView(am) === 'final') { againAt = 0; rules.playAgain(); }   // an early Again, now at the usual time
   d.boost = sprint(inp, dt);
   driveTank(player, d, dt);
   moveOther(dt);
@@ -918,9 +944,9 @@ function frame(dt, draw = true, clockDt = dt) {
   drawMap();
   drawMinimap();
 }
-// ---- Stage 4B: the secret theme and the rubber duck, both read from the shared match ----------------------------------------------
+// ---- the secret theme and the rubber duck, both read from the shared match -------------------------------------------------------
 // The theme (love / hate) is in the match from the start (rules.js `theme`), so both phones always show the same look. It shows only in a two-player
-// match; on the start screen a phrase that worked tints the screen for the next match. Love is strong, hate is subtle (Chetan, 2026-10-01).
+// match; on the start screen a phrase that worked tints the screen for the next match. Love is strong, hate is subtle.
 // Everything here only paints over the picture, tints the lights or glows the tanks' own paint: it never knows where a tank is.
 let lookKind = null, lookFlash = -1;
 function syncLook() {
@@ -971,9 +997,9 @@ addEventListener('pointerup', e => {
 }, true);
 addEventListener('pointercancel', () => { duckFrom = null; }, true);
 
-// Bump (Stage 4A): the referee phone watches the two tanks. Touching for a quarter of a second counts; rules.js allows one bump line
+// Bump: the referee phone watches the two tanks. Touching for a quarter of a second counts; rules.js allows one bump line
 // every 20 s of round time and three a round. Both phones then read the bump from the match and show the same two lines.
-// Honk (2026-10-01): the hider's own phone knows exactly where its tank is, so it alone notices when it has driven up to the
+// Honk: the hider's own phone knows exactly where its tank is, so it alone notices when it has driven up to the
 // chicken and tells the referee (rules.noteHonk). Nothing else changes: no sight, speed or hit rule looks at it.
 function honkCheck() {
   if (mode === 'solo' || myRole() !== 'hider' || rules.match?.phase !== 'play' || rules.paused || rules.match.silver) return;
@@ -987,7 +1013,7 @@ function bumpCheck(dt) {
   touchT = d < TANK_RADIUS * 2 + 0.25 ? touchT + dt : 0;
   if (touchT >= RULES.bumpHold) rules.noteBump();
 }
-// The last ten seconds (Stage 4A): the hider's head sweats, the hunter's head shakes. Both read the round clock, so both phones agree.
+// The last ten seconds: the hider's head sweats, the hunter's head shakes. Both read the round clock, so both phones agree.
 let shakeT = 0;
 function lastTen(dt, left, play) {
   const on = mode !== 'solo' && play && left <= 10 && left > 0;
@@ -996,7 +1022,7 @@ function lastTen(dt, left, play) {
   if (settings.graphics === 'high') setSweat(hider, true, clockT);
   if ((shakeT -= dt) <= 0) { shakeT = 0.55; shakeHead(hunter, 0.3); }
 }
-// Bobblehead poke (Stage 4A): a quick tap right on your own figure gives a random line from your leader (own screen only).
+// Bobblehead poke: a quick tap right on your own figure gives a random line from your leader (own screen only).
 // A tap is a touch that lasts under 0.3 s and moves under 12 px, so holding or sliding there still drives exactly as before.
 let pokeFrom = null, pokeLast = '', pokeAt = 0;
 function headCircle() {
@@ -1012,7 +1038,7 @@ function headCircle() {
   return { cx, cy, r: Math.max(28, Math.abs((e.x * 0.5 + 0.5) * W - cx)) };
 }
 const pokeOK = () => mode !== 'solo' && rules.match?.phase === 'play' && !rules.paused && !rules.givingUp && isPlaying() && inputEnabled();
-// Where a slider or the ring must never start (controller changes and R3, 2026-10-02): the poke circle on your own figure (two-player matches) and the corner-map box
+// Where a slider or the ring must never start: the poke circle on your own figure (two-player matches) and the corner-map box
 // (where the five duck taps go, there even when the map is off). The buttons need no entry: they sit on top of the controls and take the touch themselves.
 setSliderBlocker((x, y) => {
   const c = mode !== 'solo' ? headCircle() : null;
@@ -1034,7 +1060,7 @@ addEventListener('pointerup', e => {
   const line = pokeLine(rules.leaders()?.me, pokeLast);
   if (!line) return;
   pokeAt = performance.now(); pokeLast = line;
-  if (chatter('poke', settings.chatter)) showBubble(line, { pri: 1.5 });   // R4 Chatter: Off = no bubble (the head still wobbles); R4 Part B: the answer to a tap cuts in on another bubble
+  if (chatter('poke', settings.chatter)) showBubble(line, { pri: 1.5 });   // Chatter: Off = no bubble (the head still wobbles); the answer to a tap cuts in on another bubble
   shakeHead(player, 0.7);
   play('tick', 0.5, 0.85);
 }, true);
@@ -1075,7 +1101,7 @@ arena.lamps.onZap(l => {
 // every button: a quiet click
 document.addEventListener('click', e => { if (e.target.closest('button')) play('tap', 0.5); }, { capture: true });
 
-// R4 Part B (Chetan, 2026-10-03): Auto-Low graphics. Under 24 frames a second for 5 s in a row while playing (a round in play, or Drive alone; no card,
+// Auto-Low graphics. Under 24 frames a second for 5 s in a row while playing (a round in play, or Drive alone; no card,
 // menu, Settings or picker; the game in view) switches to Low ONCE, with a small notice and an Undo for 6 s. It never switches again on this phone
 // (settings.autoLow = 'used'), whatever the Undo or Settings say afterwards, so it cannot flap.
 const autoLow = createAutoLow();
@@ -1099,7 +1125,14 @@ renderer.setAnimationLoop(now => {
   autoLowFrame(real);
 });
 
-if (TESTING) window.__tb = { drawRound, flashRole, skipCard, autoLowFrame, autoLow, get viewOn() { return viewOn; }, get skipTo() { return skipTo; }, get againAt() { return againAt; }, get clockT() { return clockT; }, setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props, get lookKind() { return lookKind; }, get duckNow() { return duckNow; }, setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader, get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; }, SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,   // for testing only
+if (TESTING) window.__tb = {   // for testing only (security Stage 4: not on the real site, see debug.js)
+  drawRound, flashRole, skipCard, autoLowFrame, autoLow,
+  get viewOn() { return viewOn; }, get skipTo() { return skipTo; }, get againAt() { return againAt; }, get clockT() { return clockT; },
+  setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props,
+  get lookKind() { return lookKind; }, get duckNow() { return duckNow; },
+  setAura, setDuck, getArmed, disarm, showBubble, hideBubble, camera, renderer, player, other, place, wearLeader,
+  get myLeader() { return myLeader; }, get otherLeader() { return otherLeader; },
+  SPAWNS, follow, settings, remote, rules, shots, RULES, arena, fx, VIEW, useWeather, soundState,
   get weather() { return weather; },
   get mode() { return mode; }, get taps() { return taps; }, get role() { return myRole(); },
   get meter() { return meter; }, get reload() { return reload; }, get sprinting() { return sprinting; },

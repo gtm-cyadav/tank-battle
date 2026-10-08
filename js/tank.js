@@ -1,11 +1,11 @@
 // The tank: its look (plain boxes until the Blender model has loaded, models.js), its driving physics, the fade on
-// the hunter's screen, and the leader's bobblehead wobbling on the turret (Stage 2B).
+// the hunter's screen, and the leader's bobblehead wobbling on the turret.
 import * as THREE from '../lib/three.module.js';
 import { pushOutOfWalls } from './world.js';
 
 export const TANK_RADIUS = 2.0;   // collision circle; the narrowest lanes are 6.5 m wide
 export const COLORS = { hunter: 0xff7a1a, hider: 0x2f7bff };
-// Stage 2B: the models' paint is a little muted and grimy (the vertex colours darken it further towards the ground)
+// The models' paint is a little muted and grimy (the vertex colours darken it further towards the ground)
 const PAINT = { [COLORS.hunter]: 0xd8671f, [COLORS.hider]: 0x3a6fd0 };
 const WRECK = 0x2b2e2c;
 
@@ -26,7 +26,7 @@ export function makeTank(color) {
   const add = (geo, mat, x, y, z) => {
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z);
-    // Stage 2A: sun shadows are drawn once per weather (arena.js), so a moving tank can't throw one (it would stay
+    // Sun shadows are drawn once per weather (arena.js), so a moving tank can't throw one (it would stay
     // behind at the spot where it was drawn). The soft contact shadow below does that job; tanks still receive shadows.
     m.castShadow = false;
     m.receiveShadow = true;
@@ -82,9 +82,9 @@ export function paintTank(tank, color, wrecked = false) {
   u.bob.wreck = wrecked;
 }
 
-// Stage 4A (the chicken): the hunter's tank wears gold trim for the rest of the round. Only the steel parts (tracks, barrel, hatches,
+// The chicken: the hunter's tank wears gold trim for the rest of the round. Only the steel parts (tracks, barrel, hatches,
 // the flag mast) turn gold, so the orange role paint stays as readable as ever. Plain matte colour, nothing glowing.
-// The hider has its own version (the chicken, 2026-10-01): silver trim when its tank drove up to the chicken.
+// The hider has its own version: silver trim when its tank drove up to the chicken.
 const STEEL = 0x6a6c68, GOLD = 0xffd45a, SILVER = 0xe4eaee;
 export function setTrim(tank, kind) {   // kind: 'gold' | 'silver' | null
   const u = tank.userData;
@@ -95,7 +95,7 @@ export function setTrim(tank, kind) {   // kind: 'gold' | 'silver' | null
   u.dark.roughness = kind === 'gold' ? 0.38 : kind === 'silver' ? 0.3 : 0.85;
 }
 
-// ---- fading on the hunter's screen (Stage 1e, all parts since 2B) ---------------------------------------------
+// ---- fading on the hunter's screen ----------------------------------------------------------------------------
 // The tank turns see-through as one solid shape: a depth-only copy of each part is drawn first (after the walls), so
 // only the tank's front surface shows, never its inner parts (figure, props, turret) through each other.
 const DEPTH_ONLY = new THREE.MeshBasicMaterial({ colorWrite: false });
@@ -130,7 +130,7 @@ export function setFog(tank, on) {
   for (const m of [...u.mats, u.blob.material, ...(u.aura ? [u.aura.material] : [])]) if (m.fog !== on) { m.fog = on; m.needsUpdate = true; }
 }
 
-// ---- Stage 4B (Chetan, 2026-10-01): the love / hate glow ---------------------------------------------------------------------
+// ---- the love / hate glow ----------------------------------------------------------------------------------------------------
 // love: a warm pink glow, hate: a faint angry red. Two parts, both inside the tank's own outline plus a margin well within the half metre the
 // sight rule adds (vision.js), so it can never show a tank the hunter should not see: a tint of the tank's own paint, and a soft glowing pad on
 // the floor under it (3.7 x 5.35 m, 0.2 m beyond the outline each side). The pad is one flat quad that fades with the tank, takes the smog,
@@ -218,7 +218,7 @@ export function bobble(tank, dt) {
   }
 }
 
-// The flag's cloth waves along its length, more the faster the tank goes (flag.js / models.js FLAG): it moves in the
+// The flag's cloth waves along its length, more the faster the tank goes (models.js FLAG): it moves in the
 // tank's front-to-back direction by at most FLAG.amp, so it stays inside the tank's outline. t: seconds.
 export function waveFlag(tank, t, dt) {
   const u = tank.userData, c = u.cloth;
@@ -251,7 +251,7 @@ export function driveTank(tank, input, dt) {
   }
 }
 
-// Tanks are solid and can't shove each other (Chetan's choice, Stage 1c). Each phone only ever moves its own
+// Tanks are solid and can't shove each other. Each phone only ever moves its own
 // tank, and only undoes its own tank's move into the other one: if the other tank drives into yours, it's the
 // other phone that stops it, so a laggy link can never push your tank around.
 // before = where `tank` was at the start of this frame. Slides round the other tank rather than sticking.

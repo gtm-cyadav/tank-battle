@@ -1,6 +1,6 @@
-// Corner map (Stage 1e, brief section 3 "Map / radar"): the whole yard, top-left, the same way up for both players.
+// Corner map: the whole yard, top-left, the same way up for both players.
 // It shows the walls and your own tank only, never the other player; during a ping it also shows the ping circle.
-// Size and spot chosen by Chetan: top-left, about 150 x 100 px on an 812-wide phone. Can be switched off in Settings.
+// Top-left, about 150 x 100 px on an 812-wide phone. Can be switched off in Settings.
 import { ROWS, COLS, WIDTH, DEPTH, isWallCell } from './world.js';
 
 const COLORS = { hunter: '#ff7a1a', hider: '#2f7bff' };

@@ -1,6 +1,6 @@
-// The two-player side of the start screen, and everything the screen says about the link (brief section 3,
-// "Two players"): create a room with a 4-letter code, join with the code, or drive alone; rejoin after a refresh
-// or reopen; plain messages for a wrong code, a full room, a quiet or departed player, and the 60-second wait.
+// The two-player side of the start screen, and everything the screen says about the link: create a room with a
+// 4-letter code, join with the code, or drive alone; rejoin after a refresh or reopen; plain messages for a wrong code,
+// a full room, a quiet or departed player, and the 60-second wait.
 import { createLink, randomToken } from './net.js';
 import { startPlaying, showStart, leaveToStart, enterFullscreen, refreshScreen, device } from './screen.js';
 import { randomWeather } from './weather.js';
@@ -69,12 +69,12 @@ const link = createLink({
       game.start({ mode: room.role, code: room.code, pos: back ? room.pos : null, match: back ? room.match : null });
       startPlaying(false);
       saveRoom();
-      toast(back ? 'Back' : 'In', icon(back ? 'signal' : 'ready', 16));   // R4: an icon and one word (the room code is in the menu)
+      toast(back ? 'Back' : 'In', icon(back ? 'signal' : 'ready', 16));   // an icon and one word (the room code is in the menu)
     } else if (stage === 'playing' && !first) {
       const mine = downReason === 'offline' || downWasOffline;   // it was this phone that lost the signal
       hideCard();
       game.paused(false);
-      toast('Back', mine ? icon('signal', 16) : game.otherFace?.() || icon('ready', 16));   // R4: their face and "Back"
+      toast('Back', mine ? icon('signal', 16) : game.otherFace?.() || icon('ready', 16));   // their face and "Back"
     }
   },
   down(reason) {
@@ -142,7 +142,7 @@ function panel(name) {
   $('start').dataset.panel = name;   // the install / keyboard hints only show next to the first panel
   tips(name);
 }
-// Stage 4B (loading tips): a silly line under the status while a phone is connecting or waiting (opening a room, waiting for the other player,
+// Loading tips: a silly line under the status while a phone is connecting or waiting (opening a room, waiting for the other player,
 // looking for a room, rejoining). Not on the idle forms, not on an error.
 function tips(name, waiting = true) {
   const on = (p, ok = true) => (name === p && ok ? tipOn : tipOff)($(p + '-tip'));
@@ -167,7 +167,7 @@ function showCode(code) {
   $('create-text').textContent = 'Send the invite or say the code. Keep the game open.';
   $('invite').hidden = false;
 }
-// ---- R4 Part B (Chetan, 2026-10-03): the invite link. The room code goes in the part after "#" (never sent to any server, nothing else in it: no
+// ---- the invite link. The room code goes in the part after "#" (never sent to any server, nothing else in it: no
 // names). One tap: the phone's share sheet where it has one, else the link is copied. Opening the link fills in the code; the friend only taps Join.
 // Security Stage 3: the link also carries the room key ("#join=ABCD.k3x9..."): a friend who opens it is let in without the host having to say yes. The key is in the part
 // after "#" too, so it is never sent to any server.
@@ -257,7 +257,7 @@ function join() {
 // Drive alone: the weather the player picked on the panel ('random' draws one each time)
 let soloWx = 'random';
 function showSoloWx() { for (const b of document.querySelectorAll('[data-wx]')) b.setAttribute('aria-pressed', b.dataset.wx === soloWx); }
-function solo(role) {   // role: 'hunter' | 'hider', picked by the player; then the leader picker (Stage 3A)
+function solo(role) {   // role: 'hunter' | 'hider', picked by the player; then the leader picker
   game.pickSolo((me, other) => {
     if (wantFullscreen()) enterFullscreen();
     stage = 'playing';
@@ -319,7 +319,7 @@ for (const t of ['online', 'offline']) addEventListener(t, () => {
   showCard('wait');
 });
 
-// a match ended early (left, or never came back): nobody wins, but say what the score was (Chetan's choice, 1d)
+// a match ended early (left, or never came back): nobody wins, but say what the score was
 const nobodyWon = () => ['The match is over. Nobody won.', game.summary()].filter(Boolean).join(' ');
 function endMatch(title, text) {
   forgetRoom();
@@ -330,8 +330,8 @@ function endMatch(title, text) {
 }
 
 let toasts = 0;
-// R4: a notice is an icon (or a face) and at most one word; `ic` is the icon's page text from icons.js or main.js (never typed text).
-// R4 Part B: it goes through the one-message queue (say.js) at the top rank: it cuts in on a bubble or a hint, waits for the ping number and the
+// A notice is an icon (or a face) and at most one word; `ic` is the icon's page text from icons.js or main.js (never typed text).
+// It goes through the one-message queue (say.js) at the top rank: it cuts in on a bubble or a hint, waits for the ping number and the
 // round flash, and never shows on top of another notice. opt: { ms (default 2.8 s), action: { label, run } } adds one small button (Auto-Low's Undo).
 export function toast(text, ic = '', opt = {}) {
   const el = $('toast'), k = String(++toasts), key = 'toast:' + text + ic;
@@ -386,7 +386,6 @@ function backToStart() {
 document.addEventListener('visibilitychange', () => link.send({ t: document.hidden ? 'away' : 'here' }));
 
 export const sendState = m => link.send(m);
-export const isOnline = () => link.up;
 if (TESTING) window.__tbLink = link;   // testing only (security Stage 4: not on the real site, see debug.js)
 
 export function initLobby(hooks) {

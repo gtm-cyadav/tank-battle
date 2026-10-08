@@ -87,7 +87,7 @@ export function pushOutOfWalls(p, radius) {
 }
 
 // Walk along the grid from (x0, z0) towards (x1, z1). Returns the distance to the first wall,
-// or the full distance if the line is clear. Used by the camera now; bullets and sight lines later.
+// or the full distance if the line is clear. Used by the camera, the bullets and the sight lines.
 export function rayToWall(x0, z0, x1, z1) {
   if (!Number.isFinite(x0) || !Number.isFinite(z0) || !Number.isFinite(x1) || !Number.isFinite(z1)) return 0;   // security Stage 2: no maths on NaN / Infinity
   const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);

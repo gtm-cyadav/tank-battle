@@ -1,10 +1,9 @@
-// Weather (Stage 2A, brief section 3 "Weather setting"). Weather is gameplay: it sets how far the hunter can see the
-// hider. Chosen by Chetan 2026-09-29 ("clear spread"): the share of the yard a hunter sees, measured on our map against
-// overcast, is in brackets.
-//   Sunny 30 m (122%), Overcast 25 m (100%, the Stage 1 view), Dusk 22 m (86%), Rain 20 m (77%), Fog 16 m (58%).
-// The referee picks one at random for every round (fully random, repeats allowed; Chetan's choice), both phones use it.
+// Weather. Weather is gameplay: it sets how far the hunter can see the hider. The share of the yard a hunter sees,
+// measured on our map against overcast, is in brackets.
+//   Sunny 30 m (122%), Overcast 25 m (100%), Dusk 22 m (86%), Rain 20 m (77%), Fog 16 m (58%).
+// The referee picks one at random for every round (fully random, repeats allowed), both phones use it.
 // The hider fades from `fade` to `view` metres on the hunter's screen; the smog is total at `smog.far`, so walls stay
-// visible a little further than the hider in every weather (as in Stage 1).
+// visible a little further than the hider in every weather.
 // No three.js in here: the rules (rules.js) and the tests use it too.
 
 export const WEATHERS = {
@@ -47,5 +46,3 @@ export const WEATHERS = {
 export const WEATHER_NAMES = Object.keys(WEATHERS);
 export const DEFAULT_WEATHER = 'overcast';
 export const randomWeather = () => WEATHER_NAMES[Math.floor(Math.random() * WEATHER_NAMES.length)];
-// "Fog, view 16 m." for the cards
-export const weatherLine = name => { const w = WEATHERS[name] || WEATHERS[DEFAULT_WEATHER]; return `${w.label}. The hunter sees ${w.view} m.`; };

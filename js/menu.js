@@ -1,8 +1,8 @@
-// In-game menu (1f, Chetan 2026-09-30): a round three-line button in the top-right corner (the gear sits one place in).
+// In-game menu: a round three-line button in the top-right corner (the gear sits one place in).
 //   Two players: Resume, Settings, Surrender (asks first), Leave match (asks first).
 //   Drive alone: Resume, Settings, Quit to menu (no question).
 // While it's open only this player's controls stop (the tank rolls to a stop, stick and button are ignored). The round
-// clock, the other player, shots, pings, weather and sound all carry on (Chetan: the clock does not stop), so opening
+// clock, the other player, shots, pings, weather and sound all carry on (the clock does not stop), so opening
 // it never gives either player an edge. A new card (coin toss, round result, match over), the waiting card or leaving
 // the game closes it. Esc opens and closes it on a computer. It is never saved, so a refresh comes back with it closed.
 import { isPlaying, refreshScreen } from './screen.js';
@@ -32,7 +32,7 @@ function render() {
     $('ask-t').textContent = t; $('ask-p').textContent = p; $('ask-yes').textContent = yes;
     return;
   }
-  // R4 (2026-10-03): icon buttons with tiny labels; on top the room code (moved here from the HUD) and, in a running match, "Clock runs"
+  // icon buttons with tiny labels; on top the room code and, in a running match, "Clock runs"
   const room = game.room?.() || '';
   $('menu-room').innerHTML = room ? icon('room', 16) : ''; if (room) $('menu-room').append(room);
   $('menu-p').innerHTML = solo ? '' : game.over() ? 'Match over' : icon('clock', 15) + 'Clock runs';

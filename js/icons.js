@@ -1,4 +1,4 @@
-// R4 declutter (Chetan, 2026-10-03): one icon set, drawn in code (no downloads), style B "filled" (chosen from tools/out/r4/r4_icons.png).
+// One icon set, drawn in code (no downloads), in a "filled" style.
 // Every icon is a 24 x 24 drawing in the colour of the text round it (currentColor); details inside a solid shape are cut out in --cut
 // (the colour of whatever the icon sits on; dark by default). icon(name, size) returns the SVG as text for innerHTML.
 // kinds: shape (solid), line (thick stroke), dot (solid), in (a stroked cut-out), inf (a solid cut-out)
@@ -54,7 +54,6 @@ const STYLE = {
   inf: 'style="fill:var(--cut,#1a201e)"',
 };
 const cache = new Map();
-export const ICON_NAMES = Object.keys(D);
 // the SVG text for an icon; size in CSS px (the box is square)
 export function icon(name, size = 20) {
   const key = name + '/' + size;

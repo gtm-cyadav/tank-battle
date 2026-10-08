@@ -1,4 +1,4 @@
-// Aim assist for the hunter (a small change after Stage 4B, Chetan 2026-10-01). When the hunter fires, the shot's direction may be
+// Aim assist for the hunter. When the hunter fires, the shot's direction may be
 // bent a few degrees towards a target the hunter can SEE, with a small lead for a moving target. The bent direction is the one in the
 // shot message, so both phones draw the same shot and the referee judges the same shot. Hits are still judged on the hider's phone.
 // Privacy rule (the whole point): the targets handed in here must be only what this phone already shows on screen: the hider when it is drawn

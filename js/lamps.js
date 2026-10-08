@@ -1,7 +1,7 @@
-// Wall lamps (Stage 2A): industrial lamps on the walls, about every 12 m, each with a glow and a pool of light on the
+// Wall lamps: industrial lamps on the walls, about every 12 m, each with a glow and a pool of light on the
 // floor. Most are warm sodium lamps, some cold tubes; about one in five is faulty and flickers now and then (with a
 // buzz, sound.js). Weather sets how strong they are (nearly off in sunshine, full at dusk).
-// More lamps (Chetan, 2026-10-02, Part B of the round-end session): 75 extra lamps of the same kind (135 in all, 2.25x), placed after the
+// More lamps: 75 extra lamps of the same kind (135 in all), placed after the
 // first 60 on the wall faces that have no wall art (so no poster or graffiti moves), 5 m or more from any other lamp, off the chicken's face.
 // The extras show on High graphics only; on Low they are not drawn, do not hum and do not fizz.
 // Cheap on phones: no real lights. Each set of lamps is three draw calls (glows, pools, housings): 3 on Low, 6 on High.
@@ -39,7 +39,7 @@ export function placeLamps() {
   return out;
 }
 
-// The extra lamps (Part B): placed after the first 60, kept clear of every wall-art piece (the art is laid out round the first 60 only, so it
+// The extra lamps: placed after the first 60, kept clear of every wall-art piece (the art is laid out round the first 60 only, so it
 // never moves) and of the chicken's face. A fixed function of the map, the lamps and the art: the same on every phone.
 export function placeExtraLamps(base = placeLamps()) {
   const art = layoutWallArt(base).pieces, all = base.slice(), out = [];

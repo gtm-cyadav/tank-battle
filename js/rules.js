@@ -1,4 +1,4 @@
-// The match rules (brief section 3, "Rules" and "Rules detail"): hunter and hider, a 3:00 round clock with a
+// The match rules: hunter and hider, a 3:00 round clock with a
 // 20-second head start, best of 3 with roles swapping every round, and Play again.
 // Who decides what, so both phones always agree:
 //   - The phone that created the room is the referee. It alone tosses the coin, keeps the round number, scores,
@@ -7,13 +7,13 @@
 //     referee, which counts the hit only if it landed before the clock reached 0:00.
 //   - The hunter's phone decides when it may fire (head start, reload) and tells the other phone about each shot.
 // The clock stops while the link is down (the 60-second wait), on both phones.
-// Surrender (1f, Chetan 2026-09-30): giving up loses the whole match at once; the other player wins and the score stays
+// Surrender: giving up loses the whole match at once; the other player wins and the score stays
 // as it was. Only the referee ends the match, so both phones always show the same result:
 //   - the referee's own player gives up: the referee ends the match there and then and tells the other phone;
 //   - the other phone's player gives up: that phone asks the referee (asked again every 0.5 s until the referee's match
 //     shows it over) and shows nothing new until the answer arrives. Whatever reached the referee first counts: a hit
 //     or 0:00 the referee had already judged stands, and a request that arrives after the match is over is ignored.
-// Leader choice (Stage 3A, Chetan 2026-09-30): every match starts with the phase 'pick', before the coin toss. Each
+// Leader choice: every match starts with the phase 'pick', before the coin toss. Each
 // player chooses a leader (1-36) or Random (0) and taps Ready. The choices stay private to the phones until the
 // referee has both: it draws any Random (one draw, anywhere in 1-36, the two players may get the same leader), puts
 // the result in the match (`lead`) and moves on to the coin toss. Both phones use `lead` and nothing else, so they
@@ -21,7 +21,7 @@
 //   - the other phone sends its choice { t: 'c', mid, s, n, ok } and resends it every 0.5 s until the referee's match
 //     shows the same Ready state; s (a rising number) puts old messages in order;
 //   - the referee's match shows only who is Ready, never who chose what.
-// Stage 4B (Chetan, 2026-10-01): three more things the match carries, all decided by the referee and read by both phones:
+// Three more things the match carries, all decided by the referee and read by both phones:
 //   - `log`: one short record per finished round (who hunted, who won and how, the clock, bumps, chicken, tourist, whether the hider was
 //     seen, shots fired, badges). The end-of-match awards are a fixed function of it (lines.js awardsFor), so both phones print the same ones;
 //   - `ducks`: a bit per round (bit 0 = round 1) that is a rubber-duck round. Five taps in the corner map box on either phone ask for the NEXT
@@ -29,18 +29,18 @@
 //   - `theme`: null, or the love / hate theme { k, s, w, l, x } (kind and the four messages, already decrypted on the phone that typed the
 //     phrase). It is put in the match at the start (the referee's own phone, or the other phone's message `th`) and then kept through
 //     Play again until somebody leaves. The phrase and the encrypted texts never reach this file.
-// Round-end flow (Chetan, 2026-10-02): between rounds there is no automatic start any more. The break shows three screens in a row, the same
+// Round-end flow: between rounds there is no automatic start. The break shows three screens in a row, the same
 // on both phones because they follow the referee's break clock: the score screen (from the hit's wreck beat until 5 s), the taunt screen
 // (until 10 s), then the Ready card (the next round's intro). The next round starts when BOTH players have tapped Ready, or, if one never
 // does, 60 s after the first tap plus a visible 10 s countdown. The referee decides all of it and writes it into the match:
 //   - `go` { host, guest }: who has tapped Ready for the next round; `goAt`: the break clock at the first tap (-1 = nobody yet).
 //     The other phone sends { t: 'rd', mid, r } and sends it again every 0.5 s until the referee's match shows it; a Ready cannot be taken back.
-//   - the round starts on the referee (startRound), exactly as the old automatic start did, so the clock, the head start, the pings and the
+//   - the round starts on the referee (startRound), so the clock, the head start, the pings and the
 //     weather all start fresh at that moment on both phones. The break clock stops while the link is down, so the countdown waits too.
 //   - Nudge: the player who is Ready may nudge the other one (at most once every 10 s): { t: 'nd', mid, r, k } straight to the other phone,
 //     which shows its own copy of the nudging leader's fixed line (lines.js NUDGE). Nothing typed is ever sent.
 // The match-over screen uses the same first two screens (score, taunt) before the match-over card; a surrender goes straight to the card.
-// Hunter ping (Stage 1e): every 45 s of round time the hunter's corner map shows, for 4 s, a rough circle the hider is
+// Hunter ping: every 45 s of round time the hunter's corner map shows, for 4 s, a rough circle the hider is
 // somewhere inside; the hider gets a 3-second countdown first and sees the same circle.
 //   - When: the round clock, which the referee owns (so never in the head start, between rounds or while paused).
 //   - Where: only the hider's phone knows exactly where the hider is, so it draws the circle (hider inside, never at the
@@ -52,11 +52,11 @@ import { shotEffects, badgesOf } from './eggs.js';
 import { cleanMatch, cleanTheme } from './guard.js';   // security Stage 1: whatever the other phone (or the browser's saved copy) gives us is rebuilt here first
 
 export const RULES = {
-  round: 180,        // s on the clock (was 120; raised with the 1.3x bigger map, Chetan, 2026-09-29)
-  headStart: 20,     // s before the hunter can fire (was 15; same reason)
-  toss: 7,           // s from the coin toss to round 1: the toss card, then the intro card (Stage 3B; was 4). Round 1 still starts by itself.
-  tossCard: 3,       // s the coin-toss card shows before the intro card takes over (Stage 3B)
-  scoreCard: 5,      // s into the break (or the match over) the score screen shows; then the taunt screen (round-end flow, 2026-10-02)
+  round: 180,        // s on the clock
+  headStart: 20,     // s before the hunter can fire
+  toss: 7,           // s from the coin toss to round 1: the toss card, then the intro card. Round 1 starts by itself.
+  tossCard: 3,       // s the coin-toss card shows before the intro card takes over
+  scoreCard: 5,      // s into the break (or the match over) the score screen shows; then the taunt screen
   readyCard: 10,     // s into the break the Ready card takes over (the match over: the match-over card)
   stallWait: 60,     // s after the first Ready tap before the late countdown shows
   stallShow: 10,     // s of late countdown ("Starting anyway in N s"); then the round starts anyway
@@ -67,20 +67,20 @@ export const RULES = {
   reload: 1.5,       // s
   sprintTime: 3,     // s a full sprint meter lasts
   refill: 6,         // s for an empty meter to fill up
-  sprintBoost: 1.75, // sprint speed = 1.75 x normal (was 1.5; Chetan found it slow, 2026-09-29)
+  sprintBoost: 1.75, // sprint speed = 1.75 x normal
   pingEvery: 45,     // s of round time between pings: at 0:45, 1:30, 2:15 (2:15, 1:30, 0:45 left)
   pingShow: 4,       // s the circle shows
   pingWarn: 3,       // s of countdown the hider gets first
   pingSize: 25,      // m across
-  leaders: 36,       // leaders to pick from (Stage 3A); choice 0 = Random
+  leaders: 36,       // leaders to pick from; choice 0 = Random
   rounds: 3,         // rounds in a match at most (best of 3)
-  speedrun: 20,      // s of hunting time (after the head start) a hit must come inside to earn the Speedrun badge (Stage 4A)
-  bumpHold: 0.25,    // s the two tanks must stay touching before it counts as a bump (Stage 4A)
+  speedrun: 20,      // s of hunting time (after the head start) a hit must come inside to earn the Speedrun badge
+  bumpHold: 0.25,    // s the two tanks must stay touching before it counts as a bump
   bumpGap: 20,       // s of round time between two bump lines
   bumpMax: 3,        // bump lines in one round, at most
 };
 
-// What the match carries for the easter eggs (Stage 4A). All of it is decided by the referee phone alone and read by both,
+// What the match carries for the easter eggs. All of it is decided by the referee phone alone and read by both,
 // so a refresh, a rejoin or a role swap can never replay or change anything:
 //   gold      the hunter's shot stopped against the chicken's block this round (the tank trim is gold until the next round)
 //   silver    the hider's tank drove up to the chicken this round (the hider's trim is silver until the next round)
@@ -101,7 +101,7 @@ export function pingTime(n) {
 
 const other = side => side === 'host' ? 'guest' : 'host';
 
-// Stage 4B: the theme in the match must be exactly this shape (the texts are plain strings; nothing else is let through).
+// The theme in the match must be exactly this shape (the texts are plain strings; nothing else is let through).
 // Security Stage 1: it now lives in guard.js (which also strips control and direction-changing characters); same name and shape as before.
 export { cleanTheme };
 // The round a tap on the duck code would change: the next one (round 1 during the coin toss, round + 1 in a round or its break),
@@ -131,7 +131,7 @@ const GO0 = () => ({ go: { host: false, guest: false }, goAt: -1 });
 //     { win (the match winner), how: 'gaveup', by (who gave up), left },
 //   again: { host, guest } who has tapped Play again,
 //   ping: the circle of the ping showing now { n, x, z } (centre, m), or null,
-//   wx: this round's weather (Stage 2A: drawn at random by the referee for every round, both phones use it),
+//   wx: this round's weather (drawn at random by the referee for every round, both phones use it),
 //   next: during the break, the next round's weather (shown on the card first), else null.
 //   result.at: where the hider was hit { x, z } (for the explosion on the hunter's phone), when known
 // hooks: send(msg), changed(match, before) whenever phase, round or match number change, and on start,
@@ -205,13 +205,13 @@ export function createRules(hooks) {
     const badges = badgesOf(how, result.left, !!match.seen, match.lastShot ?? -1, RULES);   // written once, here, so both phones read the same
     if (badges.length) result.badges = badges;
     due = [];
-    // one short record of the round for the end-of-match awards (Stage 4B)
+    // one short record of the round for the end-of-match awards
     const log = [...(match.log || []), { h: hunterSide(), w: win, how, l: Math.round(result.left * 10) / 10, b: match.bump | 0, g: match.gold ? 1 : 0, s: match.silver ? 1 : 0,
       so: match.sorry | 0, sn: match.seen ? 1 : 0, sh: match.shots | 0, bd: badges }];
     set({ ...match, score, log, phase: over ? 'over' : 'break', t: 0, result, ping: null, next: over ? null : randomWeather(), ...GO0() });
     broadcast();
   }
-  // `who` gives up: the other player wins the match at once; the score stays as it was (Chetan's choice, 1f)
+  // `who` gives up: the other player wins the match at once; the score stays as it was
   function giveUp(who) {
     if (!match || match.phase === 'over') return;
     const left = match.phase === 'play' ? Math.max(0, RULES.round - match.t) : match.result?.left ?? RULES.round;
@@ -234,7 +234,7 @@ export function createRules(hooks) {
     broadcast();
   }
 
-  // ---- easter eggs (Stage 4A, referee only) ------------------------------------------------------------------
+  // ---- easter eggs (referee only) ---------------------------------------------------------------------------
   // A shot of the hunter's, from this phone or the other: where its bullet ends and whether it passes the tourist are fixed
   // by the shot and the clock, so they are worked out here once and put in the match for both phones.
   function noteShot(f) {
@@ -267,17 +267,23 @@ export function createRules(hooks) {
   function noteSeen() {
     if (!match || match.phase !== 'play' || hunterSide() === side || match.seen) return;
     if (referee()) { set({ ...match, seen: true }); broadcast(); }
-    else if (!seenSent || seenSent.mid !== match.mid || seenSent.r !== match.round) { seenSent = { mid: match.mid, r: match.round, clock: 0 }; hooks.send({ t: 'sn', mid: match.mid, r: match.round }); }
+    else if (!seenSent || seenSent.mid !== match.mid || seenSent.r !== match.round) {
+      seenSent = { mid: match.mid, r: match.round, clock: 0 };
+      hooks.send({ t: 'sn', mid: match.mid, r: match.round });
+    }
   }
 
   // the hider's phone: it drove up to the chicken (it alone knows exactly where it is). The referee notes it; the other phone tells it until it shows.
   function noteHonk() {
     if (!match || match.phase !== 'play' || paused || hunterSide() === side || match.silver) return;
     if (referee()) { set({ ...match, silver: true }); broadcast(); }
-    else if (!honkSent || honkSent.mid !== match.mid || honkSent.r !== match.round) { honkSent = { mid: match.mid, r: match.round, clock: 0 }; hooks.send({ t: 'hn', mid: match.mid, r: match.round }); }
+    else if (!honkSent || honkSent.mid !== match.mid || honkSent.r !== match.round) {
+      honkSent = { mid: match.mid, r: match.round, clock: 0 };
+      hooks.send({ t: 'hn', mid: match.mid, r: match.round });
+    }
   }
 
-  // ---- Stage 4B: duck rounds and the theme (referee) ---------------------------------------------------------
+  // ---- duck rounds and the theme (referee) ------------------------------------------------------------------
   function setDuck(n) {
     if (!match || n !== nextRoundOf(match)) return false;
     if (!isDuckRound(match, n)) { set({ ...match, ducks: (match.ducks | 0) | (1 << (n - 1)) }); broadcast(); }
@@ -352,8 +358,12 @@ export function createRules(hooks) {
       if (quitMid !== match.mid) quitMid = 0;   // a Play again or new match: that surrender is done
       else if ((quitClock += dt) > 0.5) { quitClock = 0; hooks.send({ t: 'g', mid: quitMid }); }   // asked again until the referee ends it
       if (heard < 1.5) pings(dt);
-      if (honkSent && !match.silver && match.phase === 'play' && honkSent.mid === match.mid && honkSent.r === match.round && (honkSent.clock += dt) > 0.5) { honkSent.clock = 0; hooks.send({ t: 'hn', mid: honkSent.mid, r: honkSent.r }); }
-      if (seenSent && !match.seen && match.phase === 'play' && seenSent.mid === match.mid && seenSent.r === match.round && (seenSent.clock += dt) > 0.5) { seenSent.clock = 0; hooks.send({ t: 'sn', mid: seenSent.mid, r: seenSent.r }); }
+      if (honkSent && !match.silver && match.phase === 'play' && honkSent.mid === match.mid && honkSent.r === match.round && (honkSent.clock += dt) > 0.5) {
+        honkSent.clock = 0; hooks.send({ t: 'hn', mid: honkSent.mid, r: honkSent.r });
+      }
+      if (seenSent && !match.seen && match.phase === 'play' && seenSent.mid === match.mid && seenSent.r === match.round && (seenSent.clock += dt) > 0.5) {
+        seenSent.clock = 0; hooks.send({ t: 'sn', mid: seenSent.mid, r: seenSent.r });
+      }
       if (match.phase === 'pick' && match.ready.guest !== want.ok && (wantClock += dt) > 0.5) sendChoice();   // resent until the referee shows it
       if (armed && match.theme) armed = null;                                                            // the match has its theme (ours or the referee's)
       else if (armed && match.phase !== 'over' && heard < 1.5 && (themeClock += dt) > 0.5) { themeClock = 0; hooks.send({ t: 'th', mid: match.mid, p: armed }); }
@@ -401,13 +411,20 @@ export function createRules(hooks) {
     if (m.t === 'rd') { if (referee() && match && m.mid === match.mid && m.r === match.round) goReady('guest'); return true; }   // the other phone is Ready
     if (m.t === 'nd') {   // the other player nudged: shown only while this phone is still on its Ready card and the nudger is Ready; never more than once a gap
       const them = other(side);
-      if (match?.phase === 'break' && m.mid === match.mid && m.r === match.round && match.go?.[them] && !match.go?.[side] && match.t >= RULES.readyCard - 0.5 && life - nudgeHeard >= RULES.nudgeGap - 1) { nudgeHeard = life; hooks.nudged?.(them); }
+      if (match?.phase === 'break' && m.mid === match.mid && m.r === match.round && match.go?.[them] && !match.go?.[side]
+        && match.t >= RULES.readyCard - 0.5 && life - nudgeHeard >= RULES.nudgeGap - 1) { nudgeHeard = life; hooks.nudged?.(them); }
       return true;
     }
     if (m.t === 'g') { if (referee() && match && m.mid === match.mid) giveUp('guest'); return true; }   // the other phone gave up
     if (m.t === 'pc') { if (referee()) takeCircle(m); return true; }
-    if (m.t === 'hn') { if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.silver && !paused) { set({ ...match, silver: true }); broadcast(); } return true; }
-    if (m.t === 'sn') { if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.seen) { set({ ...match, seen: true }); broadcast(); } return true; }
+    if (m.t === 'hn') {
+      if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.silver && !paused) { set({ ...match, silver: true }); broadcast(); }
+      return true;
+    }
+    if (m.t === 'sn') {
+      if (referee() && match?.phase === 'play' && m.mid === match.mid && m.r === match.round && hunterSide() === 'host' && !match.seen) { set({ ...match, seen: true }); broadcast(); }
+      return true;
+    }
     if (m.t === 'th') { if (referee()) setTheme(m.p); return true; }
     if (m.t === 'dk') { if (referee() && match && m.mid === match.mid && Number.isInteger(m.n) && !paused) setDuck(m.n); return true; }
     if (m.t === 'f') { if (referee() && match && hunterSide() !== 'host') noteShot(m); return false; }   // the hunter's shot: the referee looks at it, main.js draws it
@@ -485,13 +502,13 @@ export function createRules(hooks) {
     },
     // seconds until this player may nudge again (0 = now)
     get nudgeWait() { return Math.max(0, RULES.nudgeGap - (life - nudgeAt)); },
-    // Stage 4A (this phone's game tells the rules): the hunter fired on this phone (referee only looks at it), the tanks have
+    // This phone's game tells the rules: the hunter fired on this phone (referee only looks at it), the tanks have
     // stayed touching (referee only), the hider's phone says the hunter may have seen it (either phone).
     noteShot(f) { if (referee()) noteShot(f); },
     noteBump() { return referee() && noteBump(); },
     noteSeen,
     noteHonk,
-    // Stage 4B. The other phone's player typed the secret phrase: its (decrypted) theme goes to the referee until the match shows one.
+    // The other phone's player typed the secret phrase: its (decrypted) theme goes to the referee until the match shows one.
     armTheme(p) { if (!referee()) { armed = cleanTheme(p); themeClock = 1; } },
     // This phone's player finished the five taps: ask for the next round to be a duck round. Returns that round's number, or 0 if there is none.
     noteDuck() {

@@ -1,6 +1,6 @@
 // Builds the 3-D yard: concrete floor, painted precast walls with a worn hazard band, rusty corrugated outer walls,
-// wall lamps (lamps.js), fake fans on the wall tops (fans.js, 2026-10-02), a sky, lights and rain, and switches them between the five weathers (weather.js).
-// Stage 2A: surfaces are drawn in code (textures.js), no downloads.
+// wall lamps (lamps.js), fake fans on the wall tops (fans.js), a sky, lights and rain, and switches them between the five weathers (weather.js).
+// Surfaces are drawn in code (textures.js), no downloads.
 import * as THREE from '../lib/three.module.js';
 import { WIDTH, DEPTH, ROWS, COLS, wallBoxes, isWallCell, WALL_H, EDGE_H } from './world.js';
 import { CELL } from './map.js';
@@ -91,7 +91,7 @@ function makeRain(count) {
 
 // Shadows: the walls never move, so their shadows are drawn once per weather (sun direction) instead of every frame,
 // which saved about 2.5 ms a frame. Tanks don't throw sun shadows (they keep the soft contact shadow under them),
-// but still darken when they drive into a wall's shadow. Stage 1e already kept the hider's shadow off the hunter's screen.
+// but still darken when they drive into a wall's shadow. The hider's shadow never shows on the hunter's screen.
 let renderer = null;
 export const useRenderer = r => { renderer = r; r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = true; };
 const shadowsDirty = () => { if (renderer) renderer.shadowMap.needsUpdate = true; };
@@ -162,7 +162,7 @@ export function buildArena(scene, quality = 'high') {
   scene.add(rain);
 
   let current = null, curWeather = null, tone = null;
-  // Stage 4B (love / hate): the lights take a tint, warm pink for love (strong), a faint red for hate (subtle). Only the colour of the lights changes
+  // Love / hate themes: the lights take a tint, warm pink for love (strong), a faint red for hate (subtle). Only the colour of the lights changes
   // (the sky, the smog and every distance stay as the weather made them, so nothing about who can see whom changes); it costs nothing to draw.
   const TONES = { love: { c: 0xff9fb8, k: 0.15 }, hate: { c: 0xff5a4a, k: 0.12 } };
   const lit = (hex, t) => { const c = new THREE.Color(hex); if (t) c.lerp(new THREE.Color(t.c), t.k); return c; };

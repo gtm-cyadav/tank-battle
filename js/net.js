@@ -1,4 +1,4 @@
-// Two-player link over PeerJS and its free public broker (brief section 3): no server of our own.
+// Two-player link over PeerJS and its free public broker: no server of our own.
 // The phone that creates the game owns the room. Its broker ID is made from the 4-letter code, so the other
 // phone can find it by code. After that the two phones talk directly, and each phone is in charge of its own
 // tank, sending where it is about 20 times a second.

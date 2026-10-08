@@ -1,4 +1,4 @@
-// R4 Part B (Chetan, 2026-10-03, "one message at a time"): notices, speech bubbles and first-time hints go through this one queue, so two of them
+// One message at a time: notices, speech bubbles and first-time hints go through this one queue, so two of them
 // never pile up on the screen. One shows at a time; the rest wait their turn.
 //   - Priority: a notice (pri 2) > a bubble (pri 1) > a hint (pri 0). A higher one that arrives cuts in: the one showing steps aside and comes back
 //     afterwards with the time it had left (a hint is simply asked for again later). Same or lower priority waits, in order.
