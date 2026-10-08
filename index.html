@@ -5,7 +5,7 @@
 <!-- Security Stage 1 (SECURITY_FIX_LOG.md): Content-Security-Policy. Only this site's own scripts run (plus the one inline import map, allowed by its
      hash: when the import map below changes, e.g. a version bump or a new module, run `node tests/check-csp.mjs --fix`; otherwise the page stays blank). Inline event handlers and
      injected <script> text cannot run. Inline styles stay allowed (the game sets style attributes). Network: this site, and the PeerJS broker. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3XR7zVHyr06HYMIFQKMDPS8q7n3mkuD3lvVAjgldHqg='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-HpvfApN551WAavHKli9OjGKol2SG/XP0ZsNKnvZFIvA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Tank Battle</title>
 <!-- Home-screen install (iPhone gets full screen only this way; Android and iPad also use the Play full screen button) -->
@@ -339,7 +339,7 @@
   #pk-tabs button + button { border-left: 1px solid var(--line); }
   #pk-tabs button[aria-pressed="true"] { background: var(--hunter); color: var(--ink); }
   .pk-sel { display: flex; gap: 10px; align-items: flex-end; margin: 0 0 8px; }
-  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=r4-5) no-repeat; background-size: 600% 600%; border-radius: 6px; }
+  #pk-fig, .pk-face { flex: none; background: #222b27 url(models/faces.webp?v=r4-6) no-repeat; background-size: 600% 600%; border-radius: 6px; }
   #pk-fig { width: 84px; height: 84px; }
   #pk-fig.pk-rand, .pk-rand { background-image: none; background-color: #222b27; display: grid; place-items: center; font: 700 28px/1 var(--font); color: var(--muted); }
   #pk-flag { width: 66px; height: 44px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
@@ -452,7 +452,7 @@
   .chips span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 7px; border: 1px solid #e9b43a; border-radius: 999px; font: 700 10px/1 var(--font);
     letter-spacing: 0.1em; text-transform: uppercase; color: #e9b43a; white-space: nowrap; --cut: #161b19; }
   /* a leader's face: one cell of the picker's picture (models/faces.webp, 6 x 6), zoomed a little onto the head, in a round frame (main.js faceOn) */
-  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=r4-5) no-repeat; background-size: 672% 672%; }
+  .face { flex: none; display: block; border-radius: 50%; background: #222b27 url(models/faces.webp?v=r4-6) no-repeat; background-size: 672% 672%; }
   .vs { font: 700 13px/1 var(--font); color: var(--muted); letter-spacing: 0.1em; }
   #round canvas.fl { display: block; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
   /* toss card */
@@ -902,58 +902,58 @@
 
 <script type="importmap">
 { "imports": {
-  "./js/arena.js": "./js/arena.js?v=r4-5",
-  "./js/assist.js": "./js/assist.js?v=r4-5",
-  "./js/autolow.js": "./js/autolow.js?v=r4-5",
-  "./js/bubble.js": "./js/bubble.js?v=r4-5",
-  "./js/camera.js": "./js/camera.js?v=r4-5",
-  "./js/cornermap.js": "./js/cornermap.js?v=r4-5",
-  "./js/effects.js": "./js/effects.js?v=r4-5",
-  "./js/eggs.js": "./js/eggs.js?v=r4-5",
-  "./js/debug.js": "./js/debug.js?v=r4-5",
-  "./js/fans.js": "./js/fans.js?v=r4-5",
-  "./js/flags.js": "./js/flags.js?v=r4-5",
-  "./js/guard.js": "./js/guard.js?v=r4-5",
-  "./js/hints.js": "./js/hints.js?v=r4-5",
-  "./js/icons.js": "./js/icons.js?v=r4-5",
-  "./js/input.js": "./js/input.js?v=r4-5",
-  "./js/lamps.js": "./js/lamps.js?v=r4-5",
-  "./js/leaders.js": "./js/leaders.js?v=r4-5",
-  "./js/limits.js": "./js/limits.js?v=r4-5",
-  "./js/lines.js": "./js/lines.js?v=r4-5",
-  "./js/lobby.js": "./js/lobby.js?v=r4-5",
-  "./js/main.js": "./js/main.js?v=r4-5",
-  "./js/map.js": "./js/map.js?v=r4-5",
-  "./js/menu.js": "./js/menu.js?v=r4-5",
-  "./js/models.js": "./js/models.js?v=r4-5",
-  "./js/net.js": "./js/net.js?v=r4-5",
-  "./js/picker.js": "./js/picker.js?v=r4-5",
-  "./js/props.js": "./js/props.js?v=r4-5",
-  "./js/rules.js": "./js/rules.js?v=r4-5",
-  "./js/say.js": "./js/say.js?v=r4-5",
-  "./js/screen.js": "./js/screen.js?v=r4-5",
-  "./js/secret.js": "./js/secret.js?v=r4-5",
-  "./js/settings.js": "./js/settings.js?v=r4-5",
-  "./js/shots.js": "./js/shots.js?v=r4-5",
-  "./js/sound.js": "./js/sound.js?v=r4-5",
-  "./js/tank.js": "./js/tank.js?v=r4-5",
-  "./js/textures.js": "./js/textures.js?v=r4-5",
-  "./js/theme.js": "./js/theme.js?v=r4-5",
-  "./js/tips.js": "./js/tips.js?v=r4-5",
-  "./js/vision.js": "./js/vision.js?v=r4-5",
-  "./js/wallart.js": "./js/wallart.js?v=r4-5",
-  "./js/wallart_draw.js": "./js/wallart_draw.js?v=r4-5",
-  "./js/weather.js": "./js/weather.js?v=r4-5",
-  "./js/world.js": "./js/world.js?v=r4-5",
-  "./lib/three.module.js": "./lib/three.module.js?v=r4-5",
-  "./lib/three.core.js": "./lib/three.core.js?v=r4-5",
-  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=r4-5",
-  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=r4-5",
-  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=r4-5",
-  "three": "./lib/three.module.js?v=r4-5"
+  "./js/arena.js": "./js/arena.js?v=r4-6",
+  "./js/assist.js": "./js/assist.js?v=r4-6",
+  "./js/autolow.js": "./js/autolow.js?v=r4-6",
+  "./js/bubble.js": "./js/bubble.js?v=r4-6",
+  "./js/camera.js": "./js/camera.js?v=r4-6",
+  "./js/cornermap.js": "./js/cornermap.js?v=r4-6",
+  "./js/debug.js": "./js/debug.js?v=r4-6",
+  "./js/effects.js": "./js/effects.js?v=r4-6",
+  "./js/eggs.js": "./js/eggs.js?v=r4-6",
+  "./js/fans.js": "./js/fans.js?v=r4-6",
+  "./js/flags.js": "./js/flags.js?v=r4-6",
+  "./js/guard.js": "./js/guard.js?v=r4-6",
+  "./js/hints.js": "./js/hints.js?v=r4-6",
+  "./js/icons.js": "./js/icons.js?v=r4-6",
+  "./js/input.js": "./js/input.js?v=r4-6",
+  "./js/lamps.js": "./js/lamps.js?v=r4-6",
+  "./js/leaders.js": "./js/leaders.js?v=r4-6",
+  "./js/limits.js": "./js/limits.js?v=r4-6",
+  "./js/lines.js": "./js/lines.js?v=r4-6",
+  "./js/lobby.js": "./js/lobby.js?v=r4-6",
+  "./js/main.js": "./js/main.js?v=r4-6",
+  "./js/map.js": "./js/map.js?v=r4-6",
+  "./js/menu.js": "./js/menu.js?v=r4-6",
+  "./js/models.js": "./js/models.js?v=r4-6",
+  "./js/net.js": "./js/net.js?v=r4-6",
+  "./js/picker.js": "./js/picker.js?v=r4-6",
+  "./js/props.js": "./js/props.js?v=r4-6",
+  "./js/rules.js": "./js/rules.js?v=r4-6",
+  "./js/say.js": "./js/say.js?v=r4-6",
+  "./js/screen.js": "./js/screen.js?v=r4-6",
+  "./js/secret.js": "./js/secret.js?v=r4-6",
+  "./js/settings.js": "./js/settings.js?v=r4-6",
+  "./js/shots.js": "./js/shots.js?v=r4-6",
+  "./js/sound.js": "./js/sound.js?v=r4-6",
+  "./js/tank.js": "./js/tank.js?v=r4-6",
+  "./js/textures.js": "./js/textures.js?v=r4-6",
+  "./js/theme.js": "./js/theme.js?v=r4-6",
+  "./js/tips.js": "./js/tips.js?v=r4-6",
+  "./js/vision.js": "./js/vision.js?v=r4-6",
+  "./js/wallart.js": "./js/wallart.js?v=r4-6",
+  "./js/wallart_draw.js": "./js/wallart_draw.js?v=r4-6",
+  "./js/weather.js": "./js/weather.js?v=r4-6",
+  "./js/world.js": "./js/world.js?v=r4-6",
+  "./lib/three.module.js": "./lib/three.module.js?v=r4-6",
+  "./lib/three.core.js": "./lib/three.core.js?v=r4-6",
+  "./lib/loaders/GLTFLoader.js": "./lib/loaders/GLTFLoader.js?v=r4-6",
+  "./lib/utils/BufferGeometryUtils.js": "./lib/utils/BufferGeometryUtils.js?v=r4-6",
+  "./lib/utils/SkeletonUtils.js": "./lib/utils/SkeletonUtils.js?v=r4-6",
+  "three": "./lib/three.module.js?v=r4-6"
 } }
 </script>
-<script src="lib/peerjs.min.js?v=r4-5"></script>
-<script type="module" src="./js/main.js?v=r4-5"></script>
+<script src="lib/peerjs.min.js?v=r4-6"></script>
+<script type="module" src="./js/main.js?v=r4-6"></script>
 </body>
 </html>
