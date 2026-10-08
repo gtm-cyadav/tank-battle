@@ -13,6 +13,7 @@ const RADIUS = 0.16;             // bullet
 const HALF = { x: 1.525, z: 1.95 };   // the tank's outline seen from above (hull and tracks), half width and length
 const FAR = Math.hypot(WIDTH, DEPTH);            // corner to corner: no shot can fly further than this
 const LIFE = FAR / RULES.bulletSpeed + 1;        // s; the arena is walled in, so every bullet meets a wall before this
+const MAX_LIVE = 64;             // security Stage 2: bullets in the air at once, at most (a real hunter has about 4: one shot per 1.5 s, each living a few seconds)
 
 // Does the stretch from a to b (x, z) touch the tank's outline, grown by the bullet's size?
 // Returns how far along (0 to 1) it first touches, or -1.
@@ -53,6 +54,7 @@ export function createShots(scene, fx = { muzzle() {}, wallHit() {} }) {
   // shot: { id, x, z, yaw } where and which way the hunter's tank was when it fired.
   // ahead: seconds the shot has already been flying (it was fired on the other phone a moment ago).
   function fire(shot, ahead = 0) {
+    if (live.length >= MAX_LIVE) return null;   // security Stage 2: a flood of shots cannot grow the scene without limit
     const dx = Math.sin(shot.yaw), dz = Math.cos(shot.yaw);
     const wall = rayToWall(shot.x, shot.z, shot.x + dx * FAR, shot.z + dz * FAR);
     const mesh = new THREE.Group();

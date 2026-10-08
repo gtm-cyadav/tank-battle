@@ -173,8 +173,9 @@ export function buildArena(scene, quality = 'high') {
   }
   // Switch the whole look to a weather: smog, sky, lights, lamp strength, wet floor, rain.
   function setWeather(name) {
-    const w = WEATHERS[name] || WEATHERS[DEFAULT_WEATHER];
-    current = name in WEATHERS ? name : DEFAULT_WEATHER;
+    if (!Object.hasOwn(WEATHERS, name)) name = DEFAULT_WEATHER;   // security Stage 1: hasOwn, so an inherited name such as "constructor" is never a weather
+    const w = WEATHERS[name];
+    current = name;
     setSmog(scene, w.smog, sky.material);
     const u = sky.material.uniforms;
     u.sunDir.value.set(...w.sunDir).normalize();

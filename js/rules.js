@@ -49,6 +49,7 @@
 
 import { randomWeather } from './weather.js';
 import { shotEffects, badgesOf } from './eggs.js';
+import { cleanMatch, cleanTheme } from './guard.js';   // security Stage 1: whatever the other phone (or the browser's saved copy) gives us is rebuilt here first
 
 export const RULES = {
   round: 180,        // s on the clock
@@ -100,12 +101,9 @@ export function pingTime(n) {
 
 const other = side => side === 'host' ? 'guest' : 'host';
 
-// The theme in the match must be exactly this shape (the texts are plain strings; nothing else is let through)
-export function cleanTheme(p) {
-  if (!p || (p.k !== 'love' && p.k !== 'hate')) return null;
-  const t = v => typeof v === 'string' ? v.slice(0, 240) : '';
-  return { k: p.k, s: t(p.s), w: t(p.w), l: t(p.l), x: t(p.x) };
-}
+// The theme in the match must be exactly this shape (the texts are plain strings; nothing else is let through).
+// Security Stage 1: it now lives in guard.js (which also strips control and direction-changing characters); same name and shape as before.
+export { cleanTheme };
 // The round a tap on the duck code would change: the next one (round 1 during the coin toss, round + 1 in a round or its break),
 // or 0 when there is none (the last round, the match over, the leader picker).
 export const nextRoundOf = m => !m ? 0 : m.phase === 'toss' ? 1 : (m.phase === 'play' || m.phase === 'break') && m.round < RULES.rounds ? m.round + 1 : 0;
@@ -407,7 +405,7 @@ export function createRules(hooks) {
       return true;
     }
     if (m.t === 'ping' && referee()) { hooks.send({ t: 'pong', k: m.k }); return true; }
-    if (m.t === 'pong') { delay = delay * 0.7 + Math.min(0.3, (performance.now() - m.k) / 2000) * 0.3; return true; }
+    if (m.t === 'pong') { delay = delay * 0.7 + Math.max(0, Math.min(0.3, (performance.now() - m.k) / 2000)) * 0.3; return true; }   // security Stage 2: never negative (a made-up reply could otherwise push the referee's clock copy back)
     if (m.t === 'h' && referee()) { if (match && hunterSide() === 'host') judgeHit(m); return true; }   // only the hider's phone reports hits
     if (m.t === 'a' && referee()) { playAgain('guest', m.mid); return true; }
     if (m.t === 'rd') { if (referee() && match && m.mid === match.mid && m.r === match.round) goReady('guest'); return true; }   // the other phone is Ready
@@ -431,8 +429,10 @@ export function createRules(hooks) {
     if (m.t === 'dk') { if (referee() && match && m.mid === match.mid && Number.isInteger(m.n) && !paused) setDuck(m.n); return true; }
     if (m.t === 'f') { if (referee() && match && hunterSide() !== 'host') noteShot(m); return false; }   // the hunter's shot: the referee looks at it, main.js draws it
     if (m.t === 'm' && !referee()) {
+      const clean = cleanMatch(m.m, RULES);   // security Stage 1: the referee is not trusted either; a match that does not fit the shape is ignored
+      if (!clean) return true;
       heard = 0;
-      const next = copy(m.m);
+      const next = copy(clean);
       if (m.run) next.t += delay;   // it has moved on by the time the message lands
       if (pendingHit && (next.mid !== pendingHit.mid || next.round !== pendingHit.r || next.phase !== 'play')) pendingHit = null;
       againSeen = next.phase === 'over' && againMid === next.mid && !!next.again?.guest;
@@ -462,7 +462,8 @@ export function createRules(hooks) {
       side = s; paused = false; pendingHit = null; againMid = 0; quitMid = 0; delay = 0.05; heard = 0; match = null; mine = null;
       want = { n: 0, ok: false, s: 0 }; wantClock = 0; theirs = null; due = []; seenSent = null; honkSent = null; armed = null; duckSent = null;
       goSent = null; goSeen = false; againSeen = false; nudgeAt = -99; nudgeHeard = -99;
-      if (saved) set(copy(saved));
+      const keep = saved && cleanMatch(saved, RULES);   // security Stage 1: the copy saved in the browser is checked too
+      if (keep) set(copy(keep));
       // a refresh after tapping Ready: the tap is in the saved copy; ask the referee again until its match shows it (it may never have arrived)
       if (s === 'guest' && match?.phase === 'break' && match.go?.guest) goSent = { mid: match.mid, r: match.round, clock: 1 };
       if (referee()) {

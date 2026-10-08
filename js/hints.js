@@ -9,6 +9,7 @@
 // main.js decides WHEN (offerHint every frame while the moment holds) and WHAT (the words, the icon, the thing to point at).
 import { say, end } from './say.js';
 import { icon } from './icons.js';
+import { TESTING } from './debug.js';
 
 const KEY = 'tank-battle.hints.v1';
 export const HINT_MS = 4000, SEEN_AFTER = 2000;
@@ -92,4 +93,4 @@ export function offerHint(id, parts, still = () => true) {
 }
 // every frame (main.js): a hint whose moment is over (the card went, the ping ended) goes at once
 export function hintsFrame() { if (active && !active.still()) end('hint:' + active.id); }
-window.__hints = { hintSeen, resetHints, get seen() { return { ...seen }; }, get pending() { return [...pending]; } };   // testing only
+if (TESTING) window.__hints = { hintSeen, resetHints, get seen() { return { ...seen }; }, get pending() { return [...pending]; } };   // testing only (security Stage 4: not on the real site, see debug.js)

@@ -20,6 +20,9 @@ import { initMenu, closeMenu, menuFrame } from './menu.js';
 import { initLobby, leaveMatch, sendState, toast } from './lobby.js';
 import { VERSION } from './net.js';
 import { createRules, RULES, isDuckRound, nextRoundOf, cardView, stallLeft } from './rules.js';
+import { cleanMessage } from './guard.js';   // security Stage 1: every message from the other phone is rebuilt and checked before anything reads it
+import { createStepLimiter, cameraOk, createShotGate } from './limits.js';   // security Stage 4: what is believed about the other tank
+import { TESTING } from './debug.js';   // security Stage 4: the window.__ test hooks exist only when testing (localhost, a file, or ?debug)
 import { initSecretBox, getArmed, disarm, buildHearts, flashAt } from './theme.js';
 import { tipOn, tipOff } from './tips.js';
 import { createShots } from './shots.js';
@@ -35,6 +38,13 @@ import { play, frame as soundFrame, setMuted, byDistance, soundState } from './s
 import { WEATHERS, DEFAULT_WEATHER } from './weather.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
+// security Stage 5: clickjacking. The site cannot send an X-Frame-Options header (static hosting), so the page itself refuses to be shown inside another page
+// (an invisible frame over someone else's buttons). Not when testing (localhost, a file, ?debug): test set-ups may use frames.
+if (!TESTING) {
+  let framed = false;
+  try { framed = window.top !== window.self; } catch (e) { framed = true; }   // (a parent page from another site can make even this throw)
+  if (framed) { document.documentElement.style.display = 'none'; throw new Error('Tank Battle does not run inside another page.'); }   // nothing is drawn, nothing starts
+}
 const $ = id => document.getElementById(id);
 fillIcons();   // the icons in the page's buttons and rows (icons.js, drawn in code)
 
@@ -58,7 +68,7 @@ let weather = null;
 let myLeader = 0, otherLeader = 0;   // the leader numbers on the two tanks (0 = none yet)
 let otherFade = 1;
 function useWeather(name) {
-  if (!(name in WEATHERS)) name = DEFAULT_WEATHER;
+  if (!Object.hasOwn(WEATHERS, name)) name = DEFAULT_WEATHER;   // (hasOwn: `in` also accepts inherited names such as "constructor")
   if (name === weather) return;
   weather = name;
   const w = arena.setWeather(name);
@@ -217,16 +227,26 @@ function endMatch() {
   fx.clear(); wreck = null; clearEggs();
   disarm();   // leaving ends the secret theme; type the phrase again for the next match
 }
-function onRemote(m) {
-  if (mode === 'solo' || rules.onMessage(m)) return;
+function onRemote(raw) {
+  const m = mode === 'solo' ? null : cleanMessage(raw, RULES);   // security Stage 1: a message that does not fit its shape is dropped here
+  if (!m) return;
+  // security Stage 4: only the hider's phone ever needs the hunter's shots, and it only believes shots that are possible (head start, reload, from the hunter's tank)
+  if (m.t === 'f' && (myRole() !== 'hider' || !shotGate.allow(m, rules.match?.t, remote.have ? { x: remote.x, z: remote.z } : null))) return;
+  if (rules.onMessage(m)) return;
   if (m.t === 'f') { incoming(m); return; }
   if (m.t !== 's') return;
   if (m.h) { remote.vis = false; return; }   // the hider's phone: the hunter can't see it (no position sent)
   if (m.k !== posKey()) return;   // sent before one phone moved on to the next round (roles may have swapped)
   const jump = !remote.have || !remote.vis;   // first news, or back in sight: put it straight there
-  Object.assign(remote, { x: m.x, z: m.z, yaw: m.y, speed: m.v, cx: m.cx, cz: m.cz, at: performance.now(), have: true, vis: true });
-  if (jump) { other.position.set(m.x, 0, m.z); other.rotation.y = m.y; }
+  const now = performance.now();
+  // security Stage 4: after the first news, a tank cannot jump: it only gets as far as it could have driven since the last message
+  let at = { x: m.x, z: m.z };
+  if (jump) stepper.reset(now / 1000); else at = stepper.step(remote, m, now / 1000);
+  const cam = m.cx !== undefined && cameraOk(at, { x: m.cx, z: m.cz });   // and the hunter's camera must be near its tank
+  Object.assign(remote, { x: at.x, z: at.z, yaw: m.y, speed: m.v, cx: cam ? m.cx : NaN, cz: cam ? m.cz : NaN, at: now, have: true, vis: true });
+  if (jump) { other.position.set(at.x, 0, at.z); other.rotation.y = m.y; }
 }
+const shotGate = createShotGate(RULES), stepper = createStepLimiter();
 const posKey = () => rules.match ? `${rules.match.mid}/${rules.match.round}` : '';
 const pose = t => ({ x: t.position.x, z: t.position.z, yaw: t.rotation.y });
 // Show the other tank smoothly: guess a little ahead from its last known speed, then glide towards that.
@@ -610,7 +630,7 @@ function hintsNow(m, view) {
 // message is added and both phones always draw the same.
 let noteKey = null;
 const htmlK = (id, h) => { const el = $(id); if (el.__h !== h) { el.__h = h; el.innerHTML = h; } };
-const wxTag = (name, size) => { const w = WEATHERS[name] || WEATHERS[DEFAULT_WEATHER]; return icon(weatherIcon(name), size) + w.view; };
+const wxTag = (name, size) => { const w = (Object.hasOwn(WEATHERS, name) && WEATHERS[name]) || WEATHERS[DEFAULT_WEATHER]; return icon(weatherIcon(name), size) + w.view; };
 // the round dashes (done, now, to come) and the score pips (rounds won of the two needed)
 function rounds(id, round) {
   const el = $(id);
@@ -721,7 +741,7 @@ function drawCard(m, view, me, them) {
   const gave = r?.how === 'gaveup', mine = iHunted ? 'hunter' : 'hider';
   text('fin-t', gave ? (r.by === me ? 'You gave up. They win the match.' : 'They gave up. You win the match.') : '');   // rare: a full sentence
   whoOn('fin', 0, L.me, mine); whoOn('fin', 1, L.them, opposite(mine)); winLose('fin', won);
-  htmlK('fin-score', `<span class="${won ? 'w' : ''}">${m.score[me]}</span><i> – </i><span class="${won ? '' : 'w'}">${m.score[them]}</span>`);
+  htmlK('fin-score', `<span class="${won ? 'w' : ''}">${m.score[me] | 0}</span><i> – </i><span class="${won ? '' : 'w'}">${m.score[them] | 0}</span>`);   // security Stage 1: `| 0` makes sure only a number can ever reach innerHTML here
   // who wants a rematch: their face with the "again" sign; after your own tap, their face with the hourglass
   const early = againAt === m.mid;   // Again tapped before the usual 10 s (tap to skip); sent when the clock gets there
   const st = m.again[them] ? 'again' : m.again[me] || early ? 'wait' : '';
@@ -1105,7 +1125,7 @@ renderer.setAnimationLoop(now => {
   autoLowFrame(real);
 });
 
-window.__tb = {   // for testing only
+if (TESTING) window.__tb = {   // for testing only (security Stage 4: not on the real site, see debug.js)
   drawRound, flashRole, skipCard, autoLowFrame, autoLow,
   get viewOn() { return viewOn; }, get skipTo() { return skipTo; }, get againAt() { return againAt; }, get clockT() { return clockT; },
   setLeaders(me, them) { myLeader = me; otherLeader = them; }, assistTargets, tryFire, THREE, scene, props,

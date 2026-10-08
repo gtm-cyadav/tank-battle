@@ -49,13 +49,17 @@ export function wallBoxes() {
   }));
 }
 
+const PAD = 12;   // security Stage 2: cells beyond the grid that pushOutOfWalls still looks at (see there)
 // Push a circle (x, z, radius) out of any wall squares. Returns true if it touched a wall.
 export function pushOutOfWalls(p, radius) {
+  // security Stage 2: a position that is not a finite number (or is absurdly far out) must never decide how long the loops below run.
+  // The cells are limited to the grid plus a 12-cell border (outside the grid counts as wall anyway), which changes nothing for any position a tank can really have.
+  if (!Number.isFinite(p.x) || !Number.isFinite(p.z) || !Number.isFinite(radius)) return false;
   let hit = false;
   for (let pass = 0; pass < 3; pass++) {
     let moved = false;
-    const r0 = toRow(p.z - radius), r1 = toRow(p.z + radius);
-    const c0 = toCol(p.x - radius), c1 = toCol(p.x + radius);
+    const r0 = Math.max(-PAD, toRow(p.z - radius)), r1 = Math.min(ROWS + PAD, toRow(p.z + radius));
+    const c0 = Math.max(-PAD, toCol(p.x - radius)), c1 = Math.min(COLS + PAD, toCol(p.x + radius));
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
       if (!isWallCell(r, c)) continue;
       const x0 = cellX(c), x1 = cellX(c + 1), z0 = cellZ(r), z1 = cellZ(r + 1);
@@ -85,6 +89,7 @@ export function pushOutOfWalls(p, radius) {
 // Walk along the grid from (x0, z0) towards (x1, z1). Returns the distance to the first wall,
 // or the full distance if the line is clear. Used by the camera, the bullets and the sight lines.
 export function rayToWall(x0, z0, x1, z1) {
+  if (!Number.isFinite(x0) || !Number.isFinite(z0) || !Number.isFinite(x1) || !Number.isFinite(z1)) return 0;   // security Stage 2: no maths on NaN / Infinity
   const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
   if (len < 1e-6) return 0;
   const ux = dx / len, uz = dz / len;
@@ -95,11 +100,13 @@ export function rayToWall(x0, z0, x1, z1) {
   const tDeltaZ = uz !== 0 ? Math.abs(CELL / uz) : Infinity;
   let tMaxX = ux !== 0 ? ((ux > 0 ? cellX(c + 1) : cellX(c)) - x0) / ux : Infinity;
   let tMaxZ = uz !== 0 ? ((uz > 0 ? cellZ(r + 1) : cellZ(r)) - z0) / uz : Infinity;
-  while (true) {
+  // (the yard is walled in, so a ray from inside it meets a wall within ROWS + COLS steps; the cap only matters for a start point far outside it)
+  for (let step = 0, max = 2 * (ROWS + COLS) + 16; step < max; step++) {
     let t;
     if (tMaxX < tMaxZ) { t = tMaxX; tMaxX += tDeltaX; c += stepC; }
     else { t = tMaxZ; tMaxZ += tDeltaZ; r += stepR; }
     if (t >= len) return len;
     if (isWallCell(r, c)) return t;
   }
+  return len;
 }

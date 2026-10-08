@@ -58,14 +58,14 @@ const cache = new Map();
 export function icon(name, size = 20) {
   const key = name + '/' + size;
   if (cache.has(key)) return cache.get(key);
-  const parts = D[name];
+  const parts = Object.hasOwn(D, name) ? D[name] : null;   // (hasOwn: a name such as "constructor" must not find an inherited property)
   if (!parts) return '';
   const svg = `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${parts.map(([t, a, k]) => `<${t} ${a} ${STYLE[k]}/>`).join('')}</svg>`;
   cache.set(key, svg);
   return svg;
 }
 // the weather's icon name (the five weathers have one each, named the same)
-export const weatherIcon = name => (name in D ? name : 'overcast');
+export const weatherIcon = name => (typeof name === 'string' && Object.hasOwn(D, name) ? name : 'overcast');
 // Every element with data-ic="name" (data-s = size, default 18) gets that icon put in front of its own text, once.
 export function fillIcons(root = document) {
   for (const el of root.querySelectorAll('[data-ic]')) {
