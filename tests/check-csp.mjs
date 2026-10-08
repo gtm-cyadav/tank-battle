@@ -9,7 +9,10 @@ const map = /<script type="importmap">([\s\S]*?)<\/script>/.exec(html);
 const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html);
 if (!map) { console.error('FAIL: no import map found in index.html'); process.exit(1); }
 if (!csp) { console.error('FAIL: no Content-Security-Policy meta tag in index.html'); process.exit(1); }
-const hash = 'sha256-' + createHash('sha256').update(map[1]).digest('base64');
+// Hash the text the browser hashes: the HTML parser turns CR LF (and a lone CR) into LF before the CSP sees the script.
+// A Windows checkout (core.autocrlf) has CR LF on disk while git and the live site have LF; hashing the raw bytes there
+// gave a FAIL on a good file, and --fix wrote a hash the live page would refuse (blank page).
+const hash = 'sha256-' + createHash('sha256').update(map[1].replace(/\r\n?/g, '\n')).digest('base64');
 if (!csp[1].includes(`'${hash}'`)) {
   if (process.argv.includes('--fix')) {
     const fixed = html.replace(/'sha256-[A-Za-z0-9+/=]+'/, `'${hash}'`);
