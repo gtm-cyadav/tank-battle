@@ -19,7 +19,7 @@ function referee(theme = null) {
 const everyMatch = ({ rules, sent }) => sent.filter(m => m.t === 'm').map(m => m.m).concat(rules.match ? [json(rules.match)] : []);
 const step = (rules, secs) => { for (let i = 0; i < Math.round(secs / 0.05); i++) rules.tick(0.05); };
 
-test('every match a real referee sends passes cleanMatch unchanged (whole match, 3 rounds, theme, duck, surrender)', () => {
+test('every match a real referee sends passes cleanMatch unchanged, byte for byte (whole match: pick, toss, a hit, a round on time, theme, duck)', () => {
   const r = referee({ k: 'love', s: 'hello', w: 'you won', l: 'you lost', x: 'the end' });
   r.rules.start('host', null);
   const m0 = r.rules.match;
@@ -45,14 +45,34 @@ test('every match a real referee sends passes cleanMatch unchanged (whole match,
   step(r.rules, 11);
   r.rules.readyUp(); r.rules.onMessage({ t: 'rd', mid, r: 2 });
   step(r.rules, 0.2);
-  r.rules.giveUp();                                       // a surrender: the 'gaveup' result with `by`
+  r.rules.giveUp();                                       // (the match is already over 0-2 here, so this changes nothing; surrender has its own test below)
   assert.equal(r.rules.match.phase, 'over');
   step(r.rules, 1);
   const all = everyMatch(r);
   assert.ok(all.length > 20, 'expected many broadcasts, got ' + all.length);
   for (const m of all) assert.deepEqual(cleanMatch(m, RULES), m, 'cleanMatch changed a real match in phase ' + m.phase);
+  // and in the same key order: the guest's copy is then the referee's to the byte (the older two-phone tests compare the two copies as JSON text)
+  for (const m of all) assert.equal(JSON.stringify(cleanMatch(m, RULES)), JSON.stringify(m), 'cleanMatch reordered a real match in phase ' + m.phase);
   const phases = new Set(all.map(m => m.phase));
   for (const p of ['pick', 'toss', 'play', 'break', 'over']) assert.ok(phases.has(p), 'phase never seen: ' + p);
+});
+
+test("a surrender passes cleanMatch unchanged, byte for byte (the referee's own player, and the other phone's request)", () => {
+  for (const viaMessage of [false, true]) {
+    const r = referee();
+    r.rules.start('host', null);
+    const mid = r.rules.match.mid;
+    r.rules.choose(5, true); r.rules.onMessage({ t: 'c', mid, s: 1700000000000, n: 0, ok: true });
+    step(r.rules, 7.1 + 25);                              // toss, then 25 s into round 1
+    assert.equal(r.rules.match.phase, 'play');
+    if (viaMessage) r.rules.onMessage({ t: 'g', mid }); else r.rules.giveUp();
+    const m = json(r.rules.match);
+    assert.equal(m.phase, 'over'); assert.equal(m.result.how, 'gaveup'); assert.equal(m.result.by, viaMessage ? 'guest' : 'host');
+    for (const x of everyMatch(r)) {
+      assert.deepEqual(cleanMatch(x, RULES), x, 'cleanMatch changed a surrender match in phase ' + x.phase);
+      assert.equal(JSON.stringify(cleanMatch(x, RULES)), JSON.stringify(x), 'cleanMatch reordered a surrender match in phase ' + x.phase);
+    }
+  }
 });
 
 test('every message type the game really sends survives cleanMessage unchanged', () => {

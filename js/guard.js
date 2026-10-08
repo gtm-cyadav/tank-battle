@@ -69,8 +69,9 @@ function cleanResult(r, lim) {
   if (!isObj(r)) return undefined;
   const win = side(r.win), how = oneOf(HOWS)(r.how), left = num(r.left, 0, lim.round);
   if (!ok(win, how, left)) return undefined;
-  const out = { win, how, left };
+  const out = { win, how };   // keys in the referee's own order (rules.js: a surrender is { win, how, by, left }), so the guest's copy is the referee's to the byte
   if (r.by !== undefined) { const by = side(r.by); if (by === undefined) return undefined; out.by = by; }
+  out.left = left;
   if (r.at !== undefined) { const at = spot(r.at); if (at === undefined) return undefined; out.at = at; }
   if (r.badges !== undefined) { const b = badges(r.badges); if (b === undefined) return undefined; out.badges = b; }
   return out;

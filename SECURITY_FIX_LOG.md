@@ -13,7 +13,7 @@ No pull request has been opened. Nothing was merged into `main`.
 | What was done | A security review of the whole game, then fixes in 5 stages (+1 self-review fix). |
 | Commits | 6 code commits + this log (list in section 8). Range to take: `cad78e3..HEAD`. |
 | Files | 14 game files touched (11 changed + 3 new modules), 8 new test files. +439 / -59 lines of game code (tests not counted). |
-| Tests | 4 node test files (**48 checks**), 2 real-browser test files (**29 checks**), a CSP check, plus a boot test. All pass on the final commit. |
+| Tests | 4 node test files (**50 checks** after the review fixes, section 10), 2 real-browser test files (**29 checks**), a CSP check, plus a boot test. All pass on the final commit. |
 | Game design | Unchanged. Same rules, same screens. One visible change: a player who joins by typing only the 4-letter code now needs the host to tap "Let in" (section 4, decision A). |
 | Biggest risk of these changes | The new Content-Security-Policy (section 1, items 1 and 2). It could only be tested in desktop Chromium. |
 
@@ -186,11 +186,11 @@ Needs Node 22+ (no install). Run from the repo root.
 
 | Command | What it proves | Checks |
 |---|---|---|
-| `node tests/guard.test.mjs` | Validator accepts every real match/message, refuses hostile ones; room record check | 13 |
+| `node tests/guard.test.mjs` | Validator accepts every real match/message (byte for byte, including a real surrender), refuses hostile ones; room record check | 14 |
 | `node tests/world.test.mjs` | Absurd coordinates cannot hang the game (child process with time limit) | 3 |
 | `node tests/limits.test.mjs` | Real driving/shooting never throttled; cheats refused | 17 |
 | `node tests/net.test.mjs` | Join rules, limits and timeouts of the real `net.js` (in-memory PeerJS), including the 75 s / 80 s "Let in?" window | 16 |
-| `node tests/check-csp.mjs [--fix]` | The CSP matches the import map (line endings normalised as the browser does, so a Windows CR LF checkout gives the right answer) | 1 |
+| `node tests/check-csp.mjs [--fix] [--git]` | The CSP matches the import map (line endings normalised as the browser does, so a Windows CR LF checkout gives the right answer); `--git` checks the copy git commits | 1 |
 | `node tests/e2e-join.cjs <url>` | Real lobby on two real browser phones: key, approval, refresh, framing | 18 |
 | `node tests/e2e-play.cjs <url>` | A real match on two real phones; cheat shots refused, real shot works | 11 |
 
@@ -243,3 +243,19 @@ To take everything: `git cherry-pick cad78e3..HEAD` onto the target branch, or m
 ## 9. Environment used for verification
 
 Node 22.22; Chromium 1194 (headless, software GL) driven by Playwright; static server `http-server`. The PeerJS broker was replaced by an in-memory stand-in (node tests) or a message router between pages (browser tests), because the sandbox blocks the real broker. Nothing was deployed, and no external system was touched (the only files outside the repository were scratch files in the session's temporary folder).
+
+---
+
+## 10. After review (2026-10-08): what changed on this branch since section 8
+
+Reviewed on 2026-10-07; these commits were added on 2026-10-08 before the pull request.
+
+| Commit | What and why |
+|---|---|
+| `sec-6` | `tests/check-csp.mjs` hashes the import map with LF line endings (CR LF and a lone CR become LF, as the HTML parser does before the CSP sees the script). On a Windows checkout (`core.autocrlf`) the file on disk is CR LF while git and the live site have LF: the old check failed on a good file, and `--fix` wrote a hash the live page would refuse (blank page). New `.gitattributes` (`* text=auto eol=lf`). |
+| merge | `main` (r4-5, a code cleanup with no behaviour change) merged into this branch. Conflicts in `index.html`, `js/main.js`, `js/rules.js`, `js/lobby.js` resolved by keeping the cleanup's comments and line splits and the security changes (`isOnline` stays removed, the hooks keep the `TESTING` gate); CSP hash refreshed and checked on the git copy. Compared token by token: the merged code differs from this branch only by the cleanup's removals, and from `main` only in the files the security work touched. |
+| `sec-7` | "Let in?" window: the host's question lasts 75 s (was 40 s: the host is often in a chat app sending the code); the waiting guest gives up at 80 s, always after the host's question is over. A net test pins both numbers. |
+| `sec-8` | `node tests/check-csp.mjs --git` checks the copy git commits (`git show :index.html`), never the file on disk. |
+| `sec-9` | `js/guard.js` rebuilt a surrender result as `{ win, how, left, by }` while the referee writes `{ win, how, by, left }`: same content, different key order, so the guest's copy of the match was not the referee's to the byte (no effect on play: the game never compares the two as text; the older two-phone tests do and failed). It now keeps the referee's order. The guard test's "surrender" never happened (that match was already over 0-2); a real surrender test was added, and every real match must now pass byte for byte. |
+
+The private version-bump script now refreshes the CSP hash itself after stamping, so a version bump cannot leave a stale hash.
